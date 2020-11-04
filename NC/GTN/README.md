@@ -8,6 +8,7 @@ We add GCN and GAT comparison and tried to reproduce the result in the GTN paper
 
 * Python 3.8.5
 * torch 1.4.0 cuda 10.1
+* dgl 0.5.2 cuda 10.1
 * torch_geometric 1.6.1 cuda 10.1 with latest torch_sparse etc. (Install as guided in [here](https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html))
 * torch-sparse-old cuda 10.1 (Build from source as guided in [here](https://pytorch-geometric.readthedocs.io/en/latest/notes/installation.html))
 
@@ -33,8 +34,8 @@ We repeat 5 times and report the average Macro-F1 for each model and each datase
 
 |      | GCN       | GAT       | GTN                                                           |
 |------|-----------|-----------|---------------------------------------------------------------|
-| DBLP | 91.48     | **94.18** | still running with CPU (main.py cannot adapt to GPU training) |
-| ACM  | 92.28     | **92.49** | still running with CPU (main.py cannot adapt to GPU training) |
+| DBLP | 91.48     | **94.18** | **94.18** (cpu only, running failed due to memory allocation, just report the result in paper) |
+| ACM  | 92.28     | **92.49** | 92.28 (cpu only) |
 | IMDB | **59.11** | 58.86     | 57.53                                                         |
 
 ***The following content is from the initial seongjunyun/Graph_Transformer_Networks repo.***
