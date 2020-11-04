@@ -31,11 +31,11 @@ python main_gnn.py --dataset IMDB --model gat --weight_decay 0.03
 
 We repeat 5 times and report the average Macro-F1 for each model and each dataset.
 
-|      | GCN       | GAT       | GTN              |
-|------|-----------|-----------|------------------|
-| DBLP | **91.48** | 94.18     | running with cpu |
-| ACM  | 92.28     | **92.49** | running with cpu |
-| IMDB | **59.11** | 58.86     | 57.53            |
+|      | GCN       | GAT       | GTN                                                           |
+|------|-----------|-----------|---------------------------------------------------------------|
+| DBLP | 91.48     | **94.18** | still running with CPU (main.py cannot adapt to GPU training) |
+| ACM  | 92.28     | **92.49** | still running with CPU (main.py cannot adapt to GPU training) |
+| IMDB | **59.11** | 58.86     | 57.53                                                         |
 
 ***The following content is from the initial seongjunyun/Graph_Transformer_Networks repo.***
 
