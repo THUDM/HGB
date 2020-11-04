@@ -7,6 +7,8 @@ The code under differenct tasks (even different datasets) are separatedly organi
 
 ### Node classification
 
+This part is in NC folder.
+
 We mainly focuse on supervised learning setting for node classification task for now. (Maybe unsupervised setting in [HNE](https://github.com/yangji9181/HNE) should also be added here later.)
 
 If we compare our method on the existing datasets with published methods, we will use the same settings in the corresponding papers.

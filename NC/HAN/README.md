@@ -24,12 +24,12 @@ python main.py --hetero --model han
 
 ## performance report
 
-|                     | micro f1 score | macro f1 score |
-| ------------------- | -------------- | -------------- |
-| Softmax regression | 89.66  | 89.62     |
-| HAN    | 91.90          | 91.95          |
-| GCN   | 92.79          | **92.87**          |
-| GAT   | **92.83**          | 92.86          |
+|                    | micro f1 score | macro f1 score |
+|--------------------|----------------|----------------|
+| Softmax regression | 89.66          | 89.62          |
+| HAN                | 91.90          | 91.95          |
+| GCN                | 92.79          | **92.87**      |
+| GAT                | **92.83**      | 92.86          |
 
 ***The following content is from the initial dgl/han repo.***
 
