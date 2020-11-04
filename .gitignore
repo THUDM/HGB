@@ -130,3 +130,12 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+#pycharm
+.idea
+
+#data
+*ACM.mat
+NC/HetGNN/data/
+
+#model
+*.pth
