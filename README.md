@@ -24,7 +24,7 @@ todo
 
 ### Text classification
 
-todo
+This part is in TC folder.
 
 ### Recommendation
 
