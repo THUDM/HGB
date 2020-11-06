@@ -1,5 +1,36 @@
 import torch as th
 import torch.nn as nn
+from dgl.nn.pytorch import GraphConv
+
+
+class GCN(nn.Module):
+    def __init__(self,
+                 in_feats,
+                 n_hidden,
+                 out_classes,
+                 n_layers,
+                 activation,
+                 dropout):
+        super(GCN, self).__init__()
+        self.layers = nn.ModuleList()
+        # input layer
+        self.layers.append(
+            GraphConv(in_feats, n_hidden, activation=activation))
+        # hidden layers
+        for i in range(n_layers - 1):
+            self.layers.append(
+                GraphConv(n_hidden, n_hidden, activation=activation))
+        # output layer
+        self.layers.append(GraphConv(n_hidden, out_classes))
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, g, h):
+        for i, layer in enumerate(self.layers):
+            if i != 0:
+                h = self.dropout(h)
+            h = layer(g, h)
+        return
+
 
 class BaseRGCN(nn.Module):
     def __init__(self, num_nodes, h_dim, out_dim, num_rels, num_bases,
@@ -48,6 +79,7 @@ class BaseRGCN(nn.Module):
             h = layer(g, h, r, norm)
         return h
 
+
 class RelGraphEmbedLayer(nn.Module):
     r"""Embedding layer for featureless heterograph.
     Parameters
@@ -68,6 +100,7 @@ class RelGraphEmbedLayer(nn.Module):
     embed_name : str, optional
         Embed name
     """
+
     def __init__(self,
                  dev_id,
                  num_nodes,
@@ -92,11 +125,13 @@ class RelGraphEmbedLayer(nn.Module):
         for ntype in range(num_of_ntype):
             if input_size[ntype] is not None:
                 input_emb_size = input_size[ntype].shape[1]
-                embed = nn.Parameter(th.Tensor(input_emb_size, self.embed_size))
+                embed = nn.Parameter(
+                    th.Tensor(input_emb_size, self.embed_size))
                 nn.init.xavier_uniform_(embed)
                 self.embeds[str(ntype)] = embed
 
-        self.node_embeds = th.nn.Embedding(node_tids.shape[0], self.embed_size, sparse=self.sparse_emb)
+        self.node_embeds = th.nn.Embedding(
+            node_tids.shape[0], self.embed_size, sparse=self.sparse_emb)
         nn.init.uniform_(self.node_embeds.weight, -1.0, 1.0)
 
     def forward(self, node_ids, node_tids, type_ids, features):
@@ -118,11 +153,13 @@ class RelGraphEmbedLayer(nn.Module):
             embeddings as the input of the next layer
         """
         tsd_ids = node_ids.to(self.node_embeds.weight.device)
-        embeds = th.empty(node_ids.shape[0], self.embed_size, device=self.dev_id)
+        embeds = th.empty(node_ids.shape[0],
+                          self.embed_size, device=self.dev_id)
         for ntype in range(self.num_of_ntype):
             if features[ntype] is not None:
                 loc = node_tids == ntype
-                embeds[loc] = features[ntype][type_ids[loc]].to(self.dev_id) @ self.embeds[str(ntype)].to(self.dev_id)
+                embeds[loc] = features[ntype][type_ids[loc]].to(
+                    self.dev_id) @ self.embeds[str(ntype)].to(self.dev_id)
             else:
                 loc = node_tids == ntype
                 embeds[loc] = self.node_embeds(tsd_ids[loc]).to(self.dev_id)
