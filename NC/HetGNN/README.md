@@ -79,3 +79,4 @@ Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discove
 
 5-5 For more information, contact: Chuxu Zhang (chuxuzhang@gmail.com)
 
+Use GNN：run `python homoGNN.py ` in `HeterZoo\NC\HetGNN\code>` dir.
