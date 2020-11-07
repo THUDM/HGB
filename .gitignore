@@ -139,3 +139,4 @@ NC/HetGNN/data/
 
 #model
 *.pth
+NC/HetGNN/model_save/
