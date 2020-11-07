@@ -37,26 +37,26 @@ def load_data(data_file_name, n_features, n_samples):
 
 
 def model(train_num, test_num):
-	#train_data_f = args.data_path + "a_a_list_train_feature.txt"
+	# train_data_f = args.data_path + "a_a_list_train_feature.txt"
 	train_data_f = args.data_path + "train_feature.txt"
 	train_data = load_data(train_data_f, args.embed_d + 3, train_num)
-	train_features = train_data.astype(numpy.float32)[:,3:-1]
-	train_target=train_data.astype(numpy.float32)[:,2]
+	train_features = train_data.astype(numpy.float32)[:, 3:-1]
+	train_target = train_data.astype(numpy.float32)[:, 2]
 
-	#print(train_target[1])
-   	learner=linear_model.LogisticRegression()
-   	learner.fit(train_features, train_target)
-   	train_features = None
+	# print(train_target[1])
+	learner = linear_model.LogisticRegression()
+	learner.fit(train_features, train_target)
+	train_features = None
 	train_target = None
 
-   	print("training finish!")
+	print("training finish!")
 
-   	#test_data_f = args.data_path + "a_a_list_test_feature.txt"
-   	test_data_f = args.data_path + "test_feature.txt"
-   	test_data = load_data(test_data_f, args.embed_d + 3, test_num)
-   	test_id = test_data.astype(numpy.int32)[:,0:2]
-   	test_features = test_data.astype(numpy.float32)[:,3:-1]
-	test_target = test_data.astype(numpy.float32)[:,2]
+	# test_data_f = args.data_path + "a_a_list_test_feature.txt"
+	test_data_f = args.data_path + "test_feature.txt"
+	test_data = load_data(test_data_f, args.embed_d + 3, test_num)
+	test_id = test_data.astype(numpy.int32)[:, 0:2]
+	test_features = test_data.astype(numpy.float32)[:, 3:-1]
+	test_target = test_data.astype(numpy.float32)[:, 2]
 	test_predict = learner.predict(test_features)
 	test_features = None
 
@@ -64,7 +64,7 @@ def model(train_num, test_num):
 
 	output_f = open(args.data_path + "link_prediction.txt", "w")
 	for i in range(len(test_predict)):
-	    output_f.write('%d, %d, %lf\n'%(test_id[i][0], test_id[i][1], test_predict[i]));
+		output_f.write('%d, %d, %lf\n' % (test_id[i][0], test_id[i][1], test_predict[i]));
 	output_f.close();
 
 	AUC_score = Metric.roc_auc_score(test_target, test_predict)
@@ -74,7 +74,7 @@ def model(train_num, test_num):
 	correct_count = 0
 	true_p_count = 0
 	false_p_count = 0
-	false_n_count = 0 
+	false_n_count = 0
 
 	for i in range(len(test_predict)):
 		total_count += 1
@@ -87,13 +87,10 @@ def model(train_num, test_num):
 		if (int(test_predict[i]) == 0 and int(test_target[i]) == 1):
 			false_n_count += 1
 
-	#print("accuracy: " + str(float(correct_count) / total_count))
+	# print("accuracy: " + str(float(correct_count) / total_count))
 	precision = float(true_p_count) / (true_p_count + false_p_count)
-	#print("precision: " + str(precision))
+	# print("precision: " + str(precision))
 	recall = float(true_p_count) / (true_p_count + false_n_count)
-	#print("recall: " + str(recall))
+	# print("recall: " + str(recall))
 	F1 = float(2 * precision * recall) / (precision + recall)
 	print("F1: " + str(F1))
-
-
-

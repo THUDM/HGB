@@ -389,11 +389,11 @@ def a_class_cluster_feature_setting():
 # print("------venue recommendation end------")
 
 
-# print("------author classification/clustering------")
-# train_num, test_num, cluster_id = a_class_cluster_feature_setting() #setup of author classification/clustering task
-# NC.model(train_num, test_num)
-# NCL.model(cluster_id)
-# print("------author classification/clustering end------")
+print("------author classification/clustering------")
+train_num, test_num, cluster_id = a_class_cluster_feature_setting() #setup of author classification/clustering task
+NC.model(train_num, test_num)
+NCL.model(cluster_id)
+print("------author classification/clustering end------")
 
 
 
