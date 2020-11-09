@@ -116,11 +116,11 @@ def read_args():
     parser.add_argument("--checkpoint", default = '', type=str)
     parser.add_argument("--epochs", default=1000, type=str)
     parser.add_argument("--patience", default=10, type=str)
-    parser.add_argument("--n_layers", default=3, type=int)
+    parser.add_argument("--n_layers", default=5, type=int)
     parser.add_argument("--n_heads", default=[4], type=list)
     parser.add_argument("--dropout", default=0.6, type=float)
-    parser.add_argument("--model", default='GAT', type=str)
-    parser.add_argument('--lr', type=float, default=0.006, )
+    parser.add_argument("--model", default='GCN', type=str)
+    parser.add_argument('--lr', type=float, default=0.005, )
     parser.add_argument('--weight_decay', type=float, default=0.0)
     args = parser.parse_args()
     return args
@@ -286,7 +286,7 @@ def train(model,data,train_mask,val_mask,test_mask,labels):
             epoch + 1, loss.item(), train_micro_f1, train_macro_f1,
             val_loss.item(), val_micro_f1, val_macro_f1
         ))
-        CosineLR.step()
+        # CosineLR.step()
         if early_stop:
             break
     stopper.load_checkpoint(model)
