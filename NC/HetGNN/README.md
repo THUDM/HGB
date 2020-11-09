@@ -1,3 +1,43 @@
+# HAN code
+
+Adapted from [chuxuzhang/KDD2019_HetGNN](https://github.com/chuxuzhang/KDD2019_HetGNN).
+
+We add GCN and GAT comparison.
+
+## running environment
+
+* Python 3.6.11
+* numpy 1.19.2
+* torch 1.6.0 cuda 10.1
+* torch_geometric 1.6.1
+
+## running procedure
+
+* Download academic_test.rar from [Google Drive](https://drive.google.com/file/d/1BEb34-06XSwNZZHF4Gi4n8-buzoJpZs0/view?usp=sharing)
+* Unzip academic_test.rar to the ./data/
+* run homoGNN.py
+
+```bash
+python homoGNN.py --model GCN
+python homoGNN.py --model GAT
+```
+
+## performance report
+
+|          train ratio:0.1           | micro f1 score | macro f1 score |
+| ------------------- | -------------- | -------------- |
+| HetGNN + LogisticRegression | 97.3  | 97.2     |
+| GCN   | 97.5              | 97.4          |
+| GAT   | **98.5**          | **98.6**          |
+
+|          train ratio:0.3           | micro f1 score | macro f1 score |
+| ------------------- | -------------- | -------------- |
+| HetGNN + LogisticRegression | 97.4  | 97.5     |
+| GCN   | 97.8              | 97.7          |
+| GAT   | **98.6**          | **98.7**          |
+
+***The following content is from the initial chuxuzhang/KDD2019_HetGNN repo.***
+
 <1> Introduction 
 
 code of HetGNN in KDD2019 paper: Heterogeneous Graph Neural Network 
@@ -78,5 +118,3 @@ Zhang, Chuxu and Song, Dongjin and Huang, Chao and Swami, Ananthram and Chawla, 
 Proceedings of the 25th ACM SIGKDD International Conference on Knowledge Discovery & Data Mining, KDD '19
 
 5-5 For more information, contact: Chuxu Zhang (chuxuzhang@gmail.com)
-
-Use GNN：run `python homoGNN.py ` in `HeterZoo\NC\HetGNN\code>` dir.
