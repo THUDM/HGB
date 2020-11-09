@@ -1,10 +1,7 @@
-import os
 import numpy as np
 import torch as th
-import random
 from torch_geometric.data import Data
 import torch.nn as nn
-from torch_scatter import scatter_mean
 from torch_geometric.nn import GCNConv, SAGEConv,TopKPooling,GATConv
 import torch.nn.functional as F
 import re
@@ -93,6 +90,27 @@ class GAT(th.nn.Module):
             x = layer(x,edge_list)
             x = F.relu(x)
         return x
+class GSAGE(th.nn.Module):
+    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5):
+        super(GSAGE, self).__init__()
+        self.layers = nn.ModuleList()
+        # input layer
+        self.layers.append(SAGEConv(in_feats, hid_feats))
+        # hidden layers
+        for i in range(n_layers - 1):
+            self.layers.append(SAGEConv(hid_feats, hid_feats))
+        # output layer
+        self.layers.append(SAGEConv(hid_feats, out_feats))
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, data):
+        x, edge_list = data.x, data.edge_list
+        for i, layer in enumerate(self.layers):
+            if i != 0:
+                x = self.dropout(x)
+            x = layer(x, edge_list)
+            x = F.relu(x)
+        return x
 
 def read_args():
     parser = argparse.ArgumentParser()
@@ -116,12 +134,12 @@ def read_args():
     parser.add_argument("--checkpoint", default = '', type=str)
     parser.add_argument("--epochs", default=1000, type=str)
     parser.add_argument("--patience", default=10, type=str)
-    parser.add_argument("--n_layers", default=3, type=int)
+    parser.add_argument("--n_layers", default=6, type=int)
     parser.add_argument("--n_heads", default=[4], type=list)
     parser.add_argument("--dropout", default=0.6, type=float)
-    parser.add_argument("--model", default='GAT', type=str)
-    parser.add_argument('--lr', type=float, default=0.006, )
-    parser.add_argument('--weight_decay', type=float, default=0.0)
+    parser.add_argument("--model", default='GSAGE', type=str)
+    parser.add_argument('--lr', type=float, default=0.01, )
+    parser.add_argument('--weight_decay', type=float, default=0.000)
     args = parser.parse_args()
     return args
 def gen_embed(args):
@@ -267,7 +285,7 @@ def train(model,data,train_mask,val_mask,test_mask,labels):
     stopper = EarlyStopping(patience=args.patience)
     loss_func = th.nn.CrossEntropyLoss()
     optimizer = th.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    CosineLR = th.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=10, eta_min=0.003)
+    CosineLR = th.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20, eta_min=0.001)
     for epoch in range(args.epochs):
         model.train()
         logits = model(data)
@@ -286,7 +304,9 @@ def train(model,data,train_mask,val_mask,test_mask,labels):
             epoch + 1, loss.item(), train_micro_f1, train_macro_f1,
             val_loss.item(), val_micro_f1, val_macro_f1
         ))
-        CosineLR.step()
+        if val_macro_f1>0.9:
+            CosineLR.step()
+        print(CosineLR.get_lr())
         if early_stop:
             break
     stopper.load_checkpoint(model)
@@ -315,6 +335,8 @@ def main(args):
     data = gen_data(embed, edge_list).to(device)
     if args.model=='GCN':
         model= GCN(in_feats=256,hid_feats=128,out_feats=4,n_layers=args.n_layers,dropout=args.dropout).to(device)
+    elif args.model=='GSAGE':
+        model= GSAGE(in_feats=256,hid_feats=128,out_feats=4,n_layers=args.n_layers,dropout=args.dropout).to(device)
     else :
         heads = args.n_heads * args.n_layers + [1]
         model = GAT(in_feats=256,hid_feats=128,out_feats=4,n_layers=args.n_layers,dropout=args.dropout,heads=heads).to(device)
