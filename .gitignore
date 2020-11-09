@@ -130,4 +130,13 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-NC/RGCN/.vscode/settings.json
+#pycharm
+.idea
+
+#data
+*ACM.mat
+NC/HetGNN/data/
+
+#model
+*.pth
+NC/HetGNN/model_save/
