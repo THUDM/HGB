@@ -79,16 +79,15 @@ class GCN(nn.Module):
         super(GCN, self).__init__()
         self.g = g
         self.layers = nn.ModuleList()
-        self.fc_list = nn.ModuleList([nn.Linear(feats_dim, n_hidden, bias=True) for feats_dim in feats_dim_list])
+        self.fc_list = nn.ModuleList([nn.Linear(feats_dim, 1024, bias=True) for feats_dim in feats_dim_list])
         for fc in self.fc_list:
             nn.init.xavier_normal_(fc.weight, gain=1.414)
         # input layer
-        self.layers.append(GraphConv(n_hidden, n_hidden, activation=activation))
+        self.layers.append(GraphConv(1024,128, activation=activation))
+        self.layers.append(GraphConv(128, 64, activation=activation))
+        self.layers.append(GraphConv(64, n_classes, activation=activation))
         # hidden layers
-        for i in range(n_layers - 1):
-            self.layers.append(GraphConv(n_hidden, n_hidden, activation=activation))
-        # output layer
-        self.layers.append(GraphConv(n_hidden, n_classes))
+
         self.dropout = nn.Dropout(p=dropout)
 
     def forward(self, features_list):
@@ -96,6 +95,7 @@ class GCN(nn.Module):
         for fc, feature in zip(self.fc_list, features_list):
             h.append(fc(feature))
         h = torch.cat(h, 0)
+
         for i, layer in enumerate(self.layers):
             if i != 0:
                 h = self.dropout(h)
