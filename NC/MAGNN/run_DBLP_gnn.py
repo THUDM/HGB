@@ -134,8 +134,8 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
 
                 t1 = time.time()
                 dur1.append(t1 - t0)
-
-                features_list = torch.eye(in_feats).to(device)
+                if mn == 'gcn':
+                    features_list = torch.eye(in_feats).to(device)
                 logits = net(features_list)
                 #hid_emb = net.forward_hidden(features)
                 #print(hid_emb.size())
