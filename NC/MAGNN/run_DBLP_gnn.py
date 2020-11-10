@@ -54,6 +54,9 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
             features_list[i] = torch.sparse.FloatTensor(indices, values, torch.Size([dim, dim])).to(device)
     elif feats_type == 3:
         in_dims = [features.shape[0] for features in features_list]
+        in_feats = 0
+        for dim in in_dims:
+            in_feats+=dim
         for i in range(len(features_list)):
             dim = features_list[i].shape[0]
             indices = np.vstack((np.arange(dim), np.arange(dim)))
@@ -103,13 +106,9 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
         if mn == 'gat':
             net = GAT(g, num_layers, hidden_dim, hidden_dim, out_dim, heads, F.elu, dropout_rate, dropout_rate, 0.01, False, in_dims).cuda()
         elif mn == 'gcn':
-            net = GCN(g, hidden_dim, hidden_dim, out_dim, num_layers, F.relu, dropout_rate, in_dims).cuda() #MAGNN_nc_mb(3, 6, etypes_list, in_dims, hidden_dim, out_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
+            net = GCN(g, in_feats, hidden_dim, out_dim, num_layers, F.relu, dropout_rate, in_dims).cuda() #MAGNN_nc_mb(3, 6, etypes_list, in_dims, hidden_dim, out_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
         #net.to(device)
-        conv_params = list(map(id,net.layers.parameters()))
-        base_params = filter(lambda p : id(p) not in conv_params, net.parameters())
-        optimizer = torch.optim.Adam([{'params':base_params},
-        {'params':net.layers.parameters(),'lr':lr/5}]
-        , lr=lr, weight_decay=weight_decay)
+        optimizer = torch.optim.Adam(params=net.parameters(),lr=lr,weight_decay=weight_decay)
         # LR=torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=10,eta_min=0.001)
         # LR=torch.optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.995)
         # training loop
@@ -136,6 +135,7 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
                 t1 = time.time()
                 dur1.append(t1 - t0)
 
+                features_list = torch.eye(in_feats).to(device)
                 logits = net(features_list)
                 #hid_emb = net.forward_hidden(features)
                 #print(hid_emb.size())
