@@ -28,7 +28,7 @@ This part is in TC folder.
 
 ### Recommendation
 
-todo
+This part is in Recom folder.
 
 ### Alignment
 
