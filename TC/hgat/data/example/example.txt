@@ -1,0 +1,40 @@
+0	business	manufacture manufacturer directory directory china taiwan products manufacturers directory- taiwan china products manufacturer direcory exporter directory supplier directory suppliers
+1	business	empmag electronics manufacturing procurement homepage electronics manufacturing procurement magazine procrement power products production essentials data management
+2	business	dfma truecost paper true cost overseas manufacture product design costs manufacturing products china manufacturing redesigned product china save
+3	business	thomasnet thomasnet cnc machining metal stamping gaskets fasteners searchable database information products services cad drawings
+4	business	crnano products nanotechnology products molecular manufacturing product structural design simplest products software-controlled extra cost manufacturing
+2130	computers	digitalmars intro programming language digital mars compiled garbage collected simpler replacement walter bright wrote dos compiler maximum similarity backward
+2131	computers	google top computers programming languages google directory computers programming languages programming languages weblog news discussion web access usenet newsgroups programming languages
+2132	computers	ruby lang ruby programming language interpreted dynamically typed pure object-oriented scripting language programming japan straightforward extensible
+2133	computers	sun java technology experienced programmers migrating java language java programming language sl- -se practice exam
+2134	computers	dir yahoo computers and internet programming and development languages computer programming languages yahoo directory links sites code samples tools tutorials articles resources focusing programming languages
+2560	culture-arts-entertainment	oscar oscar com annual academy awards homepage nominee winners carpet photograph gallery press video clips voting ballot information
+2561	culture-arts-entertainment	oscars welcome academy motion picture arts sciences academy history information academy awards photographs events screenings press releases
+2562	culture-arts-entertainment	https oscar symplicity oscar online system clerkship application review users internet explorer firefox netscape internet browser access oscar
+2563	culture-arts-entertainment	wikipedia wiki academy awards academy award wikipedia encyclopedia academy awards oscars prominent oscar statuette academy award merit
+2564	culture-arts-entertainment	oscar openclustergroup oscar source cluster application resources oscar users regardless experience level nix environment install beowulf performance computing cluster
+5220	education-science	wikipedia wiki mechanics mechanics wikipedia encyclopedia mechanics greek μηχανική branch physics behaviour physical bodies subjected forces displacements
+5221	education-science	wikipedia wiki mechanic mechanic wikipedia encyclopedia mechanics specialised field auto mechanics boiler mechanics industrial maintenance mechanics millwrights
+5222	education-science	popularmechanics mechanics mechanics service magazine covering information home improvement automotive electronics computers telecommunications
+5223	education-science	carpros professional mechanics online car repair question professional mechanics online answer
+5224	education-science	bls gov oco ocos automotive service technicians mechanics opportunities automotive service technicians mechanics diagnostic problem-solving skills knowledge electronics
+6760	engineering	wikipedia wiki jet engine jet engine wikipedia encyclopedia jet engine engine discharges jet fluid generate thrust accordance newton law motion
+6761	engineering	aardvark pjet pulse jet engine information building pulsejet turbojet engine
+6762	engineering	aardvark pjet turbinenuts shtml crazy jet engine invention jet engine people crazier strapping
+6763	engineering	howstuffworks turbine howstuffworks gas turbine engines wonder jet engine cruising feet jets helicopters power plants class
+6764	engineering	inventors about library inventors blhowajetengineworks jet engine jet engine operates application sir isaac newton law physics
+7630	health	rcseng news newsitem hospital doctor interview president bernard ribeiro magazine hospital doctor interviewed bernard ribeiro president college feature interview touches
+7631	health	medicalnewstoday articles advocate south suburban hospital doctor tips jogging neighborhood biking trails inline skating chicago lakefront
+7632	health	doctorshospital doctors hospital life doctors hospital opelousas community healthcare provider dedicated serving healthcare landry parish surrounding
+7633	health	webserver bjc sfnet bjh physiciansearch barnes-jewish hospital physician search doctors listed referral directory medical staff barnes-jewish hospital doctors payment referral
+7634	health	gwhospital hospital doctor doctor george washington physician referral service help gw-docs
+8520	politics-society	congress congressorg congress org election candidates information candidate information accessible zip code national elections archives
+8521	politics-society	sos state elections candidates index shtml candidates candidate guide candidates ballot upcoming elections calendar election link texas ethics
+8522	politics-society	ieee organizations corporate candidates ieee ieee annual election candidates ieee annual election candidates listed positions candidates ieee annual election ballot
+8523	politics-society	stc candidatesfaq society technical communication candidates faq information candidates region director election stc annual meeting
+8524	politics-society	marketingpilgrim presidential election reputation presidential election candidate reputation study marketing declared presidential candidates negative search engine listings republicans
+9070	sports	yalebulldogs cstv yale university bulldogs athletic athletic yale university college sports network comprehensive coverage yale university athletics
+9071	sports	texastech cstv texas tech raiders athletic athletic texas tech university fansonly network comprehensive coverage raider athletics internet
+9072	sports	wikipedia wiki track and field athletics track field wikipedia encyclopedia athletics track field track field athletics collection sports events running throwing jumping
+9073	sports	siusalukis cstv southern illinois university athletic salukis athletic training spirit booster club team merchandise
+9074	sports	highschoolsports highschoolsports net school teams world highschoolsports net authority school schedules scores stats download sports schedules sign notified
