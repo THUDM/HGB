@@ -98,7 +98,6 @@ class GCN(th.nn.Module):
         return x
     def decode(self,z,edge_index):
         c = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-        # c = F.softmax(c,dim=0)
         return c
 
 class GAT(th.nn.Module):
@@ -149,10 +148,16 @@ class GSAGE(th.nn.Module):
             x = F.relu(x)
         return x
 
-class colab_data():
+class edge_data():
     def __init__(self,args):
-        self.train_file_pth = args.data_path+"a_a_list_train.txt"
-        self.test_file_pth = args.data_path + "a_a_list_test.txt"
+        if args.data_name == 'cite':
+            self.train_file_pth = args.data_path + "a_p_cite_list_train.txt"
+            self.test_file_pth = args.data_path + "a_p_cite_list_test.txt"
+        elif args.data_name=='colab':
+            self.train_file_pth = args.data_path+"a_a_list_train.txt"
+            self.test_file_pth = args.data_path + "a_a_list_test.txt"
+        else:
+            exit('data_name errors.')
         train_edge_index = [[], []]
         train_label = []
         test_edge_index = [[], []]
@@ -161,14 +166,16 @@ class colab_data():
             data_file = csv.reader(f)
             for i, d in enumerate(data_file):
                 train_edge_index[0].append(int(d[0]))
-                train_edge_index[1].append(int(d[1]))
+                second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                train_edge_index[1].append(second_edge)
                 train_label.append(int(d[2]))
             f.close()
         with open(self.test_file_pth) as f:
             data_file = csv.reader(f)
             for i, d in enumerate(data_file):
                 test_edge_index[0].append(int(d[0]))
-                test_edge_index[1].append(int(d[1]))
+                second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                test_edge_index[1].append(second_edge)
                 test_label.append(int(d[2]))
             f.close()
         row, col = test_edge_index
@@ -230,24 +237,32 @@ class colab_data():
         label = [th.FloatTensor(label_list[i:i + batch_size]) for i in range(len(label_list)) if i % batch_size == 0]
         return [row,col],label
 
-class random_colab_data():
+class random_edge_data():
     def __init__(self,args):
-        self.train_file_pth = args.data_path+"a_a_list_train.txt"
-        self.test_file_pth = args.data_path + "a_a_list_test.txt"
+        if args.data_name == 'cite':
+            self.train_file_pth = args.data_path + "a_p_cite_list_train.txt"
+            self.test_file_pth = args.data_path + "a_p_cite_list_test.txt"
+        elif args.data_name=='colab':
+            self.train_file_pth = args.data_path+"a_a_list_train.txt"
+            self.test_file_pth = args.data_path + "a_a_list_test.txt"
+        else:
+            exit('data_name errors.')
         all_edge_index = [[],[]]
         all_label = []
         with open(self.train_file_pth) as f:
             data_file = csv.reader(f)
             for i, d in enumerate(data_file):
                 all_edge_index[0].append(int(d[0]))
-                all_edge_index[1].append(int(d[1]))
+                second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                all_edge_index[1].append(second_edge)
                 all_label.append(int(d[2]))
             f.close()
         with open(self.test_file_pth) as f:
             data_file = csv.reader(f)
             for i, d in enumerate(data_file):
                 all_edge_index[0].append(int(d[0]))
-                all_edge_index[1].append(int(d[1]))
+                second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                all_edge_index[1].append(second_edge)
                 all_label.append(int(d[2]))
             f.close()
         #random all edge and label
@@ -309,87 +324,6 @@ class random_colab_data():
 
         return [row,col],label
 
-class cite_data():
-    def __init__(self,args):
-        self.train_file_pth = args.data_path+"a_p_cite_list_train.txt"
-        self.test_file_pth = args.data_path + "a_p_cite_list_test.txt"
-        train_edge_index = [[], []]
-        train_label = []
-        test_edge_index = [[], []]
-        test_label = []
-        with open(self.train_file_pth) as f:
-            data_file = csv.reader(f)
-            for i, d in enumerate(data_file):
-                train_edge_index[0].append(int(d[0]))
-                train_edge_index[1].append(int(d[1]) + args.P_n)
-                train_label.append(int(d[2]))
-            f.close()
-        with open(self.test_file_pth) as f:
-            data_file = csv.reader(f)
-            for i, d in enumerate(data_file):
-                test_edge_index[0].append(int(d[0]))
-                test_edge_index[1].append(int(d[1]) + args.P_n)
-                test_label.append(int(d[2]))
-            f.close()
-        row, col = test_edge_index
-        row, col = th.LongTensor(row), th.LongTensor(col)
-        test_edge_index = th.stack([row, col], dim=0)
-        test_label = th.FloatTensor(test_label)
-
-        #random train_data and transform to tensor
-        row, col = train_edge_index
-        ran_seed = random.random()
-        random.seed(ran_seed)
-        random.shuffle(row)
-        random.seed(ran_seed)
-        random.shuffle(col)
-        random.seed(ran_seed)
-        random.shuffle(train_label)
-
-
-        row, col = th.LongTensor(row), th.LongTensor(col)
-        train_label = th.FloatTensor(train_label)
-        # Return upper triangular portion.
-        # mask = row < col
-        # row, col = row[mask], col[mask]
-
-        n_v = int(math.floor(args.val_ratio_of_train * row.size(0)))
-
-        # split edges.
-        # perm = th.randperm(row.size(0))
-        # row, col = row[perm], col[perm]
-
-
-        r, c = row[:n_v], col[:n_v]
-        val_edge_index = th.stack([r, c], dim=0)
-        val_label = train_label[:n_v]
-
-        r, c = row[n_v :], col[n_v :]
-        train_edge_index = th.stack([r, c], dim=0)
-        # train_edge_index = to_undirected(train_edge_index)
-        train_label = train_label[n_v:]
-        self.train_edge_index,self.val_edge_index,self.test_edge_index = train_edge_index, val_edge_index, test_edge_index
-        self.train_label,self.val_label,self.test_label = train_label,val_label, test_label
-    def split_train(self, batch_size=1000):
-
-        row,col = self.train_edge_index
-        row,col = row.numpy().tolist(),col.numpy().tolist()
-        label_list = self.train_label.numpy().tolist()
-        #random
-        ran_seed = random.random()
-        random.seed(ran_seed)
-        random.shuffle(row)
-        random.seed(ran_seed)
-        random.shuffle(col)
-        random.seed(ran_seed)
-        random.shuffle(label_list)
-        #to tensor
-        row = [th.LongTensor(row[i:i + batch_size]) for i in range(len(row)) if i % batch_size == 0]
-        col = [th.LongTensor(col[i:i + batch_size]) for i in range(len(col)) if i % batch_size == 0]
-
-        label = [th.FloatTensor(label_list[i:i + batch_size]) for i in range(len(label_list)) if i % batch_size == 0]
-        return [row,col],label
-
 def read_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--data_path', type = str, default = '../data/academic_test/',
@@ -412,16 +346,18 @@ def read_args():
     parser.add_argument("--checkpoint", default = '', type=str)
     parser.add_argument("--epochs", default=1000, type=str)
     parser.add_argument("--patience", default=10, type=str)
-    parser.add_argument("--n_layers", default=5, type=int)
-    parser.add_argument("--n_heads", default=[8], type=list)
+    parser.add_argument("--n_layers", default=4, type=int)
+    parser.add_argument("--n_heads", default=[4], type=list)
     parser.add_argument("--dropout", default=0.0, type=float)
     parser.add_argument("--model", default='GAT', type=str)
-    parser.add_argument('--lr', type=float, default=0.01, )
+    parser.add_argument('--lr', type=float, default=0.001, )
     parser.add_argument('--weight_decay', type=float, default=0.000)
-    parser.add_argument('--val_ratio_of_train', type=float, default=0.5)
-    parser.add_argument('--batch_size', type=int, default=10000)
+    parser.add_argument('--val_ratio_of_train', type=float, default=0.1)
+    parser.add_argument('--batch_size', type=int, default=1000)
     parser.add_argument('--val_ratio', type=float, default=0.1)
     parser.add_argument('--test_ratio', type=float, default=0.2)
+    parser.add_argument('--data_name', type=str, default='cite')
+
     args = parser.parse_args()
     return args
 
@@ -537,7 +473,8 @@ def gen_data(embed,edge_list):
 def score_AUC_f1(test_predict, test_target):
 
     test_predict,test_target = test_predict.cpu().detach().numpy(),test_target.cpu().detach().numpy()
-
+    for i in range(len(test_predict)):
+        test_predict[i] = 0 if test_predict[i] < 0.5 else 1
     AUC_score = roc_auc_score(test_target, test_predict)
 
     total_count = 0
@@ -570,7 +507,7 @@ def train(model,data,args):
     # train
     stopper = EarlyStopping(patience=args.patience)
     optimizer = th.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    edge_data_ = cite_data(args)
+    edge_data_ = edge_data(args)
     for epoch in range(args.epochs):
         model.train()
         [row,col], train_label_ = edge_data_.split_train(batch_size=args.batch_size)
@@ -605,6 +542,7 @@ def train(model,data,args):
 
         test_loss, test_auc, test_f1 = test(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device))
         print('---------------------------------------------------------------------------'
+              '---------------------------------------------------------------------------'
              'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
             .format(
              test_loss, test_auc, test_f1
