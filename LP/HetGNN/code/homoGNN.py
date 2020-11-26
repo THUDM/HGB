@@ -91,8 +91,8 @@ class GAT(th.nn.Module):
         for l in range(1,n_layers):
             self.layers.append(GATConv(hid_feats* heads[l-1], hid_feats, heads[l]))
         # output layer
-        self.layers.append(GATConv(hid_feats*heads[-2], out_feats,heads[-1]))
-
+        self.layers.append(GATConv(hid_feats*heads[-2], hid_feats,heads[-1]))
+        self.fc = nn.Linear(hid_feats,out_feats)
         self.dropout = nn.Dropout(p=dropout)
     def encode(self, data):
         x, edge_list= data.x,data.edge_list
@@ -103,9 +103,11 @@ class GAT(th.nn.Module):
             x = F.relu(x)
         return x
 
-    def decode(self, z, edge_index):
-        logits = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-        return logits
+    def decode(self, x, edge_index):
+        x = (x[edge_index[0]] * x[edge_index[1]])
+        x = self.fc(x)
+        x = F.relu(x)
+        return x
 
 class GSAGE(th.nn.Module):
     def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5):
@@ -325,9 +327,9 @@ def read_args():
                    help = 'max number of training iteration')
     parser.add_argument("--cuda", default = 0, type = int)
     parser.add_argument("--checkpoint", default = '', type=str)
-    parser.add_argument("--epochs", default=300, type=str)
+    parser.add_argument("--epochs", default=500, type=str)
     parser.add_argument("--patience", default=10, type=str)
-    parser.add_argument("--n_layers", default=4, type=int)
+    parser.add_argument("--n_layers", default=3, type=int)
     parser.add_argument("--n_heads", default=[4], type=list)
     parser.add_argument("--dropout", default=0.0, type=float)
     parser.add_argument("--model", default='GAT', type=str)
@@ -560,10 +562,10 @@ def main(args):
     if args.model=='GCN':
         model= GCN(in_feats=feat_size,hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout).to(device)
     elif args.model=='GSAGE':
-        model= GSAGE(in_feats=feat_size,hid_feats=128,out_feats=4,n_layers=args.n_layers,dropout=args.dropout).to(device)
+        model= GSAGE(in_feats=feat_size,hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout).to(device)
     else :
         heads = args.n_heads * args.n_layers + [1]
-        model = GAT(in_feats=feat_size, hid_feats=128,out_feats=128,n_layers=args.n_layers,dropout=args.dropout,heads=heads).to(device)
+        model = GAT(in_feats=feat_size, hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout,heads=heads).to(device)
     train(model,data,args)
     # evaluate(model,data,,labels)
 
