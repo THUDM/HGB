@@ -137,6 +137,17 @@ dmypy.json
 *ACM.mat
 NC/HetGNN/data/
 
+TC/HGAT/data/data-web-snippets
+TC/HGAT/data/wikiAbstract
+TC/HGAT/data/word2vec
+
+TC/HGAT/model/data/agnews
+TC/HGAT/model/data/mr
+TC/HGAT/model/data/ohsumed
+TC/HGAT/model/data/snippets
+TC/HGAT/model/data/tagmynews
+TC/HGAT/model/data/twitter
+
 #model
 *.pth
 NC/HetGNN/model_save/
