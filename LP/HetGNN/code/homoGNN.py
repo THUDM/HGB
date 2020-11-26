@@ -1,7 +1,7 @@
 import numpy as np
 import torch as th
 from torch_geometric.data import Data
-import torch.nn as nn
+from torch import nn
 from torch_geometric.nn import GCNConv, SAGEConv,TopKPooling,GATConv
 import torch.nn.functional as F
 import re
@@ -53,27 +53,6 @@ class EarlyStopping(object):
         """Load the latest checkpoint."""
         model.load_state_dict(th.load(self.filename))
 
-class Net(th.nn.Module):
-    def __init__(self,in_feats, hid_feats, out_feats,n_layers=2):
-        super(Net, self).__init__()
-        self.conv1 = GCNConv(in_feats, 128)
-        self.conv2 = GCNConv(128, 64)
-
-    def encode(self,data):
-        x, edge_list = data.x, data.edge_list
-        x = self.conv1(x, edge_list)
-        x = x.relu()
-        return self.conv2(x, edge_list)
-
-    def decode(self, z, pos_edge_index, neg_edge_index):
-        edge_index = th.cat([pos_edge_index, neg_edge_index], dim=-1)
-        logits = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=-1)
-        return logits
-
-    def decode_all(self, z):
-        prob_adj = z @ z.t()
-        return (prob_adj > 0).nonzero(as_tuple=False).t()
-
 class GCN(th.nn.Module):
     def __init__(self, in_feats, hid_feats, out_feats,n_layers=2,dropout=0.5):
         super(GCN, self).__init__()
@@ -83,10 +62,9 @@ class GCN(th.nn.Module):
         # hidden layers
         for i in range(n_layers - 1):
             self.layers.append(GCNConv(hid_feats, hid_feats))
-        # output layer
-        self.layers.append(GCNConv(hid_feats, out_feats))
-
+        self.fc = nn.Linear(hid_feats, out_feats)
         self.dropout = nn.Dropout(p=dropout)
+
     def encode(self, data):
         x, edge_list= data.x,data.edge_list
         for i, layer in enumerate(self.layers):
@@ -96,9 +74,12 @@ class GCN(th.nn.Module):
             if i<len(self.layers)-1:
                 x = F.relu(x)
         return x
-    def decode(self,z,edge_index):
-        c = (z[edge_index[0]] * z[edge_index[1]]).sum(dim=1)
-        return c
+
+    def decode(self,x,edge_index):
+        x = (x[edge_index[0]] * x[edge_index[1]])
+        x = self.fc(x)
+        x = F.relu(x)
+        return x
 
 class GAT(th.nn.Module):
     def __init__(self, in_feats, hid_feats, out_feats,n_layers=2,dropout=0.5,heads=[1]):
@@ -181,7 +162,7 @@ class edge_data():
         row, col = test_edge_index
         row, col = th.LongTensor(row), th.LongTensor(col)
         test_edge_index = th.stack([row, col], dim=0)
-        test_label = th.FloatTensor(test_label)
+        test_label = th.LongTensor(test_label)
 
         #random train_data and transform to tensor
         row, col = train_edge_index
@@ -195,7 +176,7 @@ class edge_data():
 
 
         row, col = th.LongTensor(row), th.LongTensor(col)
-        train_label = th.FloatTensor(train_label)
+        train_label = th.LongTensor(train_label)
         # Return upper triangular portion.
         # mask = row < col
         # row, col = row[mask], col[mask]
@@ -234,7 +215,7 @@ class edge_data():
         row = [th.LongTensor(row[i:i + batch_size]) for i in range(len(row)) if i % batch_size == 0]
         col = [th.LongTensor(col[i:i + batch_size]) for i in range(len(col)) if i % batch_size == 0]
 
-        label = [th.FloatTensor(label_list[i:i + batch_size]) for i in range(len(label_list)) if i % batch_size == 0]
+        label = [th.LongTensor(label_list[i:i + batch_size]) for i in range(len(label_list)) if i % batch_size == 0]
         return [row,col],label
 
 class random_edge_data():
@@ -344,16 +325,16 @@ def read_args():
                    help = 'max number of training iteration')
     parser.add_argument("--cuda", default = 0, type = int)
     parser.add_argument("--checkpoint", default = '', type=str)
-    parser.add_argument("--epochs", default=1000, type=str)
+    parser.add_argument("--epochs", default=300, type=str)
     parser.add_argument("--patience", default=10, type=str)
     parser.add_argument("--n_layers", default=4, type=int)
     parser.add_argument("--n_heads", default=[4], type=list)
     parser.add_argument("--dropout", default=0.0, type=float)
     parser.add_argument("--model", default='GAT', type=str)
-    parser.add_argument('--lr', type=float, default=0.001, )
+    parser.add_argument('--lr', type=float, default=0.005, )
     parser.add_argument('--weight_decay', type=float, default=0.000)
     parser.add_argument('--val_ratio_of_train', type=float, default=0.1)
-    parser.add_argument('--batch_size', type=int, default=1000)
+    parser.add_argument('--batch_size', type=int, default=100000)
     parser.add_argument('--val_ratio', type=float, default=0.1)
     parser.add_argument('--test_ratio', type=float, default=0.2)
     parser.add_argument('--data_name', type=str, default='cite')
@@ -472,9 +453,8 @@ def gen_data(embed,edge_list):
 # This function modified from author's code.
 def score_AUC_f1(test_predict, test_target):
 
-    test_predict,test_target = test_predict.cpu().detach().numpy(),test_target.cpu().detach().numpy()
-    for i in range(len(test_predict)):
-        test_predict[i] = 0 if test_predict[i] < 0.5 else 1
+    _, test_predict = th.max(test_predict,1)
+    test_predict, test_target = test_predict.cpu().detach().numpy(), test_target.cpu().detach().numpy()
     AUC_score = roc_auc_score(test_target, test_predict)
 
     total_count = 0
@@ -508,39 +488,41 @@ def train(model,data,args):
     stopper = EarlyStopping(patience=args.patience)
     optimizer = th.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     edge_data_ = edge_data(args)
+    loss_func = th.nn.CrossEntropyLoss()
     for epoch in range(args.epochs):
         model.train()
         [row,col], train_label_ = edge_data_.split_train(batch_size=args.batch_size)
         for i in range(len(train_label_)):
             z = model.encode(data)
             row_, col_ = row[i].to(device), col[i].to(device)
-            link_logits = model.decode(z, th.stack([row_, col_], dim=0))
+            out = model.decode(z, th.stack([row_, col_], dim=0))
             link_labels = train_label_[i].to(device)
-
-            loss = F.binary_cross_entropy_with_logits(link_logits, link_labels)
+            loss = loss_func(out, link_labels)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
-            auc,f1 = score_AUC_f1(link_logits, link_labels)
+
+
+            auc,f1 = score_AUC_f1(out, link_labels)
             if i%50==0:
                 print('batch {:d} | train loss {:.4f} | train auc {:.4f} | train f1 {:.4f}'.format(i,loss,auc,f1))
 
-                # test_loss, test_auc, test_f1 = test(model, data, edge_data_.test_edge_index.to(device),
+                # test_loss, test_auc, test_f1 = evaluate(model, data, edge_data_.test_edge_index.to(device),
                 #                                     edge_data_.test_label.to(device))
                 # print('---------------------------------------------------------------------------'
                 #       'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
                 #     .format(
                 #     test_loss, test_auc, test_f1
                 # ))
-        val_loss, val_auc, val_f1 = test(model, data, edge_data_.val_edge_index.to(device), edge_data_.val_label.to(device))
+        val_loss, val_auc, val_f1 = evaluate(model, data, edge_data_.val_edge_index.to(device), edge_data_.val_label.to(device))
         print('---------------------------------------------------------------------------'
               'Score of valid_data Epoch {:d}  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
             .format(
             epoch + 1, val_loss, val_auc, val_f1
         ))
-        early_stop = stopper.step(val_loss, val_auc, model)
+        # early_stop = stopper.step(val_loss, val_auc, model)
 
-        test_loss, test_auc, test_f1 = test(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device))
+        test_loss, test_auc, test_f1 = evaluate(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device))
         print('---------------------------------------------------------------------------'
               '---------------------------------------------------------------------------'
              'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
@@ -548,18 +530,19 @@ def train(model,data,args):
              test_loss, test_auc, test_f1
         ))
 
-        if early_stop:
-            break
+        # if early_stop:
+        #     break
     # stopper.load_checkpoint(model)
-    # print('Score of test_data(accuracy, micro_f1, macro_f1):',test(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device) ))
+    # print('Score of test_data(accuracy, micro_f1, macro_f1):',evaluate(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device) ))
 
-def test(model,data,edge_index,labels):
+def evaluate(model,data,edge_index,labels):
     model.eval()
     with th.no_grad():
         z = model.encode(data)
-        logits = model.decode(z, edge_index)
-    loss = F.binary_cross_entropy_with_logits(logits, labels)
-    auc,f1 = score_AUC_f1(logits, labels)
+        out = model.decode(z, edge_index)
+    loss_func = th.nn.CrossEntropyLoss()
+    loss = loss_func(out, labels)
+    auc,f1 = score_AUC_f1(out, labels)
     # print('Test loss {:.4f} | Test Micro f1 {:.4f} | Test Macro f1 {:.4f}'.format(
     #     loss.item(), micro_f1, macro_f1))
     return loss, auc, f1
@@ -575,14 +558,14 @@ def main(args):
     data = gen_data(embed, edge_list).to(device)
 
     if args.model=='GCN':
-        model= GCN(in_feats=feat_size,hid_feats=128,out_feats=128,n_layers=args.n_layers,dropout=args.dropout).to(device)
+        model= GCN(in_feats=feat_size,hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout).to(device)
     elif args.model=='GSAGE':
         model= GSAGE(in_feats=feat_size,hid_feats=128,out_feats=4,n_layers=args.n_layers,dropout=args.dropout).to(device)
     else :
         heads = args.n_heads * args.n_layers + [1]
         model = GAT(in_feats=feat_size, hid_feats=128,out_feats=128,n_layers=args.n_layers,dropout=args.dropout,heads=heads).to(device)
     train(model,data,args)
-    # test(model,data,,labels)
+    # evaluate(model,data,,labels)
 
 def test_model(args):
     device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
@@ -605,7 +588,7 @@ def test_model(args):
 
     model.load_state_dict(th.load(filename))
     print('Score of test_data(accuracy, micro_f1, macro_f1):',
-          test(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device)))
+          evaluate(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device)))
 
 if __name__=='__main__':
     args = read_args()
