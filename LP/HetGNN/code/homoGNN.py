@@ -26,33 +26,31 @@ class EarlyStopping(object):
         self.best_loss = None
         self.early_stop = False
 
-    def step(self, loss, auc, model):
-        if self.best_loss is None:
-            self.best_auc = auc
-            self.best_loss = loss
-            # self.save_checkpoint(model)
-        elif (loss >= self.best_loss) and (auc <= self.best_auc):
+    def step(self, loss, auc, f1):
+        if auc > 0.9 and f1 > 0.9:
+            return True
+
+class Para_reset():
+    def __init__(self,patience=10):
+        self.patience = patience
+        self.counter = 0
+        self.last_loss = 999
+
+        pass
+    def step(self,loss, auc, model):
+        if (self.last_loss < loss+0.0001 and self.last_loss >= loss and auc<=0.7) or auc==0.5: #todo compare tensor and float
             self.counter += 1
-            print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
-            if self.counter >= self.patience:
-                self.early_stop = True
+            print('reset patience %d of %d'%(self.counter, self.patience))
         else:
-            if (loss < self.best_loss) and (auc > self.best_auc):
-                pass
-                # self.save_checkpoint(model)
-            self.best_loss = np.min((loss, self.best_loss))
-            self.best_auc = np.max((auc, self.best_auc))
+            self.last_loss =loss
             self.counter = 0
-        return self.early_stop
-
-    def save_checkpoint(self, model):
-        """Saves model when validation loss decreases."""
-        th.save(model.state_dict(), self.filename)
-
-    def load_checkpoint(self, model):
-        """Load the latest checkpoint."""
-        model.load_state_dict(th.load(self.filename))
-
+        if self.counter >= self.patience:
+            self.counter = 0
+            for l in model.layers:
+                if isinstance(l, GATConv) or isinstance(l, GCNConv):
+                    l.reset_parameters()
+            model.fc.reset_parameters()
+            print('reset para.')
 class GCN(th.nn.Module):
     def __init__(self, in_feats, hid_feats, out_feats,n_layers=2,dropout=0.5):
         super(GCN, self).__init__()
@@ -88,16 +86,20 @@ class GAT(th.nn.Module):
         # input layer
         self.layers.append(GATConv(in_feats, hid_feats,heads[0]))
         # hidden layers
-        for l in range(1,n_layers):
+        for l in range(1,n_layers-1):
             self.layers.append(GATConv(hid_feats* heads[l-1], hid_feats, heads[l]))
         # output layer
         self.layers.append(GATConv(hid_feats*heads[-2], hid_feats,heads[-1]))
         self.fc = nn.Linear(hid_feats,out_feats)
         self.dropout = nn.Dropout(p=dropout)
+        # nn.init.xavier_normal_(self.fc.weight)
+        # nn.init.constant_(self.fc.bias, 0)
+
     def encode(self, data):
         x, edge_list= data.x,data.edge_list
         for i, layer in enumerate(self.layers):
             if i != 0:
+                pass
                 x = self.dropout(x)
             x = layer(x,edge_list)
             x = F.relu(x)
@@ -141,17 +143,39 @@ class edge_data():
             self.test_file_pth = args.data_path + "a_a_list_test.txt"
         else:
             exit('data_name errors.')
-        train_edge_index = [[], []]
-        train_label = []
+        train_edge_index,train_label, val_edge_index, val_label = [[], []], [], [[],[]], []
         test_edge_index = [[], []]
         test_label = []
+        val_tag = False
         with open(self.train_file_pth) as f:
             data_file = csv.reader(f)
             for i, d in enumerate(data_file):
-                train_edge_index[0].append(int(d[0]))
-                second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
-                train_edge_index[1].append(second_edge)
-                train_label.append(int(d[2]))
+                # odd number
+                if i % 2 == 0:
+                    if random.random() < args.val_ratio_of_train:
+                        val_edge_index[0].append(int(d[0]))
+                        second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                        val_edge_index[1].append(second_edge)
+                        val_label.append(int(d[2]))
+                        val_tag = True
+                    else:
+                        train_edge_index[0].append(int(d[0]))
+                        second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                        train_edge_index[1].append(second_edge)
+                        train_label.append(int(d[2]))
+                        val_tag = False
+                # even number
+                else:
+                    if val_tag:
+                        val_edge_index[0].append(int(d[0]))
+                        second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                        val_edge_index[1].append(second_edge)
+                        val_label.append(int(d[2]))
+                    else:
+                        train_edge_index[0].append(int(d[0]))
+                        second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                        train_edge_index[1].append(second_edge)
+                        train_label.append(int(d[2]))
             f.close()
         with open(self.test_file_pth) as f:
             data_file = csv.reader(f)
@@ -161,43 +185,26 @@ class edge_data():
                 test_edge_index[1].append(second_edge)
                 test_label.append(int(d[2]))
             f.close()
+        # gen train data
+        row, col = train_edge_index
+        row, col = th.LongTensor(row), th.LongTensor(col)
+        train_edge_index = th.stack([row, col], dim=0)
+        train_label = th.LongTensor(train_label)
+        # gen valid data
+        row, col = val_edge_index
+        row, col = th.LongTensor(row), th.LongTensor(col)
+        val_edge_index = th.stack([row, col], dim=0)
+        val_label = th.LongTensor(val_label)
+        # gen test data
         row, col = test_edge_index
         row, col = th.LongTensor(row), th.LongTensor(col)
         test_edge_index = th.stack([row, col], dim=0)
         test_label = th.LongTensor(test_label)
 
-        #random train_data and transform to tensor
-        row, col = train_edge_index
-        ran_seed = random.random()
-        random.seed(ran_seed)
-        random.shuffle(row)
-        random.seed(ran_seed)
-        random.shuffle(col)
-        random.seed(ran_seed)
-        random.shuffle(train_label)
-
-
-        row, col = th.LongTensor(row), th.LongTensor(col)
-        train_label = th.LongTensor(train_label)
         # Return upper triangular portion.
         # mask = row < col
         # row, col = row[mask], col[mask]
 
-        n_v = int(math.floor(args.val_ratio_of_train * row.size(0)))
-
-        # split edges.
-        # perm = th.randperm(row.size(0))
-        # row, col = row[perm], col[perm]
-
-
-        r, c = row[:n_v], col[:n_v]
-        val_edge_index = th.stack([r, c], dim=0)
-        val_label = train_label[:n_v]
-
-        r, c = row[n_v :], col[n_v :]
-        train_edge_index = th.stack([r, c], dim=0)
-        # train_edge_index = to_undirected(train_edge_index)
-        train_label = train_label[n_v:]
         self.train_edge_index,self.val_edge_index,self.test_edge_index = train_edge_index, val_edge_index, test_edge_index
         self.train_label,self.val_label,self.test_label = train_label,val_label, test_label
     def split_train(self, batch_size=1000):
@@ -327,16 +334,16 @@ def read_args():
                    help = 'max number of training iteration')
     parser.add_argument("--cuda", default = 0, type = int)
     parser.add_argument("--checkpoint", default = '', type=str)
-    parser.add_argument("--epochs", default=500, type=str)
+    parser.add_argument("--epochs", default=1000, type=str)
     parser.add_argument("--patience", default=10, type=str)
     parser.add_argument("--n_layers", default=3, type=int)
     parser.add_argument("--n_heads", default=[4], type=list)
     parser.add_argument("--dropout", default=0.0, type=float)
-    parser.add_argument("--model", default='GAT', type=str)
-    parser.add_argument('--lr', type=float, default=0.005, )
+    parser.add_argument("--model", default='GCN', type=str)
+    parser.add_argument('--lr', type=float, default=0.005)
     parser.add_argument('--weight_decay', type=float, default=0.000)
-    parser.add_argument('--val_ratio_of_train', type=float, default=0.1)
-    parser.add_argument('--batch_size', type=int, default=100000)
+    parser.add_argument('--val_ratio_of_train', type=float, default=0.0)
+    parser.add_argument('--batch_size', type=int, default=1000000)
     parser.add_argument('--val_ratio', type=float, default=0.1)
     parser.add_argument('--test_ratio', type=float, default=0.2)
     parser.add_argument('--data_name', type=str, default='cite')
@@ -488,6 +495,7 @@ def train(model,data,args):
     device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
     # train
     stopper = EarlyStopping(patience=args.patience)
+    para_reseter = Para_reset()
     optimizer = th.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     edge_data_ = edge_data(args)
     loss_func = th.nn.CrossEntropyLoss()
@@ -506,34 +514,35 @@ def train(model,data,args):
 
 
             auc,f1 = score_AUC_f1(out, link_labels)
-            if i%50==0:
-                print('batch {:d} | train loss {:.4f} | train auc {:.4f} | train f1 {:.4f}'.format(i,loss,auc,f1))
+            para_reseter.step(loss, auc, model)
+            print('epoch {:d} | batch {:d} | train loss {:.4f} | train auc {:.4f} | train f1 {:.4f}'.format(epoch,i,loss,auc,f1))
 
-                # test_loss, test_auc, test_f1 = evaluate(model, data, edge_data_.test_edge_index.to(device),
-                #                                     edge_data_.test_label.to(device))
-                # print('---------------------------------------------------------------------------'
-                #       'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
-                #     .format(
-                #     test_loss, test_auc, test_f1
-                # ))
-        val_loss, val_auc, val_f1 = evaluate(model, data, edge_data_.val_edge_index.to(device), edge_data_.val_label.to(device))
-        print('---------------------------------------------------------------------------'
-              'Score of valid_data Epoch {:d}  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
-            .format(
-            epoch + 1, val_loss, val_auc, val_f1
-        ))
-        # early_stop = stopper.step(val_loss, val_auc, model)
+            # val_loss, val_auc, val_f1 = evaluate(model, data, edge_data_.val_edge_index.to(device), edge_data_.val_label.to(device))
+            # print('---------------------------------------------------------------------------'
+            #       'Score of valid_data Epoch {:d}  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
+            #     .format(
+            #     epoch + 1, val_loss, val_auc, val_f1
+            # ))
 
-        test_loss, test_auc, test_f1 = evaluate(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device))
-        print('---------------------------------------------------------------------------'
-              '---------------------------------------------------------------------------'
-             'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
-            .format(
-             test_loss, test_auc, test_f1
-        ))
+            early_stop = stopper.step(loss, auc, f1)
+            if early_stop:
+                test_loss, test_auc, test_f1 = evaluate(model, data, edge_data_.test_edge_index.to(device),
+                                                        edge_data_.test_label.to(device))
+                print('---------------------------------------------------------------------------'
+                      '---------------------------------------------------------------------------'
+                      'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} (final result)'
+                    .format(
+                    test_loss, test_auc, test_f1
+                ))
+                return
 
-        # if early_stop:
-        #     break
+            test_loss, test_auc, test_f1 = evaluate(model, data, edge_data_.test_edge_index.to(device),
+                                                    edge_data_.test_label.to(device))
+            print('---------------------------------------------------------------------------'
+                  'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
+                .format(
+                test_loss, test_auc, test_f1
+            ))
     # stopper.load_checkpoint(model)
     # print('Score of test_data(accuracy, micro_f1, macro_f1):',evaluate(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device) ))
 
@@ -564,8 +573,9 @@ def main(args):
     elif args.model=='GSAGE':
         model= GSAGE(in_feats=feat_size,hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout).to(device)
     else :
-        heads = args.n_heads * args.n_layers + [1]
+        heads = args.n_heads * (args.n_layers - 1 ) + [1]
         model = GAT(in_feats=feat_size, hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout,heads=heads).to(device)
+    print(args)
     train(model,data,args)
     # evaluate(model,data,,labels)
 
@@ -594,6 +604,4 @@ def test_model(args):
 
 if __name__=='__main__':
     args = read_args()
-    print(args)
-    # test_model(args)
     main(args)
