@@ -3,6 +3,8 @@ from __future__ import print_function
 
 import time
 import argparse
+from networkx.algorithms.centrality import trophic
+from networkx.algorithms.cuts import edge_expansion
 import numpy as np
 import pickle as pkl
 from copy import deepcopy
@@ -15,9 +17,11 @@ import torch.optim as optim
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import classification_report
+from scipy.sparse import coo_matrix
+import dgl
 
 from utils import load_data, accuracy, dense_tensor_to_sparse, resample, makedirs
-from models import HGAT
+from models import HGAT, GCN
 import os
 import gc
 import sys
@@ -182,6 +186,7 @@ def train(epoch,
         results = evaluate(output[0][idx_out_val], labels[idx_val])
     else:
         loss_val = LOSS(output[idx_out_val], labels[idx_val])
+        print(output[idx_out_val])
         print(' | loss: {:.4f}'.format(loss_val.item()), end='')
         results = evaluate(output[idx_out_val], labels[idx_val])
     print(' | time: {:.4f}s'.format(time.time() - t))
@@ -219,80 +224,124 @@ def test(epoch, input_adj_test, input_features_test, idx_out_test, idx_test):
         acc_test, f1_test = results
         return float(acc_test.item()), float(f1_test.item())
 
+# change to homo graph
+
 
 def change_to_homo(input_adj_train, input_features_train,
                    input_adj_val, input_features_val):
-    feature_len = [0, 0, 0]
+    feature_len = [0, 0, 0]  # text, topic, entity
     node_num = [0, 0, 0]
-    homo_feature = []
-    homo_adj = []
     for i in range(3):
         feature_len[i] = input_features_train[i].shape[1]
         node_num[i] = input_features_train[i].shape[0]
 
-    for repeat in range(3):
-        feature_row = torch.zeros([0], dtype=torch.int32)
-        feature_col = torch.zeros([0], dtype=torch.int32)
-        feature_val = torch.zeros([0], dtype=torch.float)
-        adj_row = torch.zeros([0], dtype=torch.int32)
-        adj_col = torch.zeros([0], dtype=torch.int32)
-        adj_val = torch.zeros([0], dtype=torch.float)
-        for t1 in range(3):
-            if repeat == 0:
-                feture_map = input_features_train[t1]
-            elif repeat == 1:
-                feture_map = input_features_test[t1]
+    feature_row = torch.zeros([0], dtype=torch.int32)
+    feature_col = torch.zeros([0], dtype=torch.int32)
+    feature_val = torch.zeros([0], dtype=torch.float)
+    adj_row = torch.zeros([0], dtype=torch.int32)
+    adj_col = torch.zeros([0], dtype=torch.int32)
+    adj_val = torch.zeros([0], dtype=torch.float)
+
+    # add all types edges to homo graph
+    # and stack features together
+    for t1 in range(3):
+        feture_map = input_features_train[t1]
+        if t1 == 0:
+            row_begin = 0
+            feture_begin = 0
+        elif t1 == 1:
+            row_begin = node_num[0]
+            feture_begin = feature_len[0]
+        else:
+            row_begin = node_num[0]+node_num[1]
+            feture_begin = feature_len[0]+feature_len[1]
+        feature_row = torch.cat((
+            feature_row, feture_map.coalesce().indices()[0] + row_begin), 0)
+        feature_col = torch.cat((
+            feature_col, feture_map.coalesce().indices()[1] + feture_begin))
+        feature_val = torch.cat(
+            (feature_val, feture_map.coalesce().values()))
+        for t2 in range(3):
+            adj = input_adj_train[t1][t2]
+            if t2 == 0:
+                col_begin = 0
+            elif t2 == 1:
+                col_begin = node_num[0]
             else:
-                feture_map = input_features_val[t1]
+                col_begin = node_num[0]+node_num[1]
+            adj_row = torch.cat((
+                adj_row, adj.coalesce().indices()[0] + row_begin))
+            adj_col = torch.cat((
+                adj_col, adj.coalesce().indices()[1] + col_begin))
+            adj_val = torch.cat((adj_val, adj.coalesce().values()))
 
-            if t1 == 0:
-                row_begin = 0
-                feture_begin = 0
-            elif t1 == 1:
-                row_begin = node_num[0]
-                feture_begin = feature_len[0]
-            else:
-                row_begin = node_num[0]+node_num[1]
-                feture_begin = feature_len[0]+feature_len[1]
-            feature_row = torch.cat((
-                feature_row, feture_map.coalesce().indices()[0] + row_begin), 0)
-            feature_col = torch.cat((
-                feature_col, feture_map.coalesce().indices()[1] + feture_begin))
-            feature_val = torch.cat(
-                (feature_val, feture_map.coalesce().values()))
-            for t2 in range(3):
-                if repeat == 0:
-                    adj = input_adj_train[t1][t2]
-                elif repeat == 1:
-                    adj = input_adj_test[t1][t2]
-                else:
-                    adj = input_adj_val[t1][t2]
+    homo_adj_sci = coo_matrix((adj_val.tolist(), (adj_row.tolist(), adj_col.tolist())),
+                              shape=(sum(node_num), sum(node_num)))
+    hg = dgl.from_scipy(homo_adj_sci)
+    edge_index = torch.stack((feature_row, feature_col), 0)
+    homo_features = torch.sparse.FloatTensor(
+        edge_index, feature_val, torch.Size([sum(node_num), sum(feature_len)]))
 
-                if t2 == 0:
-                    col_begin = 0
-                elif t2 == 1:
-                    col_begin = node_num[0]
-                else:
-                    col_begin = node_num[0]+node_num[1]
-                adj_row = torch.cat((
-                    adj_row, adj.coalesce().indices()[0] + row_begin))
-                adj_col = torch.cat((
-                    adj_col, adj.coalesce().indices()[1] + col_begin))
-                adj_val = torch.cat((adj_val, adj.coalesce().values()))
-
-        homo_feature.append(torch.sparse.FloatTensor(torch.stack((feature_row, feature_col), 0), feature_val, torch.Size(
-            [sum(node_num), sum(feature_len)])))
-        homo_adj.append(torch.sparse.LongTensor(torch.stack((adj_row, adj_col), 0), adj_val, torch.Size(
-            [sum(node_num), sum(node_num)])))
-    return homo_adj, homo_feature
+    return hg, homo_features, sum(feature_len)
 
 
-def mytest(epoch,
-           input_adj_train, input_features_train, idx_out_train, idx_train,
-           input_adj_val, input_features_val, idx_out_val, idx_val):
-    change_to_homo(input_adj_train, input_features_train,
-                   input_adj_val, input_features_val)
-    return
+def gcn_model(input_adj_train, input_features_train,
+              input_adj_val, input_features_val):
+    hg, homo_feature, feature_dim = change_to_homo(input_adj_train, input_features_train,
+                                                   input_adj_val, input_features_val)
+    model = GCN(g=hg,
+                in_feats=feature_dim,
+                n_hidden=args.hidden,
+                n_classes=labels.shape[1],
+                n_layers=2,
+                activation=torch.sigmoid,
+                dropout=args.dropout,
+                sparse_input=False)
+    return model, homo_feature.to_dense()
+
+
+# train step on GCN
+def baseline_train(epoch, input_features_train, idx_out_train, idx_train, input_features_val, idx_out_val, idx_val):
+    print('Epoch: {:04d}'.format(epoch+1), end='')
+    t = time.time()
+    model.train()
+    optimizer.zero_grad()
+    output = model(input_features_train)
+    O, L = output[idx_out_train], labels[idx_train]
+    loss_train = LOSS(O, L)
+    print(' | loss: {:.4f}'.format(loss_train.item()), end='')
+    acc_train, f1_train = evaluate(O, L)
+    loss_train.backward()
+    optimizer.step()
+
+    model.eval()
+    with torch.no_grad():
+        output = model(input_features_val)
+        O, L = output[idx_out_val], labels[idx_val]
+        loss_val = LOSS(O, L)
+        print(' | loss: {:.4f}'.format(loss_val.item()), end='')
+        results = evaluate(O, L)
+        print(' | time: {:.4f}s'.format(time.time() - t))
+        loss_list[epoch] = [loss_train.item()]
+        acc_val, f1_val = results
+
+    return float(acc_val.item()), float(f1_val.item())
+
+
+# test step on GCN
+def baseline_test(epoch, input_features_test, idx_out_test, idx_test):
+    t = time.time()
+    model.eval()
+    output = model(input_features_test)
+
+    loss_test = LOSS(output[idx_out_test], labels[idx_test])
+    print(' | loss: {:.4f}'.format(loss_test.item()), end='')
+    results = evaluate(output[idx_out_test], labels[idx_test])
+    print(' | time: {:.4f}s'.format(time.time() - t))
+    loss_list[epoch] += [loss_test.item()]
+
+    acc_test, f1_test = results
+    return float(acc_test.item()), float(f1_test.item())
 
 
 path = '../data/' + dataset + '/'
@@ -334,46 +383,56 @@ for i in range(args.repeat):
     # Model and optimizer
     print("\n\nNo. {} test.\n".format(i+1))
     if args.baseline:
-        mytest(0, input_adj_train, input_features_train, idx_out_train, idx_train,
-               input_adj_val, input_features_val, idx_out_val, idx_val)
-        exit(0)
-
-    model = HGAT(nfeat_list=[i.shape[1] for i in features],
-                 type_attention=args.type,
-                 node_attention=args.node,
-                 nhid=args.hidden,
-                 nclass=labels.shape[1],
-                 dropout=args.dropout,
-                 gamma=0.1,
-                 orphan=True,
-                 )
-
-    # print(model)
-    print(len(list(model.parameters())))
+        model, homo_features = gcn_model(input_adj_train, input_features_train,
+                                         input_adj_val, input_features_val)
+        input_features_train = homo_features
+        input_features_test = homo_features
+        input_features_val = homo_features
+    else:
+        model = HGAT(nfeat_list=[i.shape[1] for i in features],
+                     type_attention=args.type,
+                     node_attention=args.node,
+                     nhid=args.hidden,
+                     nclass=labels.shape[1],
+                     dropout=args.dropout,
+                     gamma=0.1,
+                     orphan=True,
+                     )
     optimizer = optim.Adam(model.parameters(), lr=args.lr,
                            weight_decay=args.weight_decay)
 
     if args.cuda:
         model.cuda()
 
+    print(model)
     print(len(list(model.parameters())))
     print([i.size() for i in model.parameters()])
+
     # Train model
     t_total = time.time()
     vali_max = [0, [0, 0], -1]
 
     for epoch in range(args.epochs):
-        vali_acc, vali_f1 = train(epoch,
-                                  input_adj_train, input_features_train, idx_out_train, idx_train,
-                                  input_adj_val, input_features_val, idx_out_val, idx_val)
-        test_acc, test_f1 = test(epoch,
-                                 input_adj_test, input_features_test, idx_out_test, idx_test)
+        if args.baseline:
+            vali_acc, vali_f1 = baseline_train(
+                epoch, input_features_train, idx_out_train, idx_train, input_features_val, idx_out_val, idx_val)
+        else:
+            vali_acc, vali_f1 = train(epoch,
+                                      input_adj_train, input_features_train, idx_out_train, idx_train,
+                                      input_adj_val, input_features_val, idx_out_val, idx_val)
+        if args.baseline:
+            test_acc, test_f1 = baseline_test(
+                epoch,  input_features_test, idx_out_test, idx_test)
+        else:
+            test_acc, test_f1 = test(epoch,
+                                     input_adj_test, input_features_test, idx_out_test, idx_test)
+
         if vali_acc > vali_max[0]:
             vali_max = [vali_acc, (test_acc, test_f1), epoch+1]
             with open(savedir + "{}.pkl".format(dataset), 'wb') as f:
                 pkl.dump(model, f)
 
-            if write_embeddings:
+            if write_embeddings and not args.baseline:
                 makedirs([embdir])
                 with open(embdir + "{}.emb".format(dataset), 'w') as f:
                     for i in model.emb.tolist():
