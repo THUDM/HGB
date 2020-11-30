@@ -2,7 +2,11 @@ An implement of EMNLP 2019 paper "[Heterogeneous Graph Attention Networks for Se
 
 Thank you for your interest in our work!  :smile:
 
+# HGAT code
 
+Adapted from [HGAT](https://github.com/ytc272098215/HGAT).
+
+We add GCN comparison under --baseline setting.
 
 # Requirements
 
@@ -16,7 +20,8 @@ Thank you for your interest in our work!  :smile:
 
 ```
 cd ./model/code/
-python train.py
+python train.py             # for HGAT
+python train.py --baseline  # for GCN 
 ```
 
 You may change the dataset by modifying the variable "dataset = 'example'" in the top of the code "train.py" or use arguments (see train.py). 

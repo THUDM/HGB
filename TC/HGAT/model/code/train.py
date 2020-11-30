@@ -224,9 +224,8 @@ def test(epoch, input_adj_test, input_features_test, idx_out_test, idx_test):
         acc_test, f1_test = results
         return float(acc_test.item()), float(f1_test.item())
 
+
 # change to homo graph
-
-
 def change_to_homo(input_adj_train, input_features_train,
                    input_adj_val, input_features_val):
     feature_len = [0, 0, 0]  # text, topic, entity
@@ -242,7 +241,7 @@ def change_to_homo(input_adj_train, input_features_train,
     adj_col = torch.zeros([0], dtype=torch.int32)
     adj_val = torch.zeros([0], dtype=torch.float)
 
-    # add all types edges to homo graph
+    # add all types edges to homo graph, homo graph has all nodes
     # and stack features together
     for t1 in range(3):
         feture_map = input_features_train[t1]
@@ -262,6 +261,9 @@ def change_to_homo(input_adj_train, input_features_train,
         feature_val = torch.cat(
             (feature_val, feture_map.coalesce().values()))
         for t2 in range(3):
+            # only text is the labeled node
+            # so let text node begin at id=0
+            # to fit the index of train/valid/test
             adj = input_adj_train[t1][t2]
             if t2 == 0:
                 col_begin = 0
