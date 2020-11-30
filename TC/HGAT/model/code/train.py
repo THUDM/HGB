@@ -63,6 +63,8 @@ parser.add_argument('--node', action='store_false', default=True,
                     help='Use node-level attention or not. ')
 parser.add_argument('--type', action='store_false', default=True,
                     help='Use type-level attention or not. ')
+parser.add_argument('--baseline', action='store_true', default=False,
+                    help='Use Baseline')
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -218,6 +220,81 @@ def test(epoch, input_adj_test, input_features_test, idx_out_test, idx_test):
         return float(acc_test.item()), float(f1_test.item())
 
 
+def change_to_homo(input_adj_train, input_features_train,
+                   input_adj_val, input_features_val):
+    feature_len = [0, 0, 0]
+    node_num = [0, 0, 0]
+    homo_feature = []
+    homo_adj = []
+    for i in range(3):
+        feature_len[i] = input_features_train[i].shape[1]
+        node_num[i] = input_features_train[i].shape[0]
+
+    for repeat in range(3):
+        feature_row = torch.zeros([0], dtype=torch.int32)
+        feature_col = torch.zeros([0], dtype=torch.int32)
+        feature_val = torch.zeros([0], dtype=torch.float)
+        adj_row = torch.zeros([0], dtype=torch.int32)
+        adj_col = torch.zeros([0], dtype=torch.int32)
+        adj_val = torch.zeros([0], dtype=torch.float)
+        for t1 in range(3):
+            if repeat == 0:
+                feture_map = input_features_train[t1]
+            elif repeat == 1:
+                feture_map = input_features_test[t1]
+            else:
+                feture_map = input_features_val[t1]
+
+            if t1 == 0:
+                row_begin = 0
+                feture_begin = 0
+            elif t1 == 1:
+                row_begin = node_num[0]
+                feture_begin = feature_len[0]
+            else:
+                row_begin = node_num[0]+node_num[1]
+                feture_begin = feature_len[0]+feature_len[1]
+            feature_row = torch.cat((
+                feature_row, feture_map.coalesce().indices()[0] + row_begin), 0)
+            feature_col = torch.cat((
+                feature_col, feture_map.coalesce().indices()[1] + feture_begin))
+            feature_val = torch.cat(
+                (feature_val, feture_map.coalesce().values()))
+            for t2 in range(3):
+                if repeat == 0:
+                    adj = input_adj_train[t1][t2]
+                elif repeat == 1:
+                    adj = input_adj_test[t1][t2]
+                else:
+                    adj = input_adj_val[t1][t2]
+
+                if t2 == 0:
+                    col_begin = 0
+                elif t2 == 1:
+                    col_begin = node_num[0]
+                else:
+                    col_begin = node_num[0]+node_num[1]
+                adj_row = torch.cat((
+                    adj_row, adj.coalesce().indices()[0] + row_begin))
+                adj_col = torch.cat((
+                    adj_col, adj.coalesce().indices()[1] + col_begin))
+                adj_val = torch.cat((adj_val, adj.coalesce().values()))
+
+        homo_feature.append(torch.sparse.FloatTensor(torch.stack((feature_row, feature_col), 0), feature_val, torch.Size(
+            [sum(node_num), sum(feature_len)])))
+        homo_adj.append(torch.sparse.LongTensor(torch.stack((adj_row, adj_col), 0), adj_val, torch.Size(
+            [sum(node_num), sum(node_num)])))
+    return homo_adj, homo_feature
+
+
+def mytest(epoch,
+           input_adj_train, input_features_train, idx_out_train, idx_train,
+           input_adj_val, input_features_val, idx_out_val, idx_val):
+    change_to_homo(input_adj_train, input_features_train,
+                   input_adj_val, input_features_val)
+    return
+
+
 path = '../data/' + dataset + '/'
 adj, features, labels, idx_train_ori, idx_val_ori, idx_test_ori, idx_map = load_data(
     path=path, dataset=dataset)
@@ -256,6 +333,11 @@ FINAL_RESULT = []
 for i in range(args.repeat):
     # Model and optimizer
     print("\n\nNo. {} test.\n".format(i+1))
+    if args.baseline:
+        mytest(0, input_adj_train, input_features_train, idx_out_train, idx_train,
+               input_adj_val, input_features_val, idx_out_val, idx_val)
+        exit(0)
+
     model = HGAT(nfeat_list=[i.shape[1] for i in features],
                  type_attention=args.type,
                  node_attention=args.node,
