@@ -22,14 +22,14 @@ def score(logits, labels):
     macro_f1 = f1_score(labels, prediction, average='macro')
     return acc, micro_f1, macro_f1
 
-import dgl                   
+import dgl
 from GNN import GCN, GAT
 
 # Params
 out_dim = 4
-dropout_rate = 0.5
-lr = 0.003
-weight_decay = 0.000
+dropout_rate = 0.6
+lr = 0.001
+weight_decay = 0.001
 etypes_list = [[0, 1], [0, 2, 3, 1], [0, 4, 5, 1]]
 
 def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
@@ -54,9 +54,6 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
             features_list[i] = torch.sparse.FloatTensor(indices, values, torch.Size([dim, dim])).to(device)
     elif feats_type == 3:
         in_dims = [features.shape[0] for features in features_list]
-        in_feats = 0
-        for dim in in_dims:
-            in_feats+=dim
         for i in range(len(features_list)):
             dim = features_list[i].shape[0]
             indices = np.vstack((np.arange(dim), np.arange(dim)))
@@ -106,11 +103,10 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
         if mn == 'gat':
             net = GAT(g, num_layers, hidden_dim, hidden_dim, out_dim, heads, F.elu, dropout_rate, dropout_rate, 0.01, False, in_dims).cuda()
         elif mn == 'gcn':
-            net = GCN(g, in_feats, hidden_dim, out_dim, num_layers, F.relu, dropout_rate, in_dims).cuda() #MAGNN_nc_mb(3, 6, etypes_list, in_dims, hidden_dim, out_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
+            net = GCN(g, hidden_dim, hidden_dim, out_dim, num_layers, F.relu, dropout_rate, in_dims).cuda() #MAGNN_nc_mb(3, 6, etypes_list, in_dims, hidden_dim, out_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
         #net.to(device)
-        optimizer = torch.optim.Adam(params=net.parameters(),lr=lr,weight_decay=weight_decay)
-        # LR=torch.optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=10,eta_min=0.001)
-        # LR=torch.optim.lr_scheduler.ExponentialLR(optimizer,gamma=0.995)
+        optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
+
         # training loop
         net.train()
         early_stopping = EarlyStopping(patience=patience, verbose=True, save_path='checkpoint/checkpoint_{}.pt'.format(save_postfix))
@@ -134,8 +130,7 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
 
                 t1 = time.time()
                 dur1.append(t1 - t0)
-                if mn == 'gcn':
-                    features_list = torch.eye(in_feats).to(device)
+
                 logits = net(features_list)
                 #hid_emb = net.forward_hidden(features)
                 #print(hid_emb.size())
@@ -183,9 +178,6 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
             if early_stopping.early_stop:
                 print('Early stopping!')
                 break
-            # if val_loss<0.35 and LR.get_lr()[0]>0.0005:
-            #     LR.step()
-            #     print(LR.get_lr())
 
         # testing with evaluate_results_nc
         #test_idx_generator = index_generator(batch_size=batch_size, indices=test_idx, shuffle=False)
@@ -247,8 +239,8 @@ if __name__ == '__main__':
     ap.add_argument('--num_heads', type=int, default=8, help='Number of the attention heads. Default is 8.')
     ap.add_argument('--attn-vec-dim', type=int, default=128, help='Dimension of the attention vector. Default is 128.')
     ap.add_argument('--rnn-type', default='RotatE0', help='Type of the aggregator. Default is RotatE0.')
-    ap.add_argument('--epoch', type=int, default=1000, help='Number of epochs. Default is 100.')
-    ap.add_argument('--patience', type=int, default=10, help='Patience. Default is 5.')
+    ap.add_argument('--epoch', type=int, default=200, help='Number of epochs. Default is 100.')
+    ap.add_argument('--patience', type=int, default=100, help='Patience. Default is 5.')
     ap.add_argument('--batch-size', type=int, default=8, help='Batch size. Default is 8.')
     ap.add_argument('--samples', type=int, default=100, help='Number of neighbors sampled. Default is 100.')
     ap.add_argument('--repeat', type=int, default=1, help='Repeat the training and testing for N times. Default is 1.')

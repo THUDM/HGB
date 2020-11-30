@@ -151,3 +151,4 @@ TC/HGAT/model/data/twitter
 #model
 *.pth
 NC/HetGNN/model_save/
+NC/RGCN/.vscode/settings.json
