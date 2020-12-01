@@ -21,7 +21,7 @@ from scipy.sparse import coo_matrix, bmat
 import dgl
 
 from utils import load_data, accuracy, dense_tensor_to_sparse, resample, makedirs
-from models import HGAT, GCN
+from models import HGAT, GCN, GAT
 import os
 import gc
 import sys
@@ -67,7 +67,7 @@ parser.add_argument('--node', action='store_false', default=True,
                     help='Use node-level attention or not. ')
 parser.add_argument('--type', action='store_false', default=True,
                     help='Use type-level attention or not. ')
-parser.add_argument('--baseline', action='store_true', default=False,
+parser.add_argument('--baseline', type=str, default=None,
                     help='Use Baseline')
 args = parser.parse_args()
 
@@ -227,17 +227,21 @@ def test(epoch, input_adj_test, input_features_test, idx_out_test, idx_test):
 # change to homo graph
 def change_to_homo(input_adj_train, input_features_train,
                    input_adj_val, input_features_val):
-    sf = [] # scipy features
+    sf = []  # scipy features
     for x in input_features_train:
         sf.append(coo_matrix(x.to_dense().numpy()))
     coo = bmat([[sf[0], None, None], [None, sf[1], None], [None, None, sf[2]]])
+
     values = coo.data
     indices = np.vstack((coo.row, coo.col))
     i = torch.LongTensor(indices)
     v = torch.FloatTensor(values)
     shape = coo.shape
-
-    homo_features = torch.sparse.FloatTensor(i, v, torch.Size(shape)).cuda()
+    if args.cuda:
+        homo_features = torch.sparse.FloatTensor(
+            i, v, torch.Size(shape)).cuda()
+    else:
+        homo_features = torch.sparse.FloatTensor(i, v, torch.Size(shape))
 
     new_adj = []
     for x in input_adj_train:
@@ -246,25 +250,49 @@ def change_to_homo(input_adj_train, input_features_train,
             new_adj[-1].append(coo_matrix(y.to_dense().numpy()))
     homo_adj_sci = bmat(new_adj)
 
+    values = homo_adj_sci.data
+    indices = np.vstack((homo_adj_sci.row, homo_adj_sci.col))
+    i = torch.LongTensor(indices)
+    v = torch.FloatTensor(values)
+    shape = homo_adj_sci.shape
+    if args.cuda:
+        homo_adj = torch.sparse.FloatTensor(
+            i, v, torch.Size(shape)).cuda()
+    else:
+        homo_adj = torch.sparse.FloatTensor(i, v, torch.Size(shape))
+
     hg = dgl.from_scipy(homo_adj_sci)
     hg = hg.to("cuda:0")
 
-    return hg, homo_features, coo.shape[1]
+    return hg, homo_features, coo.shape[1], homo_adj
 
 
-def gcn_model(input_adj_train, input_features_train,
-              input_adj_val, input_features_val):
-    hg, homo_feature, feature_dim = change_to_homo(input_adj_train, input_features_train,
-                                                   input_adj_val, input_features_val)
-    model = GCN(g=hg,
-                in_feats=feature_dim,
-                n_hidden=args.hidden,
-                n_classes=labels.shape[1],
-                n_layers=2,
-                activation=F.relu,
-                dropout=args.dropout,
-                sparse_input=True)
-    return model, homo_feature
+def baseline_model(input_adj_train, input_features_train,
+                   input_adj_val, input_features_val):
+    hg, homo_feature, feature_dim, homo_adj = change_to_homo(input_adj_train, input_features_train,
+                                                             input_adj_val, input_features_val)
+    if args.baseline == "gcn":
+        model = GCN(g=hg,
+                    in_feats=feature_dim,
+                    n_hidden=args.hidden,
+                    n_classes=labels.shape[1],
+                    n_layers=2,
+                    activation=F.relu,
+                    dropout=args.dropout,
+                    sparse_input=True)
+    elif args.baseline == "gat":
+        model = GAT(g=hg,
+                    in_feats=feature_dim,
+                    n_hidden=args.hidden,
+                    n_classes=labels.shape[1],
+                    n_layers=2,
+                    activation=F.relu,
+                    dropout=args.dropout,
+                    sparse_input=True)
+    else:
+        print("Invalid baseline type")
+        model = None
+    return model, homo_feature, homo_adj
 
 
 path = '../data/' + dataset + '/'
@@ -307,11 +335,14 @@ for i in range(args.repeat):
     # Model and optimizer
     print("\n\nNo. {} test.\n".format(i+1))
     if args.baseline:
-        model, homo_features = gcn_model(input_adj_train, input_features_train,
-                                         input_adj_val, input_features_val)
+        model, homo_features, homo_adj = baseline_model(input_adj_train, input_features_train,
+                                                        input_adj_val, input_features_val)
         input_features_train = homo_features
         input_features_test = homo_features
         input_features_val = homo_features
+        input_adj_train = homo_adj
+        input_adj_test = homo_adj
+        input_adj_val = homo_adj
     else:
         model = HGAT(nfeat_list=[i.shape[1] for i in features],
                      type_attention=args.type,
@@ -326,7 +357,7 @@ for i in range(args.repeat):
                            weight_decay=args.weight_decay)
 
     if args.cuda:
-        model.cuda()
+        model = model.cuda()
 
     print(model)
     print(len(list(model.parameters())))
@@ -338,10 +369,10 @@ for i in range(args.repeat):
 
     for epoch in range(args.epochs):
         vali_acc, vali_f1 = train(epoch,
-                                      input_adj_train, input_features_train, idx_out_train, idx_train,
-                                      input_adj_val, input_features_val, idx_out_val, idx_val)
+                                  input_adj_train, input_features_train, idx_out_train, idx_train,
+                                  input_adj_val, input_features_val, idx_out_val, idx_val)
         test_acc, test_f1 = test(epoch,
-                                     input_adj_test, input_features_test, idx_out_test, idx_test)
+                                 input_adj_test, input_features_test, idx_out_test, idx_test)
 
         if vali_acc > vali_max[0]:
             vali_max = [vali_acc, (test_acc, test_f1), epoch+1]

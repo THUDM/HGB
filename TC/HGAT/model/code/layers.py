@@ -5,6 +5,7 @@ from torch.nn.modules.module import Module
 import torch.nn.functional as F
 from torch import nn
 
+
 class GraphConvolution(Module):
     def __init__(self, in_features, out_features, bias=True):
         super(GraphConvolution, self).__init__()
@@ -23,7 +24,7 @@ class GraphConvolution(Module):
         if self.bias is not None:
             self.bias.data.uniform_(-stdv, stdv)
 
-    def forward(self, inputs, adj, global_W = None):
+    def forward(self, inputs, adj, global_W=None):
         if len(adj._values()) == 0:
             return torch.zeros(adj.shape[0], self.out_features, device=inputs.device)
 
@@ -38,8 +39,8 @@ class GraphConvolution(Module):
 
     def __repr__(self):
         return self.__class__.__name__ + ' (' \
-               + str(self.in_features) + ' -> ' \
-               + str(self.out_features) + ')'
+            + str(self.in_features) + ' -> ' \
+            + str(self.out_features) + ')'
 
 
 class SelfAttention_ori(Module):
@@ -88,58 +89,58 @@ class SelfAttention(Module):
 
 
 class GraphAttentionConvolution(Module):
-    def __init__(self, in_features_list, out_features, bias=True, gamma = 0.1):
+    def __init__(self, in_features_list, out_features, bias=True, gamma=0.1):
         super(GraphAttentionConvolution, self).__init__()
         self.ntype = len(in_features_list)
         self.in_features_list = in_features_list
         self.out_features = out_features
         self.weights = nn.ParameterList()
         for i in range(self.ntype):
-            cache = Parameter(torch.FloatTensor(in_features_list[i], out_features))
+            cache = Parameter(torch.FloatTensor(
+                in_features_list[i], out_features))
             nn.init.xavier_normal_(cache.data, gain=1.414)
-            self.weights.append( cache )
+            self.weights.append(cache)
         if bias:
             self.bias = Parameter(torch.FloatTensor(out_features))
             stdv = 1. / math.sqrt(out_features)
             self.bias.data.uniform_(-stdv, stdv)
         else:
             self.register_parameter('bias', None)
-        
+
         self.att_list = nn.ModuleList()
         for i in range(self.ntype):
-            self.att_list.append( Attention_NodeLevel(out_features, gamma) )
+            self.att_list.append(Attention_NodeLevel(out_features, gamma))
 
-
-    def forward(self, inputs_list, adj_list, global_W = None):
+    def forward(self, inputs_list, adj_list, global_W=None):
         h = []
         for i in range(self.ntype):
-            h.append( torch.spmm(inputs_list[i], self.weights[i]) )
+            h.append(torch.spmm(inputs_list[i], self.weights[i]))
         if global_W is not None:
             for i in range(self.ntype):
-                h[i] = ( torch.spmm(h[i], global_W) )
+                h[i] = (torch.spmm(h[i], global_W))
         outputs = []
         for t1 in range(self.ntype):
             x_t1 = []
             for t2 in range(self.ntype):
                 # adj has no non-zeros
                 if len(adj_list[t1][t2]._values()) == 0:
-                    x_t1.append( torch.zeros(adj_list[t1][t2].shape[0], self.out_features, device=self.bias.device) )
+                    x_t1.append(torch.zeros(
+                        adj_list[t1][t2].shape[0], self.out_features, device=self.bias.device))
                     continue
 
                 if self.bias is not None:
-                    x_t1.append( self.att_list[t1](h[t1], h[t2], adj_list[t1][t2]) + self.bias )
+                    x_t1.append(self.att_list[t1](
+                        h[t1], h[t2], adj_list[t1][t2]) + self.bias)
                 else:
-                    x_t1.append( self.att_list[t1](h[t1], h[t2], adj_list[t1][t2]) )
+                    x_t1.append(self.att_list[t1](
+                        h[t1], h[t2], adj_list[t1][t2]))
             outputs.append(x_t1)
-            
+
         return outputs
 
 
-        
-     
-
 class Attention_NodeLevel(nn.Module):
-    def __init__(self, dim_features, gamma = 0.1):
+    def __init__(self, dim_features, gamma=0.1):
         super(Attention_NodeLevel, self).__init__()
 
         self.dim_features = dim_features
@@ -147,7 +148,7 @@ class Attention_NodeLevel(nn.Module):
         self.a1 = nn.Parameter(torch.zeros(size=(dim_features, 1)))
         self.a2 = nn.Parameter(torch.zeros(size=(dim_features, 1)))
         nn.init.xavier_normal_(self.a1.data, gain=1.414)
-        nn.init.xavier_normal_(self.a2.data, gain=1.414)        
+        nn.init.xavier_normal_(self.a2.data, gain=1.414)
 
         self.leakyrelu = nn.LeakyReLU(0.2)
         self.gamma = gamma
@@ -160,26 +161,26 @@ class Attention_NodeLevel(nn.Module):
 
         e1 = torch.matmul(h, self.a1).repeat(1, M)
         e2 = torch.matmul(g, self.a2).repeat(1, N).t()
-        e = e1 + e2  
+        e = e1 + e2
         e = self.leakyrelu(e)
-        
+
         zero_vec = -9e15*torch.ones_like(e)
         if 'sparse' in adj.type():
             adj_dense = adj.to_dense()
             attention = torch.where(adj_dense > 0, e, zero_vec)
             attention = F.softmax(attention, dim=1)
             attention = torch.mul(attention, adj_dense.sum(1).repeat(M, 1).t())
-            attention = torch.add(attention * self.gamma, adj_dense * (1 - self.gamma))
+            attention = torch.add(attention * self.gamma,
+                                  adj_dense * (1 - self.gamma))
             del(adj_dense)
         else:
             attention = torch.where(adj > 0, e, zero_vec)
             attention = F.softmax(attention, dim=1)
             attention = torch.mul(attention, adj.sum(1).repeat(M, 1).t())
-            attention = torch.add(attention * self.gamma, adj.to_dense() * (1 - self.gamma))
+            attention = torch.add(attention * self.gamma,
+                                  adj.to_dense() * (1 - self.gamma))
         del(zero_vec)
 
         h_prime = torch.matmul(attention, g)
 
         return h_prime
-    
-        

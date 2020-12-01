@@ -37,11 +37,56 @@ class GCN(nn.Module):
         self.layers.append(GraphConv(n_hidden, n_classes))
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, features, empty_arg):
+    def forward(self, features, adj_metrix):
         if self.sparse_input:
             h = self.linear(features)
         else:
             h = features
+        for i, layer in enumerate(self.layers):
+            if i != 0:
+                h = self.dropout(h)
+            h = layer(self.g, h)
+            h = F.log_softmax(h, dim=1)
+        return h
+
+
+class GAT(nn.Module):
+    def __init__(self,
+                 g,
+                 in_feats,
+                 n_hidden,
+                 n_classes,
+                 n_layers,
+                 activation,
+                 dropout,
+                 gamma=0.1,
+                 sparse_input=False):
+        super(GAT, self).__init__()
+        self.g = g
+        self.sparse_input = sparse_input
+        if self.sparse_input:
+            self.linear = nn.Linear(in_feats, n_hidden)
+            in_feats = n_hidden
+        self.layers = nn.ModuleList()
+        # input layer
+        self.layers.append(
+            GraphConv(in_feats, n_hidden, activation=activation))
+        # hidden layers
+        for i in range(n_layers - 1):
+            self.layers.append(
+                GraphConv(n_hidden, n_hidden, activation=activation))
+        # output layer
+        self.layers.append(GraphConv(n_hidden, n_classes))
+        self.dropout = nn.Dropout(p=dropout)
+        self.attention = Attention_NodeLevel(
+            dim_features=in_feats, gamma=gamma)
+
+    def forward(self, features, adj_metrix):
+        if self.sparse_input:
+            h = self.linear(features)
+        else:
+            h = features
+        h = self.attention(h, h, adj_metrix)
         for i, layer in enumerate(self.layers):
             if i != 0:
                 h = self.dropout(h)
