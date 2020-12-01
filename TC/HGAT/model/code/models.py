@@ -37,7 +37,7 @@ class GCN(nn.Module):
         self.layers.append(GraphConv(n_hidden, n_classes))
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, features):
+    def forward(self, features, empty_arg):
         if self.sparse_input:
             h = self.linear(features)
         else:
