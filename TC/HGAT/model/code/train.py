@@ -3,6 +3,8 @@ from __future__ import print_function
 
 import time
 import argparse
+from networkx.algorithms.centrality import trophic
+from networkx.algorithms.cuts import edge_expansion
 import numpy as np
 import pickle as pkl
 from copy import deepcopy
@@ -15,14 +17,16 @@ import torch.optim as optim
 from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import classification_report
+from scipy.sparse import coo_matrix, bmat
+import dgl
 
 from utils import load_data, accuracy, dense_tensor_to_sparse, resample, makedirs
-from models import HGAT
+from models import HGAT, GCN
 import os
 import gc
 import sys
 from print_log import Logger
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 logdir = "log/"
 savedir = 'model/'
@@ -63,6 +67,8 @@ parser.add_argument('--node', action='store_false', default=True,
                     help='Use node-level attention or not. ')
 parser.add_argument('--type', action='store_false', default=True,
                     help='Use type-level attention or not. ')
+parser.add_argument('--baseline', action='store_true', default=False,
+                    help='Use Baseline')
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -218,6 +224,49 @@ def test(epoch, input_adj_test, input_features_test, idx_out_test, idx_test):
         return float(acc_test.item()), float(f1_test.item())
 
 
+# change to homo graph
+def change_to_homo(input_adj_train, input_features_train,
+                   input_adj_val, input_features_val):
+    sf = [] # scipy features
+    for x in input_features_train:
+        sf.append(coo_matrix(x.to_dense().numpy()))
+    coo = bmat([[sf[0], None, None], [None, sf[1], None], [None, None, sf[2]]])
+    values = coo.data
+    indices = np.vstack((coo.row, coo.col))
+    i = torch.LongTensor(indices)
+    v = torch.FloatTensor(values)
+    shape = coo.shape
+
+    homo_features = torch.sparse.FloatTensor(i, v, torch.Size(shape)).cuda()
+
+    new_adj = []
+    for x in input_adj_train:
+        new_adj.append([])
+        for y in x:
+            new_adj[-1].append(coo_matrix(y.to_dense().numpy()))
+    homo_adj_sci = bmat(new_adj)
+
+    hg = dgl.from_scipy(homo_adj_sci)
+    hg = hg.to("cuda:0")
+
+    return hg, homo_features, coo.shape[1]
+
+
+def gcn_model(input_adj_train, input_features_train,
+              input_adj_val, input_features_val):
+    hg, homo_feature, feature_dim = change_to_homo(input_adj_train, input_features_train,
+                                                   input_adj_val, input_features_val)
+    model = GCN(g=hg,
+                in_feats=feature_dim,
+                n_hidden=args.hidden,
+                n_classes=labels.shape[1],
+                n_layers=2,
+                activation=F.relu,
+                dropout=args.dropout,
+                sparse_input=True)
+    return model, homo_feature
+
+
 path = '../data/' + dataset + '/'
 adj, features, labels, idx_train_ori, idx_val_ori, idx_test_ori, idx_map = load_data(
     path=path, dataset=dataset)
@@ -229,7 +278,7 @@ input_adj_test, input_features_test, idx_out_test = adj, features, idx_test_ori
 idx_train, idx_val, idx_test = idx_train_ori, idx_val_ori, idx_test_ori
 
 
-if args.cuda:
+if not args.baseline and args.cuda:
     N = len(features)
     for i in range(N):
         if input_features_train[i] is not None:
@@ -246,6 +295,7 @@ if args.cuda:
                 input_adj_val[i][j] = input_adj_val[i][j].cuda()
             if input_adj_test[i][j] is not None:
                 input_adj_test[i][j] = input_adj_test[i][j].cuda()
+if args.cuda:
     labels = labels.cuda()
     idx_train, idx_out_train = idx_train.cuda(), idx_out_train.cuda()
     idx_val, idx_out_val = idx_val.cuda(), idx_out_val.cuda()
@@ -256,42 +306,49 @@ FINAL_RESULT = []
 for i in range(args.repeat):
     # Model and optimizer
     print("\n\nNo. {} test.\n".format(i+1))
-    model = HGAT(nfeat_list=[i.shape[1] for i in features],
-                 type_attention=args.type,
-                 node_attention=args.node,
-                 nhid=args.hidden,
-                 nclass=labels.shape[1],
-                 dropout=args.dropout,
-                 gamma=0.1,
-                 orphan=True,
-                 )
-
-    # print(model)
-    print(len(list(model.parameters())))
+    if args.baseline:
+        model, homo_features = gcn_model(input_adj_train, input_features_train,
+                                         input_adj_val, input_features_val)
+        input_features_train = homo_features
+        input_features_test = homo_features
+        input_features_val = homo_features
+    else:
+        model = HGAT(nfeat_list=[i.shape[1] for i in features],
+                     type_attention=args.type,
+                     node_attention=args.node,
+                     nhid=args.hidden,
+                     nclass=labels.shape[1],
+                     dropout=args.dropout,
+                     gamma=0.1,
+                     orphan=True,
+                     )
     optimizer = optim.Adam(model.parameters(), lr=args.lr,
                            weight_decay=args.weight_decay)
 
     if args.cuda:
         model.cuda()
 
+    print(model)
     print(len(list(model.parameters())))
     print([i.size() for i in model.parameters()])
+
     # Train model
     t_total = time.time()
     vali_max = [0, [0, 0], -1]
 
     for epoch in range(args.epochs):
         vali_acc, vali_f1 = train(epoch,
-                                  input_adj_train, input_features_train, idx_out_train, idx_train,
-                                  input_adj_val, input_features_val, idx_out_val, idx_val)
+                                      input_adj_train, input_features_train, idx_out_train, idx_train,
+                                      input_adj_val, input_features_val, idx_out_val, idx_val)
         test_acc, test_f1 = test(epoch,
-                                 input_adj_test, input_features_test, idx_out_test, idx_test)
+                                     input_adj_test, input_features_test, idx_out_test, idx_test)
+
         if vali_acc > vali_max[0]:
             vali_max = [vali_acc, (test_acc, test_f1), epoch+1]
             with open(savedir + "{}.pkl".format(dataset), 'wb') as f:
                 pkl.dump(model, f)
 
-            if write_embeddings:
+            if write_embeddings and not args.baseline:
                 makedirs([embdir])
                 with open(embdir + "{}.emb".format(dataset), 'w') as f:
                     for i in model.emb.tolist():

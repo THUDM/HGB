@@ -4,6 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from layers import *
 from torch.nn.parameter import Parameter
+from dgl.nn.pytorch import GraphConv
 from functools import reduce
 from utils import dense_tensor_to_sparse
 
@@ -36,7 +37,7 @@ class GCN(nn.Module):
         self.layers.append(GraphConv(n_hidden, n_classes))
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, features):
+    def forward(self, features, empty_arg):
         if self.sparse_input:
             h = self.linear(features)
         else:
@@ -45,6 +46,7 @@ class GCN(nn.Module):
             if i != 0:
                 h = self.dropout(h)
             h = layer(self.g, h)
+            h = F.log_softmax(h, dim=1)
         return h
 
 
