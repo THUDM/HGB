@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from layers import *
 from torch.nn.parameter import Parameter
-from dgl.nn.pytorch import GraphConv
+from dgl.nn.pytorch import GraphConv, GATConv
 from functools import reduce
 from utils import dense_tensor_to_sparse
 
@@ -46,53 +46,59 @@ class GCN(nn.Module):
             if i != 0:
                 h = self.dropout(h)
             h = layer(self.g, h)
-            h = F.log_softmax(h, dim=1)
+        h = F.log_softmax(h, dim=1)
         return h
 
 
 class GAT(nn.Module):
     def __init__(self,
                  g,
-                 in_feats,
-                 n_hidden,
-                 n_classes,
-                 n_layers,
+                 in_dim,
+                 num_hidden,
+                 num_classes,
+                 num_layers,
                  activation,
-                 dropout,
-                 gamma=0.1,
+                 feat_drop,
+                 attn_drop,
+                 heads,
+                 negative_slope,
+                 residual=False,
                  sparse_input=False):
         super(GAT, self).__init__()
         self.g = g
+        self.num_layers = num_layers
+        self.gat_layers = nn.ModuleList()
+        self.activation = activation
         self.sparse_input = sparse_input
         if self.sparse_input:
-            self.linear = nn.Linear(in_feats, n_hidden)
-            in_feats = n_hidden
-        self.layers = nn.ModuleList()
-        # input layer
-        self.layers.append(
-            GraphConv(in_feats, n_hidden, activation=activation))
+            self.linear = nn.Linear(in_dim, num_hidden)
+            in_dim = num_hidden
+        # input projection (no residual)
+        self.gat_layers.append(GATConv(
+            in_dim, num_hidden, heads[0],
+            feat_drop, attn_drop, negative_slope, False, self.activation))
         # hidden layers
-        for i in range(n_layers - 1):
-            self.layers.append(
-                GraphConv(n_hidden, n_hidden, activation=activation))
-        # output layer
-        self.layers.append(GraphConv(n_hidden, n_classes))
-        self.dropout = nn.Dropout(p=dropout)
-        self.attention = Attention_NodeLevel(
-            dim_features=in_feats, gamma=gamma)
+        for l in range(1, num_layers):
+            # due to multi-head, the in_dim = num_hidden * num_heads
+            self.gat_layers.append(GATConv(
+                num_hidden * heads[l-1], num_hidden, heads[l],
+                feat_drop, attn_drop, negative_slope, residual, self.activation))
+        # output projection
+        self.gat_layers.append(GATConv(
+            num_hidden * heads[-2], num_classes, heads[-1],
+            feat_drop, attn_drop, negative_slope, residual, None))
 
-    def forward(self, features, adj_metrix):
+    def forward(self, inputs, empty):
         if self.sparse_input:
-            h = self.linear(features)
+            h = self.linear(inputs)
         else:
-            h = features
-        h = self.attention(h, h, adj_metrix)
-        for i, layer in enumerate(self.layers):
-            if i != 0:
-                h = self.dropout(h)
-            h = layer(self.g, h)
-            h = F.log_softmax(h, dim=1)
-        return h
+            h = inputs
+        for l in range(self.num_layers):
+            h = self.gat_layers[l](self.g, h).flatten(1)
+        # output projection
+        logits = self.gat_layers[-1](self.g, h).mean(1)
+        logits = F.log_softmax(logits, dim=1)
+        return logits
 
 
 class HGAT(nn.Module):

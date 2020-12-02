@@ -26,7 +26,7 @@ import os
 import gc
 import sys
 from print_log import Logger
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 logdir = "log/"
 savedir = 'model/'
@@ -281,14 +281,21 @@ def baseline_model(input_adj_train, input_features_train,
                     dropout=args.dropout,
                     sparse_input=True)
     elif args.baseline == "gat":
-        model = GAT(g=hg,
-                    in_feats=feature_dim,
-                    n_hidden=args.hidden,
-                    n_classes=labels.shape[1],
-                    n_layers=2,
-                    activation=F.relu,
-                    dropout=args.dropout,
-                    sparse_input=True)
+        heads = [4]*2 + [1]
+        slope = 0.1
+        model = GAT(
+            g=hg,
+            in_dim=feature_dim,
+            num_hidden=args.hidden,
+            num_classes=labels.shape[1],
+            num_layers=2,
+            activation=F.elu,
+            feat_drop=args.dropout,
+            attn_drop=args.dropout,
+            heads=heads,
+            negative_slope=slope,
+            residual=False,
+            sparse_input=True)
     else:
         print("Invalid baseline type")
         model = None
