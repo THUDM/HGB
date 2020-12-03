@@ -6,7 +6,7 @@ Thank you for your interest in our work!  :smile:
 
 Adapted from [HGAT](https://github.com/ytc272098215/HGAT).
 
-We add GCN comparison under --baseline setting.
+We add GCN and GAT comparison under --baseline setting.
 
 # Requirements
 
@@ -20,8 +20,9 @@ We add GCN comparison under --baseline setting.
 
 ```
 cd ./model/code/
-python train.py             # for HGAT
-python train.py --baseline  # for GCN 
+python train.py                  # for HGAT
+python train.py --baseline=gcn  # for GCN 
+python train.py --baseline=gat  # for GAT
 ```
 
 You may change the dataset by modifying the variable "dataset = 'example'" in the top of the code "train.py" or use arguments (see train.py). 
