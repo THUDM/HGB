@@ -9,6 +9,48 @@ from functools import reduce
 from utils import dense_tensor_to_sparse
 
 
+class weighted_GCN(nn.Module):
+    def __init__(self,
+                 in_feats,
+                 n_hidden,
+                 n_classes,
+                 n_layers,
+                 activation,
+                 dropout,
+                 sparse_input=False):
+        super(weighted_GCN, self).__init__()
+        self.sparse_input = sparse_input
+        self.activation = activation
+        if self.sparse_input:
+            self.linear = nn.Linear(in_feats, n_hidden)
+            in_feats = n_hidden
+        self.layers = nn.ModuleList()
+        # input layer
+        self.layers.append(
+            MyGraphConvolution(in_feats, n_hidden))
+        # hidden layers
+        for i in range(n_layers - 1):
+            self.layers.append(
+                MyGraphConvolution(n_hidden, n_hidden))
+        # output layer
+        self.layers.append(MyGraphConvolution(n_hidden, n_classes))
+        self.dropout = nn.Dropout(p=dropout)
+
+    def forward(self, features, adj_metrix):
+        if self.sparse_input:
+            h = self.linear(features)
+        else:
+            h = features
+        h = self.activation(h)
+        for i, layer in enumerate(self.layers):
+            if i != 0:
+                h = self.dropout(h)
+            h = layer(h, adj_metrix)
+            h = self.activation(h)
+        h = F.log_softmax(h, dim=1)
+        return h
+
+
 class GCN(nn.Module):
     def __init__(self,
                  g,

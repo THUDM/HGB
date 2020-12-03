@@ -6,6 +6,44 @@ import torch.nn.functional as F
 from torch import nn
 
 
+class MyGraphConvolution(Module):
+    def __init__(self, in_features, out_features, bias=True):
+        super(MyGraphConvolution, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.weight = Parameter(torch.FloatTensor(in_features, out_features))
+        if bias:
+            self.bias = Parameter(torch.FloatTensor(out_features))
+        else:
+            self.register_parameter('bias', None)
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        stdv = 1. / math.sqrt(self.weight.size(1))
+        self.weight.data.uniform_(-stdv, stdv)
+        # nn.init.xavier_normal_(self.weight.data, gain=1.414)
+        if self.bias is not None:
+            self.bias.data.uniform_(-stdv, stdv)
+
+    def forward(self, inputs, adj, global_W=None):
+        if len(adj._values()) == 0:
+            return torch.zeros(adj.shape[0], self.out_features, device=inputs.device)
+
+        support = torch.spmm(inputs, self.weight)
+        if global_W is not None:
+            support = torch.spmm(support, global_W)
+        output = torch.spmm(adj, support)
+        if self.bias is not None:
+            return output + self.bias
+        else:
+            return output
+
+    def __repr__(self):
+        return self.__class__.__name__ + ' (' \
+            + str(self.in_features) + ' -> ' \
+            + str(self.out_features) + ')'
+
+
 class GraphConvolution(Module):
     def __init__(self, in_features, out_features, bias=True):
         super(GraphConvolution, self).__init__()

@@ -21,12 +21,12 @@ from scipy.sparse import coo_matrix, bmat
 import dgl
 
 from utils import load_data, accuracy, dense_tensor_to_sparse, resample, makedirs
-from models import HGAT, GCN, GAT
+from models import HGAT, GCN, GAT, weighted_GCN
 import os
 import gc
 import sys
 from print_log import Logger
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 logdir = "log/"
 savedir = 'model/'
@@ -57,6 +57,8 @@ parser.add_argument('--weight_decay', type=float, default=WD,
                     help='Weight decay (L2 loss on parameters).')
 parser.add_argument('--hidden', type=int, default=512,
                     help='Number of hidden units.')
+parser.add_argument('--layer', type=int, default=1,
+                    help='Number of layer.')
 parser.add_argument('--dropout', type=float, default=DP,
                     help='Dropout rate (1 - keep probability).')
 parser.add_argument('--dataset', type=str, default=dataset,
@@ -276,19 +278,19 @@ def baseline_model(input_adj_train, input_features_train,
                     in_feats=feature_dim,
                     n_hidden=args.hidden,
                     n_classes=labels.shape[1],
-                    n_layers=2,
+                    n_layers=args.layer,
                     activation=F.relu,
                     dropout=args.dropout,
                     sparse_input=True)
     elif args.baseline == "gat":
-        heads = [4]*2 + [1]
+        heads = [4]*args.layer + [1]
         slope = 0.1
         model = GAT(
             g=hg,
             in_dim=feature_dim,
             num_hidden=args.hidden,
             num_classes=labels.shape[1],
-            num_layers=2,
+            num_layers=args.layer,
             activation=F.elu,
             feat_drop=args.dropout,
             attn_drop=args.dropout,
@@ -296,6 +298,14 @@ def baseline_model(input_adj_train, input_features_train,
             negative_slope=slope,
             residual=False,
             sparse_input=True)
+    if args.baseline == "weighted_gcn":
+        model = weighted_GCN(in_feats=feature_dim,
+                             n_hidden=args.hidden,
+                             n_classes=labels.shape[1],
+                             n_layers=args.layer,
+                             activation=F.relu,
+                             dropout=args.dropout,
+                             sparse_input=True)
     else:
         print("Invalid baseline type")
         model = None
@@ -340,6 +350,9 @@ if args.cuda:
 FINAL_RESULT = []
 for i in range(args.repeat):
     # Model and optimizer
+    input_adj_train, input_features_train = adj, features
+    input_adj_val, input_features_val = adj, features
+    input_adj_test, input_features_test = adj, features
     print("\n\nNo. {} test.\n".format(i+1))
     if args.baseline:
         model, homo_features, homo_adj = baseline_model(input_adj_train, input_features_train,
