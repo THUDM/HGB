@@ -19,7 +19,6 @@ We add GCN and GAT comparison.
 
 ```bash
 python homoGNN.py --model GCN/GAT --data_name colab/cite 
-python homoGNN.py --model GAT 
 ```
 
 ## performance report
