@@ -4,12 +4,23 @@ from sklearn.metrics import f1_score, roc_auc_score
 import numpy as np
 import scipy.sparse as sp
 
-def preprocess_adj_bias(adj):
+def normalize_adj(adj):
+    """Symmetrically normalize adjacency matrix."""
+    adj = sp.coo_matrix(adj)
+    rowsum = np.array(adj.sum(1))
+    d_inv_sqrt = np.power(rowsum, -0.5).flatten()
+    d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
+    d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
+    return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+
+def preprocess_adj_bias(adj, norm=False):
     num_nodes = adj.shape[0]
     adj = adj + sp.eye(num_nodes)  # self-loop
     adj[adj > 0.0] = 1.0
     if not sp.isspmatrix_coo(adj):
         adj = adj.tocoo()
+    if norm:
+        adj = normalize_adj(adj)
     adj = adj.astype(np.float32)
     indices = np.vstack((adj.col, adj.row)).transpose()  # This is where I made a mistake, I used (adj.row, adj.col) instead
     return tf.SparseTensor(indices=indices, values=adj.data, dense_shape=adj.shape)
@@ -45,6 +56,9 @@ class KGCN(object):
             self.aggregator_class = NeighborAggregator
         else:
             raise Exception("Unknown aggregator: " + args.aggregator)
+        if args.model not in ['gcn', 'gat', 'kgcn']:
+            raise Exception("model type should be in ['gcn', 'gat', 'kgcn']")
+        self.model_type = args.model
 
     def _build_inputs(self):
         self.user_indices = tf.placeholder(dtype=tf.int64, shape=[None], name='user_indices')
@@ -56,8 +70,10 @@ class KGCN(object):
             shape=[n_user, self.dim], initializer=KGCN.get_initializer(), name='user_emb_matrix')
         self.entity_emb_matrix = tf.get_variable(
             shape=[n_entity, self.dim], initializer=KGCN.get_initializer(), name='entity_emb_matrix')
-        # self.relation_emb_matrix = tf.get_variable(
-        #     shape=[n_relation, self.dim], initializer=KGCN.get_initializer(), name='relation_emb_matrix')
+        model_type = self.model_type
+        if model_type == 'kgcn':
+            self.relation_emb_matrix = tf.get_variable(
+                shape=[n_relation, self.dim], initializer=KGCN.get_initializer(), name='relation_emb_matrix')
 
         # [batch_size, dim]
         self.user_embeddings = tf.nn.embedding_lookup(self.user_emb_matrix, self.user_indices)
@@ -65,26 +81,35 @@ class KGCN(object):
         # entities is a list of i-iter (i = 0, 1, ..., n_iter) neighbors for the batch of items
         # dimensions of entities:
         # {[batch_size, 1], [batch_size, n_neighbor], [batch_size, n_neighbor^2], ..., [batch_size, n_neighbor^n_iter]}
-        '''entities, relations = self.get_neighbors(self.item_indices)
+        if model_type =='kgcn':
+            entities, relations = self.get_neighbors(self.item_indices)
 
-        # [batch_size, dim]
-        self.item_embeddings, self.aggregators = self.aggregate(entities, relations)''' # Change to GAT and embedding_lookup
-        from utils.sp_gat import SpGAT
-        self.attn_drop = tf.placeholder(dtype=tf.float32, shape=())
-        self.ffd_drop = tf.placeholder(dtype=tf.float32, shape=())
-        self.is_train = tf.placeholder(dtype=tf.bool, shape=())
-        edges = []
-        for i in range(n_entity):
-            nei = list(set(self.adj_entity[i].tolist()))
-            for n in nei:
-                edges.append((i,n))
-                edges.append((n,i))
-        edges = np.array(list(set(edges)))
-        sp_mat = sp.coo_matrix(([1.0]*edges.shape[0], (edges[:,0], edges[:,1])), shape=(n_entity, n_entity))
-        sp_tensor = preprocess_adj_bias(sp_mat)
-        num_layers = 2
-        self.entity_emb = SpGAT.inference(tf.expand_dims(self.entity_emb_matrix, axis=0), self.dim, n_entity, self.is_train, self.attn_drop, self.ffd_drop, sp_tensor, [self.dim]*(num_layers-1), [8]*(num_layers-1)+[1])
-        self.item_embeddings = tf.nn.embedding_lookup(tf.squeeze(self.entity_emb, axis=0), self.item_indices)
+            # [batch_size, dim]
+            self.item_embeddings, self.aggregators = self.aggregate(entities, relations) # Change to GAT and embedding_lookup
+        else:
+            edges = []
+            for i in range(n_entity):
+                nei = list(set(self.adj_entity[i].tolist()))
+                for n in nei:
+                    edges.append((i,n))
+                    edges.append((n,i))
+            edges = np.array(list(set(edges)))
+            sp_mat = sp.coo_matrix(([1.0]*edges.shape[0], (edges[:,0], edges[:,1])), shape=(n_entity, n_entity))
+        if model_type == 'gat':
+            from utils.sp_gat import SpGAT
+            self.attn_drop = tf.placeholder(dtype=tf.float32, shape=())
+            self.ffd_drop = tf.placeholder(dtype=tf.float32, shape=())
+            self.is_train = tf.placeholder(dtype=tf.bool, shape=())
+            sp_tensor = preprocess_adj_bias(sp_mat)
+            num_layers = 2
+            self.entity_emb = SpGAT.inference(tf.expand_dims(self.entity_emb_matrix, axis=0), self.dim, n_entity, self.is_train, self.attn_drop, self.ffd_drop, sp_tensor, [self.dim]*(num_layers-1), [8]*(num_layers-1)+[1])
+            self.item_embeddings = tf.nn.embedding_lookup(tf.squeeze(self.entity_emb, axis=0), self.item_indices)
+        elif model_type == 'gcn':
+            from gcn.layers import GCN
+            self.drop = tf.placeholder(dtype=tf.float32, shape=())
+            sp_tensor = preprocess_adj_bias(sp_mat, norm=True)
+            self.entity_emb = GCN(self.entity_emb_matrix, self.dim, self.drop, sp_tensor)
+            self.item_embeddings = tf.nn.embedding_lookup(self.entity_emb, self.item_indices)
 
         # [batch_size]
         self.scores = tf.reduce_sum(self.user_embeddings * self.item_embeddings, axis=1)

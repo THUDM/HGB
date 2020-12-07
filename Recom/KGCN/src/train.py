@@ -71,11 +71,14 @@ def topk_settings(show_topk, train_data, test_data, n_item):
 
 
 def get_feed_dict(model, data, start, end, is_train):
-    drop = 0.6 if is_train else 0.
     feed_dict = {model.user_indices: data[start:end, 0],
                  model.item_indices: data[start:end, 1],
-                 model.labels: data[start:end, 2],
-                model.attn_drop:drop, model.ffd_drop:drop, model.is_train:is_train}
+                 model.labels: data[start:end, 2]}
+    drop = 0.6 if is_train else 0.
+    if model.model_type == 'gat':
+        feed_dict.update({model.attn_drop:drop, model.ffd_drop:drop, model.is_train:is_train})
+    elif model.model_type == 'gcn':
+        feed_dict.update({model.drop:drop})
     return feed_dict
 
 

@@ -17,17 +17,20 @@ We replace the GNN module in paper by GCN and GAT for comparison.
 * run main.py
 
 ```bash
-python main.py
+python main.py --model gcn
+python main.py --model gat
+python main.py --model kgcn
 ```
 
 ## performance report
 
 For MovieLens-20M dataset: (Other datasets to be completed)
 
-|      | AUC   | F1    |
-|------|-------|-------|
-| KGCN | 0.977 | 0.930 |
-| GAT  | 0.978 | 0.932 |
+|      | AUC       | F1        |
+|------|-----------|-----------|
+| KGCN | 0.977     | 0.930     |
+| GAT  | 0.978     | 0.932     |
+| GGN  | **0.980** | **0.937** |
 
 ***The following content is from the initial hwwang55/KGCN repo.***
 
