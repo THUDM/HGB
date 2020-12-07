@@ -7,11 +7,13 @@ We replace the GNN module in paper by GCN and GAT for comparison.
 ## running environment
 
 * Python 3.6
-* tensorflow 1.11
+* tensorflow-gpu 1.9.0
 
 ## running procedure
 
-* Download data from [tsinghua-cloud]() (To be uploaded)
+* Download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/eee49039f99e4984a30a/)
+* unzip and move data folder to KGCN/
+* cd to src/
 * run main.py
 
 ```bash
