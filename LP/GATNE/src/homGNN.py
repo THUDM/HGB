@@ -136,15 +136,12 @@ class GAT(th.nn.Module):
         self.layers.append(GATConv(hid_feats*heads[-2], hid_feats,heads[-1]))
         self.fc = nn.Linear(hid_feats,out_feats)
         self.dropout = nn.Dropout(p=dropout)
-        nn.init.xavier_normal_(self.fc.weight,gain=1)
-        for layer in self.layers:
-            nn.init.xavier_normal_(layer.weight, gain=1)
+        nn.init.xavier_normal_(self.fc.weight, gain=1)
 
     def encode(self, data):
-        x, edge_list= data.x,data.edge_list
+        x, edge_list= data
         for i, layer in enumerate(self.layers):
             if i != 0:
-                pass
                 x = self.dropout(x)
             x = layer(x,edge_list)
             x = F.relu(x)
@@ -238,18 +235,7 @@ def main(data_name, eval_type, model):
                     break
         if early_stopping.stop:
             break
-        # test
-        test_list = file2list(test_file, eval_type)
-        model.eval()
-        hid_feat = model.encode([feat, edge_list])
-        out_feat = model.decode(hid_feat, [test_list[0], test_list[1]])
-        target = th.FloatTensor(test_list[2]).view(-1, 1).to(device)
-        loss = lossFun(out_feat, target)
-        valid_half_len = int(len(valid_list[0]) / 2)
-        roc_auc, fpr_auc, f1 = evaluate(out_feat, [test_list[0][:valid_half_len], test_list[1][:valid_half_len]],
-                                        [test_list[0][valid_half_len:], test_list[1][valid_half_len:]])
-        print(
-            f"-------------------------------------------------------------test loss {loss}, auc {roc_auc}, pr {fpr_auc}, f1 {f1}")
+
     # test
     model.load_state_dict(th.load(model_save_path))
     model.eval()
@@ -272,8 +258,16 @@ if __name__ == '__main__':
     data_name = sys.argv[1]
     model_type = sys.argv[2]
     print(data_name)
-    if model_type=='GCN' or model_type=='GAT':
-        model = globals()[model_type](in_feats=node_num[data_name], hid_feats=200, out_feats=1).to(device)
+    model=None
+    if model_type=='GCN':
+        model = GCN(in_feats=node_num[data_name], hid_feats=200, out_feats=1).to(device)
+    elif model_type=="GAT":
+        n_heads=[4]
+        n_layers=2
+        heads = n_heads * (n_layers - 1) + [1]
+        model = GAT(in_feats=node_num[data_name], hid_feats=200, out_feats=1, n_layers=n_layers, heads=heads).to(device)
+    else:
+        exit('please input true model_type within [GCN, GAT]')
     auc_list, pr_list, f1_list = list(), list(), list()
     for eval_type in dataset_eval_type[data_name]:
         print(f'dataset: {data_name}, eval_type: {eval_type}')

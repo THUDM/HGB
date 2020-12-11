@@ -21,7 +21,7 @@ We add GCN and GAT comparison.
 * run run_LastFM_GNN.py
 
 ```bash
-python homGNN.py twitter/amazon/youtube
+python homGNN.py twitter/amazon/youtube GCN/GAT
 ```
 
 ## performance report
@@ -31,8 +31,10 @@ dataset: Amazon
 | ---------------------- | --------- | --------- | --------- |
 | GATNE-T(in paper)   | 97.44     | 97.05   | 92.87  |
 | GATNE-T(reproduction)   | 97.00     | 96.55   | 91.79  |
-| GCN        | **97.63** | **97.41**|  **93.14** |
-
+| GCN        | 97.63 | **97.41**|  93.14 |
+| GAT        | **98.01** | 96.81|  **94.50** |
+ 
+avg_auc:0.9800558066931087, avg_pr:0.968141066560085, avg_f1:0.9449531964877254
 dataset: Youtube  
 
 |                      |     ROC-AUC   |    PR-AUC     | F1 |
@@ -48,6 +50,7 @@ dataset: Twitter
 | GATNE-T(in paper)   | 92.30    | 91.77   | 84.96  |
 | GATNE-T(reproduction)   | 92.45     | 92.36   | 85.43  |
 | GCN        |  **94.87** | **94.50** |  **88.37** |
+| GAT        |  92.00 | 91.17 |  84.70 |
 
 ***The following content is from the initial THUDM/GATNE repo.***
 
