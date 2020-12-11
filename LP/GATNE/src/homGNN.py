@@ -104,9 +104,9 @@ class GCN(th.nn.Module):
             self.layers.append(GCNConv(hid_feats, hid_feats))
         self.fc = nn.Linear(hid_feats, out_feats)  # only used in decode
         self.dropout = nn.Dropout(p=dropout)
-        nn.init.xavier_normal_(self.fc.weight, gain=1)
+        nn.init.xavier_normal_(self.fc.weight, gain=1.4)
         for layer in self.layers:
-            nn.init.xavier_normal_(layer.weight, gain=1)
+            nn.init.xavier_normal_(layer.weight, gain=1.4)
     def encode(self, data):
         x, edge_list = data
         for i, layer in enumerate(self.layers):
@@ -136,7 +136,9 @@ class GAT(th.nn.Module):
         self.layers.append(GATConv(hid_feats*heads[-2], hid_feats,heads[-1]))
         self.fc = nn.Linear(hid_feats,out_feats)
         self.dropout = nn.Dropout(p=dropout)
-        nn.init.xavier_normal_(self.fc.weight, gain=1)
+        nn.init.xavier_normal_(self.fc.weight, gain=1.4)
+        for layer in self.layers:
+            nn.init.xavier_normal_(layer.lin_l.weight, gain=1.4)
 
     def encode(self, data):
         x, edge_list= data
@@ -229,7 +231,7 @@ def main(data_name, eval_type, model):
                                             [valid_list[0][valid_half_len:], valid_list[1][valid_half_len:]])
             if index % 10 == 0:
                 print(
-                    f"-------------------------------------------------------------valid loss {loss}, auc {roc_auc}, pr {fpr_auc}, f1 {f1}")
+                    f"--------------------------------------------------------valid loss {loss}, auc {roc_auc}, pr {fpr_auc}, f1 {f1}")
                 early_stopping.step(roc_auc, model)
                 if early_stopping.stop:
                     break
@@ -248,7 +250,7 @@ def main(data_name, eval_type, model):
     roc_auc, fpr_auc, f1 = evaluate(out_feat, [test_list[0][:valid_half_len], test_list[1][:valid_half_len]],
                                     [test_list[0][valid_half_len:], test_list[1][valid_half_len:]])
     print(
-        f"-------------------------------------------------------------test loss {loss}, auc {roc_auc}, pr {fpr_auc}, f1 {f1}")
+        f"test loss {loss}, auc {roc_auc}, pr {fpr_auc}, f1 {f1}")
     return roc_auc, fpr_auc, f1
 
 
@@ -262,7 +264,7 @@ if __name__ == '__main__':
     if model_type=='GCN':
         model = GCN(in_feats=node_num[data_name], hid_feats=200, out_feats=1).to(device)
     elif model_type=="GAT":
-        n_heads=[4]
+        n_heads=[2]
         n_layers=2
         heads = n_heads * (n_layers - 1) + [1]
         model = GAT(in_feats=node_num[data_name], hid_feats=200, out_feats=1, n_layers=n_layers, heads=heads).to(device)
@@ -275,6 +277,5 @@ if __name__ == '__main__':
         auc_list.append(roc_auc)
         pr_list.append(pr_auc)
         f1_list.append(f1)
-        print(f'auc {roc_auc}, pr {pr_auc}, f1 {f1}')
-    print(auc_list, pr_list, f1_list)
+    print(f'auc_list:{auc_list}, pr_list:{pr_list}, f1_list:{f1_list}')
     print(f'avg_auc:{np.mean(auc_list)}, avg_pr:{np.mean(pr_list)}, avg_f1:{np.mean(f1_list)}')

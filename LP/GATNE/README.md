@@ -1,6 +1,6 @@
-# MAGNN code
+# GATNE code
 
-Adapted from [cynricfu/MAGNN](https://github.com/cynricfu/MAGNN).
+Adapted from [THUDM/GATNE](git@github.com/THUDM/GATNE).
 
 We add GCN and GAT comparison.
 
@@ -13,13 +13,15 @@ We add GCN and GAT comparison.
 
 ## running procedure
 
-* Download LastFM_processed.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/9870e66d3c4f40c7b31a/files/?p=%2Fpreprocessed%2FLastFM_processed.zip)
-* mkdir checkpoint
+* Download data.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/9d5d74a6d1884919a0be/)
 * mkdir data
-* mkdir data/preprocessed
-* Unzip LastFM_processed.zip to the .data/preprocessed/
-* run run_LastFM_GNN.py
-
+* Unzip data.zip to the data/
+* cd src
+* run gen_hom_data.py
+```bash
+python gen_hom_data.py twitter/amazon/youtube
+```
+* run homGNN.py
 ```bash
 python homGNN.py twitter/amazon/youtube GCN/GAT
 ```
@@ -34,14 +36,14 @@ dataset: Amazon
 | GCN        | 97.63 | **97.41**|  93.14 |
 | GAT        | **98.01** | 96.81|  **94.50** |
  
-avg_auc:0.9800558066931087, avg_pr:0.968141066560085, avg_f1:0.9449531964877254
 dataset: Youtube  
 
 |                      |     ROC-AUC   |    PR-AUC     | F1 |
 | ---------------------- | --------- | --------- | --------- |
 | GATNE-T(in paper)   |84.61     | 81.93   | 76.83  |
 | GATNE-T(reproduction)   | 83.86     | 81.70   | 76.33  |
-| GCN        |  **89.69** | **89.25**|  **82.20** |
+| GCN        |  89.69 | 89.25|  82.20 |
+| GAT        |  **90.76** | **89.73**|  **83.28** |
 
 dataset: Twitter  
 
@@ -49,8 +51,8 @@ dataset: Twitter
 | ---------------------- | --------- | --------- | --------- |
 | GATNE-T(in paper)   | 92.30    | 91.77   | 84.96  |
 | GATNE-T(reproduction)   | 92.45     | 92.36   | 85.43  |
-| GCN        |  **94.87** | **94.50** |  **88.37** |
-| GAT        |  92.00 | 91.17 |  84.70 |
+| GCN        |  **94.87** | **94.50** |  88.37 |
+| GAT        |  94.40 | 93.32 |  **89.28** |
 
 ***The following content is from the initial THUDM/GATNE repo.***
 
