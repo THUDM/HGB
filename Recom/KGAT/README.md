@@ -41,18 +41,20 @@ python Main.py --model_type kgat --alg_type gcn --dataset yelp2018 --regs [1e-5,
 
 * Amazon-book dataset
 ```
-python Main.py --model_type kgat --alg_type gcn --dataset amazon-book --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --use_att True --use_kge True --gpu_id 0
+python Main.py --model_type kgat --alg_type gcn --dataset amazon-book --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --gpu_id 0
 ```
 
 
 * Last-fm dataset
 ```
-python Main.py --model_type kgat --alg_type gcn --dataset last-fm --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --use_att True --use_kge True --gpu_id 0
+python Main.py --model_type kgat --alg_type gcn --dataset last-fm --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --gpu_id 0
 ```
 
 ### To run GAT
 
 Attention mechanism is needed to be modifed since attn in KGAT is relation-aware attention. (Pending in todo list)
+
+***The following content is from the initial xiangwang1223/knowledge_graph_attention_network repo.***
 
 
 # Knowledge Graph Attention Network
