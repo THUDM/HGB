@@ -72,6 +72,8 @@ def parse_args():
 
     parser.add_argument('--use_att', type=bool, default=False,
                         help='whether using attention mechanism')
+    parser.add_argument('--att_type', type=str, default='kgat',
+                        help='what attention mechanism to use: kgat or gat')
     parser.add_argument('--use_kge', type=bool, default=False,
                         help='whether using knowledge graph embedding')
     
