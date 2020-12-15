@@ -275,7 +275,7 @@ if __name__ == '__main__':
                     help='Type of the node features used. ' +
                          '0 - all id vectors; ' +
                          '1 - all zero vector.' +
-                         '2 - all eye vector. Default is 2.')
+                         '2 - all eye vector. Default is 0.')
     ap.add_argument('--hidden-dim', type=int, default=64, help='Dimension of the node hidden state. Default is 64.')
     ap.add_argument('--num-heads', type=int, default=8, help='Number of the attention heads. Default is 8.')
     ap.add_argument('--attn-vec-dim', type=int, default=128, help='Dimension of the attention vector. Default is 128.')
@@ -286,7 +286,7 @@ if __name__ == '__main__':
     ap.add_argument('--samples', type=int, default=100, help='Number of neighbors sampled. Default is 100.')
     ap.add_argument('--repeat', type=int, default=1, help='Repeat the training and testing for N times. Default is 1.')
     ap.add_argument('--save-postfix', default='LastFM', help='Postfix for the saved model and result. Default is LastFM.')
-    ap.add_argument('--model', default='gcn')
+    ap.add_argument('--model', default='gat')
     args = ap.parse_args()
     run_model_LastFM(args.feats_type, args.hidden_dim, args.num_heads, args.attn_vec_dim, args.rnn_type, args.epoch,
                      args.patience, args.batch_size, args.samples, args.repeat, args.save_postfix, args.model)
