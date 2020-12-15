@@ -89,6 +89,9 @@ class KGAT(object):
 
         self.alg_type = args.alg_type
         self.model_type += '_%s_%s_%s_l%d' % (args.adj_type, args.adj_uni_type, args.alg_type, self.n_layers)
+        self.att_type = args.att_type
+        if args.att_type != 'kgat':
+            self.model_type += '_'+self.att_type
 
         self.regs = eval(args.regs)
         self.verbose = args.verbose
@@ -135,6 +138,7 @@ class KGAT(object):
         all_weights['relation_embed'] = tf.Variable(initializer([self.n_relations, self.kge_dim]),
                                                     name='relation_embed')
         all_weights['trans_W'] = tf.Variable(initializer([self.n_relations, self.emb_dim, self.kge_dim]))
+        all_weights['trans_gat'] = tf.Variable(initializer([1, self.emb_dim*2]))
 
         self.weight_size_list = [self.emb_dim] + self.weight_size
 
@@ -178,7 +182,10 @@ class KGAT(object):
 
     def _build_model_phase_II(self):
         self.h_e, self.r_e, self.pos_t_e, self.neg_t_e = self._get_kg_inference(self.h, self.r, self.pos_t, self.neg_t)
-        self.A_kg_score = self._generate_transE_score(h=self.h, t=self.pos_t, r=self.r)
+        if self.att_type == 'kgat':
+            self.A_kg_score = self._generate_transE_score(h=self.h, t=self.pos_t, r=self.r)
+        else:
+            self.A_kg_score = self._generate_gat_score(h=self.h, t=self.pos_t)
         self.A_out = self._create_attentive_A_out()
 
     def _get_kg_inference(self, h, r, pos_t, neg_t):
@@ -409,6 +416,27 @@ class KGAT(object):
         kg_score = tf.reduce_sum(tf.multiply(t_e, tf.tanh(h_e + r_e)), 1)
 
         return kg_score
+
+    def _generate_gat_score(self, h, t):
+        embeddings = tf.concat([self.weights['user_embed'], self.weights['entity_embed']], axis=0)
+        embeddings = tf.expand_dims(embeddings, 1)
+
+        h_e = tf.nn.embedding_lookup(embeddings, h)
+        t_e = tf.nn.embedding_lookup(embeddings, t)
+
+        # batch_size * 1 * kge_dim -> batch_size * kge_dim
+        h_e = tf.reshape(h_e, [-1, self.emb_dim])
+        t_e = tf.reshape(t_e, [-1, self.emb_dim])
+        e = tf.concat([h_e, t_e], axis=1)
+
+        # l2-normalize
+        # h_e = tf.math.l2_normalize(h_e, axis=1)
+        # r_e = tf.math.l2_normalize(r_e, axis=1)
+        # t_e = tf.math.l2_normalize(t_e, axis=1)
+
+        gat_score = tf.reduce_sum(tf.multiply(e, self.weights['trans_gat']), 1)
+
+        return gat_score
 
     def _statistics_params(self):
         # number of params
