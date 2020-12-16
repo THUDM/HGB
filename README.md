@@ -20,7 +20,7 @@ If we compare our method on our own datasets:
 
 ### Link prediction
 
-todo
+This part is in LP folder.
 
 ### Text classification
 
