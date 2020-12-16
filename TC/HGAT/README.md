@@ -21,9 +21,10 @@ We add GCN and GAT comparison under --baseline setting.
 ```
 cd ./model/code/
 python train.py                  # for HGAT
-python train.py --baseline=gcn  # for GCN 
-python train.py --baseline=gat  # for GAT
-python train.py --baseline=weighted_gcn --hidden=256  # for weighted GCN
+python train.py --baseline=gcn  --hidden=50 # for GCN 
+python train.py --baseline=gat  --hidden=50 # for GAT
+python train.py --baseline=weighted_gcn  # for weighted GCN
+python train.py --baseline=weighted_gcn  # for weighted GCN
 ```
 
 You may change the dataset by modifying the variable "dataset = 'example'" in the top of the code "train.py" or use arguments (see train.py). 
