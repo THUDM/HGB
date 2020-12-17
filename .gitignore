@@ -148,7 +148,17 @@ TC/HGAT/model/data/snippets
 TC/HGAT/model/data/tagmynews
 TC/HGAT/model/data/twitter
 
+NC/HetGNN/academic_test
+NC/MAGNN/data
+
+LP/GATNE/
+LP/HetGNN/data/
+LP/MAGNN/data
+
 #model
 *.pth
+*.pt
 NC/HetGNN/model_save/
 NC/RGCN/.vscode/settings.json
+
+

@@ -35,7 +35,7 @@ python run_LastFM_GNN.py --model GAT
 | GCN (in paper)       | 0.9097| 0.9165| ---|
 | GCN (reproduction)       | 0.9455| 0.9515|  40 seconds |
 | GAT (in paper)       | 0.9236    | 0.9155    |   ---|
-| GAT (reproduction)       | 0.9569    | 0.9560    | 40 seconds |
+| GAT (reproduction)       | 0.9613    | 0.9606    | 40 seconds |
 
 ***The following content is from the initial chuxuzhang/KDD2019_HetGNN repo.***
 ## MAGNN
