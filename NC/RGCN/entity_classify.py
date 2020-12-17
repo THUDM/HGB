@@ -104,9 +104,14 @@ def main(args):
     target_idx = node_ids[loc]
 
     # since the nodes are featureless, the input feature is then the node id.
-    if args.baseline:
-        feats = g.ndata[dgl.NTYPE]
-        feats = F.one_hot(feats, len(hg.ntypes))
+    if args.model == "gcn":
+        # feats = g.ndata[dgl.NTYPE]
+        # feats = F.one_hot(feats, len(hg.ntypes))
+        i = torch.LongTensor([[i for i in range(num_nodes)], [
+                             i for i in range(num_nodes)]])
+        v = torch.FloatTensor([1 for i in range(num_nodes)])
+        feats = torch.sparse.FloatTensor(
+            i, v, torch.Size([num_nodes, num_nodes]))
     else:
         feats = torch.arange(num_nodes)
 
@@ -120,13 +125,14 @@ def main(args):
         labels = labels.cuda()
 
     # create model
-    if args.baseline:
-        model = GCN(len(hg.ntypes),
+    if args.model == "gcn":
+        model = GCN(num_nodes,
                     args.n_hidden,
                     num_classes,
                     args.n_layers,
                     F.relu,
-                    args.dropout)
+                    args.dropout,
+                    True)
     else:
         model = EntityClassify(num_nodes,
                                args.n_hidden,
@@ -154,11 +160,12 @@ def main(args):
     for epoch in range(args.n_epochs):
         optimizer.zero_grad()
         t0 = time.time()
-        logits = model(g, feats, edge_type, edge_norm)
-        if args.baseline:
+        if args.model == "gcn":
             logits = model(g, feats)
         else:
             logits = model(g, feats, edge_type, edge_norm)
+        logits = logits[target_idx]
+        logits = F.softmax(logits)
         loss = F.cross_entropy(logits[train_idx], labels[train_idx])
         t1 = time.time()
         loss.backward()
@@ -179,7 +186,10 @@ def main(args):
     print()
 
     model.eval()
-    logits = model.forward(g, feats, edge_type, edge_norm)
+    if args.model == "gcn":
+        logits = model(g, feats)
+    else:
+        logits = model.forward(g, feats, edge_type, edge_norm)
     logits = logits[target_idx]
     test_loss = F.cross_entropy(logits[test_idx], labels[test_idx])
     test_acc = torch.sum(logits[test_idx].argmax(
@@ -196,8 +206,8 @@ def main(args):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='RGCN')
-    parser.add_argument("--baseline", default=False, action='store_true',
-                        help="use baseline GCN")
+    parser.add_argument("--model", type=str, default="rgcn",
+                        help="use GNN model")
     parser.add_argument("--dropout", type=float, default=0,
                         help="dropout probability")
     parser.add_argument("--n-hidden", type=int, default=16,

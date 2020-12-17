@@ -10,8 +10,13 @@ class GCN(nn.Module):
                  out_classes,
                  n_layers,
                  activation,
-                 dropout):
+                 dropout,
+                 sparse=False):
         super(GCN, self).__init__()
+        self.sparse_input = sparse
+        if self.sparse_input:
+            self.linear = nn.Linear(in_feats, n_hidden)
+            in_feats = n_hidden
         self.layers = nn.ModuleList()
         # input layer
         self.layers.append(
@@ -24,12 +29,16 @@ class GCN(nn.Module):
         self.layers.append(GraphConv(n_hidden, out_classes))
         self.dropout = nn.Dropout(p=dropout)
 
-    def forward(self, g, h):
+    def forward(self, g, feature):
+        if self.sparse_input:
+            h = self.linear(feature)
+        else:
+            h = feature
         for i, layer in enumerate(self.layers):
             if i != 0:
                 h = self.dropout(h)
             h = layer(g, h)
-        return
+        return h
 
 
 class BaseRGCN(nn.Module):
