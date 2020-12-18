@@ -18,7 +18,7 @@ from dgl.nn.pytorch import RelGraphConv
 from functools import partial
 from dgl.data.rdf import AIFBDataset, MUTAGDataset, BGSDataset, AMDataset
 
-from model import BaseRGCN, GCN
+from model import BaseRGCN, GCN, GAT
 
 
 class EntityClassify(BaseRGCN):
@@ -104,7 +104,7 @@ def main(args):
     target_idx = node_ids[loc]
 
     # since the nodes are featureless, the input feature is then the node id.
-    if args.model == "gcn":
+    if not args.model == "rgcn":
         # feats = g.ndata[dgl.NTYPE]
         # feats = F.one_hot(feats, len(hg.ntypes))
         i = torch.LongTensor([[i for i in range(num_nodes)], [
@@ -133,6 +133,21 @@ def main(args):
                     F.relu,
                     args.dropout,
                     True)
+    elif args.model == "gat":
+        heads = [4]*args.n_layers + [1]
+        slope = 0.1
+        model = GAT(
+            in_dim=num_nodes,
+            num_hidden=args.n_hidden,
+            num_classes=num_classes,
+            num_layers=args.n_layers,
+            activation=F.elu,
+            feat_drop=args.dropout,
+            attn_drop=args.dropout,
+            heads=heads,
+            negative_slope=slope,
+            residual=False,
+            sparse_input=True)
     else:
         model = EntityClassify(num_nodes,
                                args.n_hidden,
@@ -160,7 +175,7 @@ def main(args):
     for epoch in range(args.n_epochs):
         optimizer.zero_grad()
         t0 = time.time()
-        if args.model == "gcn":
+        if args.model == "gcn" or args.model == "gat":
             logits = model(g, feats)
         else:
             logits = model(g, feats, edge_type, edge_norm)
@@ -186,7 +201,7 @@ def main(args):
     print()
 
     model.eval()
-    if args.model == "gcn":
+    if not args.model == "rgcn":
         logits = model(g, feats)
     else:
         logits = model.forward(g, feats, edge_type, edge_norm)

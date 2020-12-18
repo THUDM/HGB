@@ -24,9 +24,8 @@ def main(args):
     # for i in hg.ntypes:
     #     print(str(len(hg.nodes[i].data["_ID"]))+" "+i+" /")
 
-    for i in hg.etypes:
-        print(i)
-        print(str(len(hg.edges[i].data["_ID"]))+" "+i+" /")
+    print(len(hg.etypes))
+    print(hg.number_of_edges())
 
 
 if __name__ == '__main__':
