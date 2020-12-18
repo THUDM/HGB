@@ -16,9 +16,22 @@ We replace the GNN module in paper by GCN and GAT for comparison.
 * run main.py
 
 ```bash
-python main.py --model gcn
-python main.py --model gat
-python main.py --model kgcn
+python main.py --dataset=movie --n_epochs=10 --neighbor_sample_size=16 --dim=32 --n_iter=2 --batch_size=65536 --l2_weight=1e-7 --ls_weight=1.0 --lr=2e-2 --model=kgnn_ls
+python main.py --dataset=music --n_epochs=10 --neighbor_sample_size=8 --dim=16 --n_iter=1 --batch_size=128 --l2_weight=1e-4 --ls_weight=0.1 --lr=5e-4 --model=kgnn_ls 
+python main.py --dataset=restaurant --n_epochs=10 --neighbor_sample_size=4 --dim=8 --n_iter=2 --batch_size=65536 --l2_weight=1e-7 --ls_weight=0.5 --lr=2e-2 --model=kgnn_ls
+
+python main.py --dataset=movie --n_epochs=10 --neighbor_sample_size=16 --dim=32 --n_iter=2 --batch_size=65536 --l2_weight=1e-7 --ls_weight=1.0 --lr=2e-2 --model=kgcn
+python main.py --dataset=music --n_epochs=10 --neighbor_sample_size=8 --dim=16 --n_iter=1 --batch_size=128 --l2_weight=1e-4 --ls_weight=0.1 --lr=5e-4 --model=kgcn 
+python main.py --dataset=restaurant --n_epochs=10 --neighbor_sample_size=4 --dim=8 --n_iter=2 --batch_size=65536 --l2_weight=1e-7 --ls_weight=0.5 --lr=2e-2 --model=kgcn
+
+python main.py --dataset=movie --n_epochs=10 --neighbor_sample_size=16 --dim=32 --n_iter=1 --batch_size=65536 --l2_weight=1e-7 --ls_weight=1.0 --lr=2e-2 --model=gcn
+python main.py --dataset=music --n_epochs=30 --neighbor_sample_size=8 --dim=16 --n_iter=1 --batch_size=128 --l2_weight=1e-4 --ls_weight=0.1 --lr=5e-4 --model=gcn
+python main.py --dataset=restaurant --n_epochs=10 --neighbor_sample_size=4 --dim=8 --n_iter=2 --batch_size=65536 --l2_weight=1e-7 --ls_weight=0.5 --lr=2e-2 --model=gcn
+
+python main.py --dataset=movie --n_epochs=10 --neighbor_sample_size=16 --dim=32 --n_iter=1 --batch_size=65536 --l2_weight=1e-7 --ls_weight=1.0 --lr=2e-2 --model=gat
+python main.py --dataset=music --n_epochs=10 --neighbor_sample_size=8 --dim=16 --n_iter=1 --batch_size=128 --l2_weight=1e-6 --ls_weight=0.1 --lr=5e-4 --model=gat
+python main.py --dataset=restaurant --n_epochs=10 --neighbor_sample_size=4 --dim=8 --n_iter=2 --batch_size=65536 --l2_weight=1e-7 --ls_weight=0.5 --lr=2e-2 --model=gat
+
 ```
 
 ## performance report

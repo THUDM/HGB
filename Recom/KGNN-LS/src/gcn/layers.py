@@ -13,6 +13,7 @@ def dot(x, y, sparse=False):
 
 class GraphConvolution:
     """Graph convolution layer."""
+
     def __init__(self, input_dim, output_dim, placeholders, dropout=0., act=tf.nn.relu, bias=False,
                  featureless=False, **kwargs):
         super(GraphConvolution, self).__init__(**kwargs)
@@ -54,8 +55,9 @@ class GraphConvolution:
         return self.act(output)
 
 
-def GCN(inputs, dim, drop, A):
-    placeholders = {'dropout':drop, 'support':A}
+def GCN(inputs, dim, drop, A, n_layer):
+    placeholders = {'dropout': drop, 'support': A}
     x = GraphConvolution(dim, dim, placeholders)._call(inputs)
-    x = GraphConvolution(dim, dim, placeholders, act=lambda x:x)._call(x)
+    for _ in range(n_layer-1):
+        x = GraphConvolution(dim, dim, placeholders, act=lambda x: x)._call(x)
     return x

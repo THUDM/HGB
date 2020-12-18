@@ -1,6 +1,6 @@
 import tensorflow as tf
 import numpy as np
-from model import KGNN_LS
+from model import KGNN_LS, KGCN
 
 
 def train(args, data, show_loss, show_topk):
@@ -9,8 +9,12 @@ def train(args, data, show_loss, show_topk):
     adj_entity, adj_relation = data[7], data[8]
 
     interaction_table, offset = get_interaction_table(train_data, n_entity)
-    model = KGNN_LS(args, n_user, n_entity, n_relation,
-                    adj_entity, adj_relation, interaction_table, offset)
+    if args.model == "kgnn_ls":
+        model = KGNN_LS(args, n_user, n_entity, n_relation,
+                        adj_entity, adj_relation, interaction_table, offset)
+    else:
+        model = KGCN(args, n_user, n_entity, n_relation, adj_entity,
+                     adj_relation)
 
     # top-K evaluation settings
     user_list, train_record, test_record, item_set, k_list = topk_settings(
