@@ -23,6 +23,11 @@ python3 entity_classify.py -d aifb --gpu=3 --lr=0.001 -e 300 --model=gcn --testi
 python3 entity_classify.py -d mutag --l2norm 1e-2 --gpu=3 --lr=0.01 --n-hidden=32 --model=gcn --testing
 python3 entity_classify.py -d bgs --gpu 3 --n-hidden=64  --lr=0.015 --n-layer=1 --model=gcn --testing 
 python3 entity_classify.py -d am --n-hidden=64 --n-layer=1 --gpu=3 --lr=0.005 -e 100  --model=gcn --testing
+
+python3 entity_classify.py -d aifb --gpu=3 --lr=0.001 -e 300 --model=gat --testing
+python3 entity_classify.py -d mutag --l2norm 5e-3 --gpu=3 --lr=0.01 --n-hidden=32 -e 200 --model=gat --testing
+python3 entity_classify.py -d bgs --gpu 3 --n-hidden=64  --lr=0.015 --n-layer=1 --model=gcn --testing 
+python3 entity_classify.py -d am --n-hidden=64 --n-layer=1 --gpu=3 --lr=0.005 -e 100  --model=gcn --testing
 ```
 ## performance report
 
