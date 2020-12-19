@@ -57,7 +57,11 @@ class GraphConvolution:
 
 def GCN(inputs, dim, drop, A, n_layer):
     placeholders = {'dropout': drop, 'support': A}
-    x = GraphConvolution(dim, dim, placeholders)._call(inputs)
+
+    if n_layer == 1:
+        return GraphConvolution(dim, dim, placeholders, act=lambda x: x)._call(inputs)
+
     for _ in range(n_layer-1):
-        x = GraphConvolution(dim, dim, placeholders, act=lambda x: x)._call(x)
+        x = GraphConvolution(dim, dim, placeholders)._call(inputs)
+    x = GraphConvolution(dim, dim, placeholders, act=lambda x: x)._call(x)
     return x
