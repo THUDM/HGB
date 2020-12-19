@@ -66,6 +66,7 @@ class KGAT_loader(Data):
         print('\tconvert %d relational triples into adj mat done. @%.4fs' %(len(adj_mat_list), time()-t1))
         if self.args.no_rel_type is True:
             all_mat = sum(adj_mat_list)
+            all_mat = (all_mat + sp.eye(self.n_users + self.n_entities)).tocoo()
             adj_mat_list = [all_mat]
             adj_r_list = [0]
 
