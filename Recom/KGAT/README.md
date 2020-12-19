@@ -58,7 +58,7 @@ python Main.py --model_type kgat --alg_type gcn --dataset last-fm --regs [1e-5,1
 
 * Movie-Lens dataset
 ```
-python Main.py --model_type kgat --alg_type bi --dataset movie-lens --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --no_rel_type True --gpu_id 0
+python Main.py --model_type kgat --alg_type gcn --dataset movie-lens --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --no_rel_type True --gpu_id 0
 ```
 
 ### To run GAT
@@ -80,7 +80,7 @@ python Main.py --model_type kgat --alg_type gcn --dataset last-fm --regs [1e-5,1
 
 * Movie-Lens dataset
 ```
-python Main.py --model_type kgat --alg_type bi --dataset movie-lens --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --use_att True --att_type gat --no_rel_type True --gpu_id 0
+python Main.py --model_type kgat --alg_type gcn --dataset movie-lens --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --use_att True --att_type gat --no_rel_type True --gpu_id 0
 ```
 
 ### To run KGCN
@@ -102,7 +102,7 @@ python Main.py --model_type kgat --alg_type gcn --dataset last-fm --regs [1e-5,1
 
 * Movie-Lens dataset
 ```
-python Main.py --model_type kgat --alg_type bi --dataset movie-lens --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --use_att True --att_type kgcn --use_ls_loss True --gpu_id 0
+python Main.py --model_type kgat --alg_type gcn --dataset movie-lens --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --use_att True --att_type kgcn --use_ls_loss True --gpu_id 0
 ```
 
 ### To run KGNN-LS
@@ -124,7 +124,7 @@ python Main.py --model_type kgat --alg_type gcn --dataset last-fm --regs [1e-5,1
 
 * Movie-Lens dataset
 ```
-python Main.py --model_type kgat --alg_type bi --dataset movie-lens --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --use_att True --att_type kgcn --use_ls_loss True --gpu_id 0
+python Main.py --model_type kgat --alg_type gcn --dataset movie-lens --regs [1e-5,1e-5] --layer_size [64,32,16] --embed_size 64 --lr 0.0001 --epoch 1000 --verbose 50 --save_flag 1 --pretrain -1 --batch_size 1024 --node_dropout [0.1] --mess_dropout [0.1,0.1,0.1] --use_att True --att_type kgcn --use_ls_loss True --gpu_id 0
 ```
 
 ***The following content is from the initial xiangwang1223/knowledge_graph_attention_network repo.***
