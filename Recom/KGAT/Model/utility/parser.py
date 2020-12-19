@@ -76,6 +76,10 @@ def parse_args():
                         help='what attention mechanism to use: kgat or gat')
     parser.add_argument('--use_kge', type=bool, default=False,
                         help='whether using knowledge graph embedding')
+    parser.add_argument('--use_ls_loss', type=bool, default=False,
+                        help='whether using label smoothness loss')
+    parser.add_argument('--no_rel_type', type=bool, default=False,
+                        help='whether removing relation type information')
     
     parser.add_argument('--l1_flag', type=bool, default=True,
                         help='Flase: using the L2 norm, True: using the L1 norm.')

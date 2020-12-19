@@ -53,7 +53,7 @@ if __name__ == '__main__':
 
     if args.model_type in ['kgat', 'cfkg']:
         "Load the laplacian matrix."
-        config['A_in'] = sum(data_generator.lap_list)
+        config['A_in'] = sum(data_generator.lap_list).tocsr()
 
         "Load the KG triplets."
         config['all_h_list'] = data_generator.all_h_list
@@ -217,6 +217,11 @@ if __name__ == '__main__':
         f.close()
         exit()
 
+    """user_embed = sess.run(model.weights["user_embedding"])
+    item_embed = sess.run(model.weights["item_embedding"])
+    np.savez('mf.npz', user_embed=user_embed, item_embed=item_embed)
+    print('saved')
+    input()"""
     """
     *********************************************************
     Train.
