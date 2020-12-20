@@ -24,13 +24,13 @@ class Aggregator(object):
         self.batch_size = batch_size
         self.dim = dim
 
-    def __call__(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks):
+    def __call__(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks=None):
         outputs = self._call(self_vectors, neighbor_vectors,
                              neighbor_relations, user_embeddings, masks)
         return outputs
 
     @abstractmethod
-    def _call(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks):
+    def _call(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks=None):
         # dimension:
         # self_vectors: [batch_size, -1, dim]
         # neighbor_vectors: [batch_size, -1, n_neighbor, dim]
@@ -76,7 +76,7 @@ class SumAggregator(Aggregator):
             self.bias = tf.get_variable(
                 shape=[self.dim], initializer=tf.zeros_initializer(), name='bias')
 
-    def _call(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks):
+    def _call(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks=None):
         # [batch_size, -1, dim]
         neighbors_agg = self._mix_neighbor_vectors(
             neighbor_vectors, neighbor_relations, user_embeddings)
@@ -103,7 +103,7 @@ class ConcatAggregator(Aggregator):
             self.bias = tf.get_variable(
                 shape=[self.dim], initializer=tf.zeros_initializer(), name='bias')
 
-    def _call(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks):
+    def _call(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks=None):
         # [batch_size, -1, dim]
         neighbors_agg = self._mix_neighbor_vectors(
             neighbor_vectors, neighbor_relations, user_embeddings)
@@ -135,7 +135,7 @@ class NeighborAggregator(Aggregator):
             self.bias = tf.get_variable(
                 shape=[self.dim], initializer=tf.zeros_initializer(), name='bias')
 
-    def _call(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks):
+    def _call(self, self_vectors, neighbor_vectors, neighbor_relations, user_embeddings, masks=None):
         # [batch_size, -1, dim]
         neighbors_agg = self._mix_neighbor_vectors(
             neighbor_vectors, neighbor_relations, user_embeddings)

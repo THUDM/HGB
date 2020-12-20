@@ -24,18 +24,18 @@ python3 entity_classify.py -d mutag --l2norm 1e-2 --gpu=3 --lr=0.01 --n-hidden=3
 python3 entity_classify.py -d bgs --gpu 3 --n-hidden=64  --lr=0.015 --n-layer=1 --model=gcn --testing 
 python3 entity_classify.py -d am --n-hidden=64 --n-layer=1 --gpu=3 --lr=0.005 -e 100  --model=gcn --testing
 
-python3 entity_classify.py -d aifb --gpu=3 --lr=0.001 -e 300 --model=gat --testing
-python3 entity_classify.py -d mutag --l2norm 5e-3 --gpu=3 --lr=0.01 --n-hidden=32 -e 200 --model=gat --testing
-python3 entity_classify.py -d bgs --gpu 3 --n-hidden=64  --lr=0.015 --n-layer=1 --model=gcn --testing 
-python3 entity_classify.py -d am --n-hidden=64 --n-layer=1 --gpu=3 --lr=0.005 -e 100  --model=gcn --testing
+python3 entity_classify.py -d aifb --gpu=3 --lr=0.002 -e 300 --model=gat --testing
+python3 entity_classify.py -d mutag  --gpu=3 --lr=0.008 --n-hidden=32 --dropout=0.5 --l2norm=5e-3 -e 100 --model=gat --testing
+python3 entity_classify.py -d bgs --gpu 3 --n-hidden=32 --l2norm=5e-4  --lr=0.03 --n-layer=1 --model=gat -e 300 --testing
 ```
 ## performance report
 
-|               |  AIFB | MUTAG |  BGS  |   AM  |
-|:-------------:|:-----:|:-----:|:-----:|:-----:|
-|      GCN 		| 97.22 | 73.82 | 86.21 | 81.92 |
-|      RGCN     | 95.83 | 73.23 |  83.1 |  90.4 |
-| RGCN on paper | 92.59 |  70.1 | 88.51 | 89.29 |
+|               | AIFB  | MUTAG |  BGS  |  AM   |
+| :-----------: | :---: | :---: | :---: | :---: |
+|      GCN      | 97.22 | 73.82 | 86.21 | 81.92 |
+|      GAT      |       | 72.65 | 86.21 |       |
+|     RGCN      | 95.83 | 73.23 | 83.1  | 90.4  |
+| RGCN on paper | 92.59 | 70.1  | 88.51 | 89.29 |
 
 
 ***The following content is from the initial hwwang55/KGCN repo.***
