@@ -69,10 +69,14 @@ class Data(object):
         def _construct_kg(kg_np):
             kg = collections.defaultdict(list)
             rd = collections.defaultdict(list)
-
-            for head, relation, tail in kg_np:
-                kg[head].append((tail, relation))
-                rd[relation].append((head, tail))
+            if self.args.no_rel_type is True:
+                for head, relation, tail in kg_np:
+                    kg[head].append((tail, 0))
+                    rd[0].append((head, tail))
+            else:
+                for head, relation, tail in kg_np:
+                    kg[head].append((tail, relation))
+                    rd[relation].append((head, tail))
             return kg, rd
 
         kg_np = np.loadtxt(file_name, dtype=np.int32)

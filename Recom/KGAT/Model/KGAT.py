@@ -504,7 +504,7 @@ class KGAT(object):
 
         gat_score = tf.reduce_sum(tf.multiply(e, self.weights['trans_gat']), 1)
 
-        return gat_score
+        return tf.nn.leaky_relu(gat_score, alpha=0.1)
 
     def _generate_kgcn_score(self, h, r):
         embeddings = tf.concat([self.weights['user_embed'], self.weights['entity_embed']], axis=0)
