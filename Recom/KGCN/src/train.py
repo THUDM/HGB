@@ -7,17 +7,18 @@ def train(args, data, show_loss, show_topk):
     n_user, n_item, n_entity, n_relation = data[0], data[1], data[2], data[3]
     train_data, eval_data, test_data = data[4], data[5], data[6]
     adj_entity, adj_relation = data[7], data[8]
-    #print(n_user, n_item, n_entity, n_relation) # 138159 16954 102569 32
-    #print(train_data.shape)
+    # print(n_user, n_item, n_entity, n_relation) # 138159 16954 102569 32
+    # print(train_data.shape)
     #print(train_data[:,0].min(), train_data[:,0].max(), train_data[:,1].min(), train_data[:,1].max())
     #print(adj_entity[:,0].min(), adj_entity[:,0].max())
-    #print(adj_entity.shape)
-    #input()
+    # print(adj_entity.shape)
+    # input()
 
     model = KGCN(args, n_user, n_entity, n_relation, adj_entity, adj_relation)
 
     # top-K evaluation settings
-    user_list, train_record, test_record, item_set, k_list = topk_settings(show_topk, train_data, test_data, n_item)
+    user_list, train_record, test_record, item_set, k_list = topk_settings(
+        show_topk, train_data, test_data, n_item)
 
     with tf.Session() as sess:
         sess.run(tf.global_variables_initializer())
@@ -28,15 +29,19 @@ def train(args, data, show_loss, show_topk):
             start = 0
             # skip the last incomplete minibatch if its size < batch size
             while start + args.batch_size <= train_data.shape[0]:
-                _, loss = model.train(sess, get_feed_dict(model, train_data, start, start + args.batch_size, True))
+                _, loss = model.train(sess, get_feed_dict(
+                    model, train_data, start, start + args.batch_size, True))
                 start += args.batch_size
                 if show_loss:
                     print(start, loss)
 
             # CTR evaluation
-            train_auc, train_f1 = ctr_eval(sess, model, train_data, args.batch_size)
-            eval_auc, eval_f1 = ctr_eval(sess, model, eval_data, args.batch_size)
-            test_auc, test_f1 = ctr_eval(sess, model, test_data, args.batch_size)
+            train_auc, train_f1 = ctr_eval(
+                sess, model, train_data, args.batch_size)
+            eval_auc, eval_f1 = ctr_eval(
+                sess, model, eval_data, args.batch_size)
+            test_auc, test_f1 = ctr_eval(
+                sess, model, test_data, args.batch_size)
 
             print('epoch %d    train auc: %.4f  f1: %.4f    eval auc: %.4f  f1: %.4f    test auc: %.4f  f1: %.4f'
                   % (step, train_auc, train_f1, eval_auc, eval_f1, test_auc, test_f1))
@@ -63,7 +68,8 @@ def topk_settings(show_topk, train_data, test_data, n_item):
         test_record = get_user_record(test_data, False)
         user_list = list(set(train_record.keys()) & set(test_record.keys()))
         if len(user_list) > user_num:
-            user_list = np.random.choice(user_list, size=user_num, replace=False)
+            user_list = np.random.choice(
+                user_list, size=user_num, replace=False)
         item_set = set(list(range(n_item)))
         return user_list, train_record, test_record, item_set, k_list
     else:
@@ -76,9 +82,10 @@ def get_feed_dict(model, data, start, end, is_train):
                  model.labels: data[start:end, 2]}
     drop = 0.6 if is_train else 0.
     if model.model_type == 'gat':
-        feed_dict.update({model.attn_drop:drop, model.ffd_drop:drop, model.is_train:is_train})
+        feed_dict.update(
+            {model.attn_drop: drop, model.ffd_drop: drop, model.is_train: is_train})
     elif model.model_type == 'gcn':
-        feed_dict.update({model.drop:drop})
+        feed_dict.update({model.drop: drop})
     return feed_dict
 
 
@@ -87,7 +94,8 @@ def ctr_eval(sess, model, data, batch_size):
     auc_list = []
     f1_list = []
     while start + batch_size <= data.shape[0]:
-        auc, f1 = model.eval(sess, get_feed_dict(model, data, start, start + batch_size, False))
+        auc, f1 = model.eval(sess, get_feed_dict(
+            model, data, start, start + batch_size, False))
         auc_list.append(auc)
         f1_list.append(f1)
         start += batch_size
@@ -114,11 +122,12 @@ def topk_eval(sess, model, user_list, train_record, test_record, item_set, k_lis
             items, scores = model.get_scores(
                 sess, {model.user_indices: [user] * batch_size,
                        model.item_indices: test_item_list[start:] + [test_item_list[-1]] * (
-                               batch_size - len(test_item_list) + start)})
+                    batch_size - len(test_item_list) + start)})
             for item, score in zip(items, scores):
                 item_score_map[item] = score
 
-        item_score_pair_sorted = sorted(item_score_map.items(), key=lambda x: x[1], reverse=True)
+        item_score_pair_sorted = sorted(
+            item_score_map.items(), key=lambda x: x[1], reverse=True)
         item_sorted = [i[0] for i in item_score_pair_sorted]
 
         for k in k_list:

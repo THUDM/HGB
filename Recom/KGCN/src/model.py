@@ -4,6 +4,7 @@ from sklearn.metrics import f1_score, roc_auc_score
 import numpy as np
 import scipy.sparse as sp
 
+
 def normalize_adj(adj):
     """Symmetrically normalize adjacency matrix."""
     adj = sp.coo_matrix(adj)
@@ -12,6 +13,7 @@ def normalize_adj(adj):
     d_inv_sqrt[np.isinf(d_inv_sqrt)] = 0.
     d_mat_inv_sqrt = sp.diags(d_inv_sqrt)
     return adj.dot(d_mat_inv_sqrt).transpose().dot(d_mat_inv_sqrt).tocoo()
+
 
 def preprocess_adj_bias(adj, norm=False):
     num_nodes = adj.shape[0]
@@ -22,9 +24,11 @@ def preprocess_adj_bias(adj, norm=False):
     if norm:
         adj = normalize_adj(adj)
     adj = adj.astype(np.float32)
-    indices = np.vstack((adj.col, adj.row)).transpose()  # This is where I made a mistake, I used (adj.row, adj.col) instead
+    # This is where I made a mistake, I used (adj.row, adj.col) instead
+    indices = np.vstack((adj.col, adj.row)).transpose()
     return tf.SparseTensor(indices=indices, values=adj.data, dense_shape=adj.shape)
     return indices, adj.data, adj.shape
+
 
 class KGCN(object):
     def __init__(self, args, n_user, n_entity, n_relation, adj_entity, adj_relation):
@@ -61,9 +65,12 @@ class KGCN(object):
         self.model_type = args.model
 
     def _build_inputs(self):
-        self.user_indices = tf.placeholder(dtype=tf.int64, shape=[None], name='user_indices')
-        self.item_indices = tf.placeholder(dtype=tf.int64, shape=[None], name='item_indices')
-        self.labels = tf.placeholder(dtype=tf.float32, shape=[None], name='labels')
+        self.user_indices = tf.placeholder(
+            dtype=tf.int64, shape=[None], name='user_indices')
+        self.item_indices = tf.placeholder(
+            dtype=tf.int64, shape=[None], name='item_indices')
+        self.labels = tf.placeholder(
+            dtype=tf.float32, shape=[None], name='labels')
 
     def _build_model(self, n_user, n_entity, n_relation):
         self.user_emb_matrix = tf.get_variable(
@@ -76,25 +83,28 @@ class KGCN(object):
                 shape=[n_relation, self.dim], initializer=KGCN.get_initializer(), name='relation_emb_matrix')
 
         # [batch_size, dim]
-        self.user_embeddings = tf.nn.embedding_lookup(self.user_emb_matrix, self.user_indices)
+        self.user_embeddings = tf.nn.embedding_lookup(
+            self.user_emb_matrix, self.user_indices)
 
         # entities is a list of i-iter (i = 0, 1, ..., n_iter) neighbors for the batch of items
         # dimensions of entities:
         # {[batch_size, 1], [batch_size, n_neighbor], [batch_size, n_neighbor^2], ..., [batch_size, n_neighbor^n_iter]}
-        if model_type =='kgcn':
+        if model_type == 'kgcn':
             entities, relations = self.get_neighbors(self.item_indices)
 
             # [batch_size, dim]
-            self.item_embeddings, self.aggregators = self.aggregate(entities, relations) # Change to GAT and embedding_lookup
+            self.item_embeddings, self.aggregators = self.aggregate(
+                entities, relations)  # Change to GAT and embedding_lookup
         else:
             edges = []
             for i in range(n_entity):
                 nei = list(set(self.adj_entity[i].tolist()))
                 for n in nei:
-                    edges.append((i,n))
-                    edges.append((n,i))
+                    edges.append((i, n))
+                    edges.append((n, i))
             edges = np.array(list(set(edges)))
-            sp_mat = sp.coo_matrix(([1.0]*edges.shape[0], (edges[:,0], edges[:,1])), shape=(n_entity, n_entity))
+            sp_mat = sp.coo_matrix(
+                ([1.0]*edges.shape[0], (edges[:, 0], edges[:, 1])), shape=(n_entity, n_entity))
         if model_type == 'gat':
             from utils.sp_gat import SpGAT
             self.attn_drop = tf.placeholder(dtype=tf.float32, shape=())
@@ -102,17 +112,22 @@ class KGCN(object):
             self.is_train = tf.placeholder(dtype=tf.bool, shape=())
             sp_tensor = preprocess_adj_bias(sp_mat)
             num_layers = 2
-            self.entity_emb = SpGAT.inference(tf.expand_dims(self.entity_emb_matrix, axis=0), self.dim, n_entity, self.is_train, self.attn_drop, self.ffd_drop, sp_tensor, [self.dim]*(num_layers-1), [8]*(num_layers-1)+[1])
-            self.item_embeddings = tf.nn.embedding_lookup(tf.squeeze(self.entity_emb, axis=0), self.item_indices)
+            self.entity_emb = SpGAT.inference(tf.expand_dims(self.entity_emb_matrix, axis=0), self.dim, n_entity,
+                                              self.is_train, self.attn_drop, self.ffd_drop, sp_tensor, [self.dim]*(num_layers-1), [8]*(num_layers-1)+[1])
+            self.item_embeddings = tf.nn.embedding_lookup(
+                tf.squeeze(self.entity_emb, axis=0), self.item_indices)
         elif model_type == 'gcn':
             from gcn.layers import GCN
             self.drop = tf.placeholder(dtype=tf.float32, shape=())
             sp_tensor = preprocess_adj_bias(sp_mat, norm=True)
-            self.entity_emb = GCN(self.entity_emb_matrix, self.dim, self.drop, sp_tensor)
-            self.item_embeddings = tf.nn.embedding_lookup(self.entity_emb, self.item_indices)
+            self.entity_emb = GCN(self.entity_emb_matrix,
+                                  self.dim, self.drop, sp_tensor)
+            self.item_embeddings = tf.nn.embedding_lookup(
+                self.entity_emb, self.item_indices)
 
         # [batch_size]
-        self.scores = tf.reduce_sum(self.user_embeddings * self.item_embeddings, axis=1)
+        self.scores = tf.reduce_sum(
+            self.user_embeddings * self.item_embeddings, axis=1)
         self.scores_normalized = tf.sigmoid(self.scores)
 
     def get_neighbors(self, seeds):
@@ -120,20 +135,25 @@ class KGCN(object):
         entities = [seeds]
         relations = []
         for i in range(self.n_iter):
-            neighbor_entities = tf.reshape(tf.gather(self.adj_entity, entities[i]), [self.batch_size, -1])
-            neighbor_relations = tf.reshape(tf.gather(self.adj_relation, entities[i]), [self.batch_size, -1])
+            neighbor_entities = tf.reshape(
+                tf.gather(self.adj_entity, entities[i]), [self.batch_size, -1])
+            neighbor_relations = tf.reshape(
+                tf.gather(self.adj_relation, entities[i]), [self.batch_size, -1])
             entities.append(neighbor_entities)
             relations.append(neighbor_relations)
         return entities, relations
 
     def aggregate(self, entities, relations):
         aggregators = []  # store all aggregators
-        entity_vectors = [tf.nn.embedding_lookup(self.entity_emb_matrix, i) for i in entities]
-        relation_vectors = [tf.nn.embedding_lookup(self.relation_emb_matrix, i) for i in relations]
+        entity_vectors = [tf.nn.embedding_lookup(
+            self.entity_emb_matrix, i) for i in entities]
+        relation_vectors = [tf.nn.embedding_lookup(
+            self.relation_emb_matrix, i) for i in relations]
 
         for i in range(self.n_iter):
             if i == self.n_iter - 1:
-                aggregator = self.aggregator_class(self.batch_size, self.dim, act=tf.nn.tanh)
+                aggregator = self.aggregator_class(
+                    self.batch_size, self.dim, act=tf.nn.tanh)
             else:
                 aggregator = self.aggregator_class(self.batch_size, self.dim)
             aggregators.append(aggregator)
@@ -142,8 +162,10 @@ class KGCN(object):
             for hop in range(self.n_iter - i):
                 shape = [self.batch_size, -1, self.n_neighbor, self.dim]
                 vector = aggregator(self_vectors=entity_vectors[hop],
-                                    neighbor_vectors=tf.reshape(entity_vectors[hop + 1], shape),
-                                    neighbor_relations=tf.reshape(relation_vectors[hop], shape),
+                                    neighbor_vectors=tf.reshape(
+                                        entity_vectors[hop + 1], shape),
+                                    neighbor_relations=tf.reshape(
+                                        relation_vectors[hop], shape),
                                     user_embeddings=self.user_embeddings)
                 entity_vectors_next_iter.append(vector)
             entity_vectors = entity_vectors_next_iter
@@ -157,10 +179,10 @@ class KGCN(object):
             labels=self.labels, logits=self.scores))
         vvars = tf.trainable_variables()
         self.l2_loss = tf.add_n([tf.nn.l2_loss(v) for v in vvars if v.name not
-                           in ['bias', 'gamma', 'b', 'g', 'beta']])# * l2_coef
-        #self.l2_loss = tf.nn.l2_loss(self.user_emb_matrix) + tf.nn.l2_loss(
+                                 in ['bias', 'gamma', 'b', 'g', 'beta']])  # * l2_coef
+        # self.l2_loss = tf.nn.l2_loss(self.user_emb_matrix) + tf.nn.l2_loss(
         #    self.entity_emb_matrix) + tf.nn.l2_loss(self.relation_emb_matrix)
-        #for aggregator in self.aggregators:
+        # for aggregator in self.aggregators:
         #    self.l2_loss = self.l2_loss + tf.nn.l2_loss(aggregator.weights)
         self.loss = self.base_loss + self.l2_weight * self.l2_loss
 
@@ -170,7 +192,8 @@ class KGCN(object):
         return sess.run([self.optimizer, self.loss], feed_dict)
 
     def eval(self, sess, feed_dict):
-        labels, scores = sess.run([self.labels, self.scores_normalized], feed_dict)
+        labels, scores = sess.run(
+            [self.labels, self.scores_normalized], feed_dict)
         auc = roc_auc_score(y_true=labels, y_score=scores)
         scores[scores >= 0.5] = 1
         scores[scores < 0.5] = 0

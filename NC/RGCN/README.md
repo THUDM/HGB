@@ -1,3 +1,44 @@
+# RGCN code
+
+Adapted from [DGL example](https://github.com/dmlc/dgl/tree/master/examples/pytorch/rgcn).
+
+We replace the GNN module in paper by GCN for comparison.
+
+## running environment
+
+* Python 3.6
+* tensorflow-gpu 1.9.0
+
+## running procedure
+
+* Dataset will be downloaded automatically at ~/.dgl/.
+* or you can download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/8b9644cfa8344f26878c/)
+* unzip all zip files
+* move them to ~/.dgl/
+* cd to RGCN/
+* run python file
+
+```bash
+python3 entity_classify.py -d aifb --gpu=3 --lr=0.001 -e 300 --model=gcn --testing
+python3 entity_classify.py -d mutag --l2norm 1e-2 --gpu=3 --lr=0.01 --n-hidden=32 --model=gcn --testing
+python3 entity_classify.py -d bgs --gpu 3 --n-hidden=64  --lr=0.015 --n-layer=1 --model=gcn --testing 
+python3 entity_classify.py -d am --n-hidden=64 --n-layer=1 --gpu=3 --lr=0.005 -e 100  --model=gcn --testing
+
+python3 entity_classify.py -d aifb --gpu=3 --lr=0.002 -e 300 --model=gat --testing
+python3 entity_classify.py -d mutag  --gpu=3 --lr=0.008 --n-hidden=32 --dropout=0.5 --l2norm=5e-3 -e 100 --model=gat --testing
+python3 entity_classify.py -d bgs --gpu 3 --n-hidden=32 --l2norm=5e-4  --lr=0.03 --n-layer=1 --model=gat -e 300 --testing
+```
+## performance report
+
+|               | AIFB  | MUTAG |  BGS  |  AM   |
+| :-----------: | :---: | :---: | :---: | :---: |
+|      GCN      | 97.22 | 73.82 | 86.21 | 81.92 |
+|      GAT      |       | 72.65 | 86.21 |       |
+|     RGCN      | 95.83 | 73.23 | 83.1  | 90.4  |
+| RGCN on paper | 92.59 | 70.1  | 88.51 | 89.29 |
+
+
+***The following content is from the initial hwwang55/KGCN repo.***
 # Relational-GCN
 
 * Paper: [https://arxiv.org/abs/1703.06103](https://arxiv.org/abs/1703.06103)
@@ -22,38 +63,38 @@ AIFB: accuracy 92.59% (3 runs, DGL), 95.83% (paper)
 python3 entity_classify.py -d aifb --testing --gpu 0
 ```
 
-MUTAG: accuracy 70.10% (3 runs, DGL), 73.23% (paper)
+MUTAG: accuracy 72.55% (3 runs, DGL), 73.23% (paper)
 ```
 python3 entity_classify.py -d mutag --l2norm 5e-4 --n-bases 30 --testing --gpu 0
 ```
 
-BGS: accuracy 88.51% (3 runs, DGL), 83.10% (paper)
+BGS: accuracy 89.66% (3 runs, DGL), 83.10% (paper)
 ```
 python3 entity_classify.py -d bgs --l2norm 5e-4 --n-bases 40 --testing --gpu 0
 ```
 
-AM: accuracy 90.41% (3 runs, DGL), 89.29% (paper)
+AM: accuracy 89.73% (3 runs, DGL), 89.29% (paper)
 ```
 python3 entity_classify.py -d am --n-bases=40 --n-hidden=10 --l2norm=5e-4 --testing
 ```
 
 ### Entity Classification with minibatch
-AIFB:
+AIFB: accuracy avg(5 runs) 90.56%, best 94.44% (DGL)
 ```
 python3 entity_classify_mp.py -d aifb --testing --gpu 0 --fanout='20,20' --batch-size 128
 ```
 
-MUTAG:
+MUTAG: accuracy avg(5 runs) 66.77%, best 69.12% (DGL)
 ```
 python3 entity_classify_mp.py -d mutag --l2norm 5e-4 --n-bases 30 --testing --gpu 0 --batch-size 256 --use-self-loop --n-epochs 40
 ```
 
-BGS:
+BGS: accuracy avg(5 runs) 91.72%, best 96.55% (DGL)
 ```
 python3 entity_classify_mp.py -d bgs --l2norm 5e-4 --n-bases 40 --testing --gpu 0 --fanout '40,40' --n-epochs=40 --batch-size=128
 ```
 
-AM:
+AM: accuracy avg(5 runs) 88.28%, best 90.40% (DGL)
 ```
 python3 entity_classify_mp.py -d am --l2norm 5e-4 --n-bases 40 --testing --gpu 0 --fanout '35,35' --batch-size 256 --lr 1e-2 --n-hidden 16 --use-self-loop --n-epochs=40
 ```
@@ -61,12 +102,12 @@ python3 entity_classify_mp.py -d am --l2norm 5e-4 --n-bases 40 --testing --gpu 0
 ### Entity Classification on OGBN-MAG
 Test-bd: P3-8xlarge
 
-OGBN-MAG
+OGBN-MAG accuracy 46.22
 ```
 python3 entity_classify_mp.py -d ogbn-mag --testing --fanout='25,30' --batch-size 512 --n-hidden 64 --lr 0.01 --num-worker 0 --eval-batch-size 8 --low-mem --gpu 0,1,2,3,4,5,6,7 --dropout 0.5 --use-self-loop --n-bases 2 --n-epochs 3 --mix-cpu-gpu --node-feats
 ```
 
-OGBN-MAG without node-feats
+OGBN-MAG without node-feats 43.63
 ```
 python3 entity_classify_mp.py -d ogbn-mag --testing --fanout='25,25' --batch-size 256 --n-hidden 64 --lr 0.01 --num-worker 0 --eval-batch-size 8 --low-mem --gpu 0,1,2,3,4,5,6,7 --dropout 0.5 --use-self-loop --n-bases 2 --n-epochs 3 --mix-cpu-gpu --layer-norm
 ```
