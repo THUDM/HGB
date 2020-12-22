@@ -5,9 +5,10 @@ import random
 
 ''' run the code in / dir '''
 prefix='data/preprocessed/DBLP_processed'
-new_prefix='../Data/DBLP'
+new_prefix='../benchmark/data/DBLP'
 
-features_0 = sparse.load_npz(prefix + '/features_0.npz').toarray()
+# features_0 = sparse.load_npz(prefix + '/features_0.npz').toarray()
+features_0 = np.eye(4057, dtype=np.float32)
 features_1 = sparse.load_npz(prefix + '/features_1.npz').toarray()
 features_2 = np.load(prefix + '/features_2.npy')
 features_3 = np.eye(20, dtype=np.float32)
@@ -29,8 +30,19 @@ def split(full_list,shuffle=False,ratio=0.8):
     sublist_2 = full_list[offset:]
     return sublist_1,sublist_2
 
-''' node_id node_type node_attributes '''
+''' node_id, node_name, node_type, node_attr '''
 def gen_node_dat():
+    # author name
+    author_name_list=[]
+    author_label_file='data/raw/DBLP/author_label.txt'
+    with open(author_label_file) as author_label_file_handle:
+        for line in author_label_file_handle:
+            author_name = line.strip()[line.rfind('\t')+1:]
+            author_name_list.append(author_name)
+    # conf name
+    conf_name_list = ['AAAI', 'CIKM', 'CVPR', 'ECIR', 'ECML', 'EDBT', 'ICDE', 'ICDM', 'ICML', 'IJCAI', 'KDD']+\
+                     ['PAKDD', 'PKDD', 'PODS', 'SDM', 'SIGIR', 'SIGMOD', 'VLDB', 'WWW', 'WSDM']
+
     node_dat_file = new_prefix + '/node.dat'
     print(f'Generating {node_dat_file}')
     node_dat_file_handle = open(node_dat_file, 'w')
@@ -38,13 +50,21 @@ def gen_node_dat():
     for index_, feat_ in enumerate(feat_list):
         print(f'\tFor node type {index_}')
         for i in tqdm(range(np.shape(feat_)[0])):
-            node_dat_file_handle.write(str(node_id) + ' ' + str(index_) + ' ')
-            node_dat_file_handle.write(",".join(str(i) for i in list(feat_[i])))
+            node_type = str(index_)
+            node_name=''
+            if node_type=='0':
+                node_name=author_name_list[i]
+            elif node_type=='3':
+                node_name = conf_name_list[i]
+            node_dat_file_handle.write(f'{str(node_id)}\t{node_name}\t{node_type}')
+            if node_type=='1' or node_type=='2':
+                node_dat_file_handle.write('\t')
+                node_dat_file_handle.write(",".join(str(i) for i in list(feat_[i])))
             node_dat_file_handle.write('\n')
             node_id += 1
     node_dat_file_handle.close()
 
-''' node_id node_id link_type '''
+''' h_id, t_id, r_id, link_weight '''
 def gen_link_dat():
     link_dat_file = new_prefix + '/link.dat'
     print(f'Generating {link_dat_file}')
@@ -65,31 +85,43 @@ def gen_link_dat():
         else:
             exit('Link error occurs')
         link_num_list[link_type] += 1
-        link_dat_file_handle.write(str(left) + ' ' + str(right) + ' ' + str(link_type) + '\n')
+        link_dat_file_handle.write(str(left) + '\t' + str(right) + '\t' + str(link_type) + '\t1.0' + '\n')
+        link_dat_file_handle.write(str(right) + '\t' + str(left) + '\t' + str(link_type) + '\t1.0' + '\n')
     link_dat_file_handle.close()
 
-''' node_id node_type node_label '''
+'''  node_id, node_name, node_type, node_label'''
 def gen_label_dat_w_test():
+    # author name
+    author_name_list = []
+    author_label_file = 'data/raw/DBLP/author_label.txt'
+    with open(author_label_file) as author_label_file_handle:
+        for line in author_label_file_handle:
+            author_name = line.strip()[line.rfind('\t') + 1:]
+            author_name_list.append(author_name)
+
+    label_num_list=[0,0,0,0]
     label_list = list(labels)
     label_dic_list=[]
     for node_id in range(len(label_list)):
         label_dic_list.append((node_id, label_list[node_id]))
-    [train_list, test_list] = split(label_dic_list, shuffle=True, ratio=0.8)
+    [train_list, test_list] = split(label_dic_list, shuffle=True, ratio=0.3)
 
     label_dat_file = new_prefix + '/label.dat'
     label_dat_file_handle = open(label_dat_file, 'w')
     print(f'Generating {label_dat_file}')
     for node_w_label in tqdm(train_list):
-        label_dat_file_handle.write(str(node_w_label[0]) + ' 0 ' + str(node_w_label[1]) + '\n')
+        label_dat_file_handle.write(str(node_w_label[0]) + f'\t{author_name_list[node_w_label[0]]}\t0\t' + str(node_w_label[1]) + '\n')
+        label_num_list[node_w_label[1]]+=1
     label_dat_file_handle.close()
 
-    label_dat_test_file = new_prefix + '/label_test.dat'
+    label_dat_test_file = new_prefix + '/label.dat.test'
     print((f'Generating {label_dat_test_file}'))
     label_dat_test_file_handle = open(label_dat_test_file, 'w')
     for node_w_label in tqdm(test_list):
-        label_dat_test_file_handle.write(str(node_w_label[0]) + ' 0 ' + str(node_w_label[1]) + '\n')
+        label_dat_test_file_handle.write(str(node_w_label[0]) + f'\t{author_name_list[node_w_label[0]]}\t0\t' + str(node_w_label[1]) + '\n')
+        label_num_list[node_w_label[1]] += 1
     label_dat_test_file_handle.close()
 
-# gen_node_dat()
+gen_node_dat()
 # gen_link_dat()
-gen_label_dat_w_test()
+# gen_label_dat_w_test()
