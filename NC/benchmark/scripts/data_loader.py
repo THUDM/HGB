@@ -40,10 +40,29 @@ class data_loader:
             return a dict of list[list] (key is node_id)
         """
         meta = [self.get_edge_type(x) for x in meta]
-        meta_dict = {}
-        for i in range(self.nodes['total']):
-            meta_dict[i] = []
-            self.dfs([i], meta, meta_dict)
+        if len(meta) == 1:
+            meta_dict = {}
+            for i in range(self.nodes['total']):
+                meta_dict[i] = []
+                self.dfs([i], meta, meta_dict)
+        else:
+            meta_dict1 = {}
+            meta_dict2 = {}
+            mid = len(meta) // 2
+            meta1 = meta[:mid]
+            meta2 = meta[mid:]
+            for i in range(self.nodes['total']):
+                meta_dict1[i] = []
+                self.dfs([i], meta1, meta_dict1)
+            for i in range(self.nodes['total']):
+                meta_dict2[i] = []
+                self.dfs([i], meta2, meta_dict2)
+            meta_dict = {}
+            for i in range(self.nodes['total']):
+                meta_dict[i] = []
+                for beg in meta_dict1[i]:
+                    for end in meta_dict2[beg[-1]]:
+                        meta_dict[i].append(beg+end[1:])
         return meta_dict
 
     def evaluate(self, pred):
