@@ -20,6 +20,40 @@ class data_loader:
         self.labels_train = self.load_labels('label.dat')
         self.labels_test = self.load_labels('label.dat.test')
 
+    def get_meta_path(self, meta=[]):
+        """
+        Get meta path matrix
+            meta is a list of edge types (also can be denoted by a pair of node types)
+            return a sparse matrix with shape [node_num, node_num]
+        """
+        ini = sp.eye(self.nodes['total'])
+        meta = [self.get_edge_type(x) for x in meta]
+        for x in meta:
+            ini = ini.dot(self.links['data'][x])
+        return ini
+
+    def dfs(self, now, meta, meta_dict):
+        if len(meta) == 0:
+            meta_dict[now[0]].append(now)
+            return
+        th_mat = self.links['data'][meta[0]]
+        th_node = now[-1]
+        for col in th_mat[th_node].nonzero()[1]:
+            self.dfs(now+[col], meta[1:], meta_dict)
+
+    def get_full_meta_path(self, meta=[]):
+        """
+        Get full meta path for each node
+            meta is a list of edge types (also can be denoted by a pair of node types)
+            return a dict of list[list] (key is node_id)
+        """
+        meta = [self.get_edge_type(x) for x in meta]
+        meta_dict = {}
+        for i in range(self.nodes['total']):
+            meta_dict[i] = []
+            self.dfs([i], meta, meta_dict)
+        return meta_dict
+
     def evaluate(self, pred):
         y_true = self.labels_test['data'][self.labels_test['mask']]
         micro = f1_score(y_true, pred, average='micro')
@@ -68,11 +102,22 @@ class data_loader:
             if node_id < self.nodes['shift'][i]+self.nodes['count'][i]:
                 return i
 
+    def get_edge_type(self, info):
+        if type(info) is int or len(info) == 1:
+            return info
+        for i in range(len(self.links['meta'])):
+            if self.links['meta'][i] == info:
+                return i
+        raise Exception('No available edge type')
+
+    def get_edge_info(self, edge_id):
+        return self.links['meta'][edge_id]
+
     def list_to_sp_mat(self, li):
         data = [x[2] for x in li]
         i = [x[0] for x in li]
         j = [x[1] for x in li]
-        return sp.coo_matrix((data, (i,j)), shape=(self.nodes['total'], self.nodes['total']))
+        return sp.coo_matrix((data, (i,j)), shape=(self.nodes['total'], self.nodes['total'])).tocsr()
     
     def load_links(self):
         """
