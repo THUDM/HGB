@@ -4,14 +4,6 @@ import scipy.sparse as sp
 from collections import Counter, defaultdict
 from sklearn.metrics import f1_score
 
-"""
-To avoid different data types in PyTorch and TensorFlow,
-we just represent heterogeneous links with a dict of scipy sparse matrices.
-For each node type, it has a index shift. We force each node type to take a continuous range.
-For node attributes, each node type has a matrix (or None if no attributs for that type, and we see None as one-hot feature as default).
-For node label, we only use one matrix and one mask.
-"""
-
 class data_loader:
     def __init__(self, path):
         self.path = path
