@@ -32,7 +32,7 @@ def load_IMDB_data(prefix='data/preprocessed/IMDB_processed'):
            labels,\
            train_val_test_idx
 
-dl = data_loader('../data/DBLP')
+dl = data_loader('../../data/DBLP')
 def get_adjlist_pkl(meta):
     meta010 = dl.get_meta_path(meta).tocoo()
     adjlist00 = [[] for _ in range(dl.nodes['count'][0])]
