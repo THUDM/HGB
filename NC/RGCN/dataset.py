@@ -21,11 +21,6 @@ def main(args):
 
     # Load from hetero-graph
     hg = dataset[0]
-    # for i in hg.ntypes:
-    #     print(str(len(hg.nodes[i].data["_ID"]))+" "+i+" /")
-
-    print(len(hg.etypes))
-    print(hg.number_of_edges())
 
 
 if __name__ == '__main__':
