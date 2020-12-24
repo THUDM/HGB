@@ -1,3 +1,5 @@
+import sys
+sys.path.append('../../')
 import time
 import argparse
 
@@ -24,14 +26,22 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
     features_list = [torch.FloatTensor(features).to(device) for features in features_list]
     if feats_type == 0:
         in_dims = [features.shape[1] for features in features_list]
-    elif feats_type == 1:
-        in_dims = [features_list[0].shape[1]] + [10] * (len(features_list) - 1)
-        for i in range(1, len(features_list)):
-            features_list[i] = torch.zeros((features_list[i].shape[0], 10)).to(device)
-    elif feats_type == 2:
+    elif feats_type == 1 or feats_type == 5:
+        save = 0 if feats_type == 1 else 2
+        in_dims = []#[features_list[0].shape[1]] + [10] * (len(features_list) - 1)
+        for i in range(0, len(features_list)):
+            if i == save:
+                in_dims.append(features_list[i].shape[1])
+            else:
+                in_dims.append(10)
+                features_list[i] = torch.zeros((features_list[i].shape[0], 10)).to(device)
+    elif feats_type == 2 or feats_type == 4:
+        save = feats_type - 2
         in_dims = [features.shape[0] for features in features_list]
-        in_dims[0] = features_list[0].shape[1]
-        for i in range(1, len(features_list)):
+        for i in range(0, len(features_list)):
+            if i == save:
+                in_dims[i] = features_list[i].shape[1]
+                continue
             dim = features_list[i].shape[0]
             indices = np.vstack((np.arange(dim), np.arange(dim)))
             indices = torch.LongTensor(indices)
@@ -194,7 +204,9 @@ if __name__ == '__main__':
                          '0 - loaded features; ' +
                          '1 - only target node features (zero vec for others); ' +
                          '2 - only target node features (id vec for others); ' +
-                         '3 - all id vec. Default is 2.')
+                         '3 - all id vec. Default is 2;' +
+                        '4 - only term features (id vec for others) We need to try this! Or why did we use glove!;' + 
+                        '5 - only term features (zero vec for others).')
     ap.add_argument('--hidden-dim', type=int, default=64, help='Dimension of the node hidden state. Default is 64.')
     ap.add_argument('--num-heads', type=int, default=8, help='Number of the attention heads. Default is 8.')
     ap.add_argument('--attn-vec-dim', type=int, default=128, help='Dimension of the attention vector. Default is 128.')
