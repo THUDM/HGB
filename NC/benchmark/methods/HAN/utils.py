@@ -223,13 +223,15 @@ def load_acm_raw(remove_self_loop):
     val_mask = get_binary_mask(num_nodes, val_idx)
     test_mask = get_binary_mask(num_nodes, test_idx)
 
+    meta_paths = [['pa', 'ap'], ['ps', 'sp']]
     return hg, features, labels, num_classes, train_idx, val_idx, test_idx, \
-            train_mask, val_mask, test_mask
+            train_mask, val_mask, test_mask, meta_paths
 
-def load_dblp(remove_self_loop):
+def load_dblp(remove_self_loop, feat_type=0):
     prefix='../../data/DBLP'
     dl = data_loader(prefix)
-    link_type_dic = {0:'pa', 1:'pc', 2:'pt', 3:'ap', 4:'cp', 5:'tp'}
+    link_type_dic = {0:'ap', 1:'pc', 2:'pt', 3:'pa', 4:'cp', 5:'tp'}
+    author_num = dl.nodes['count'][0]
     data_dic={}
     for link_type in dl.links['data'].keys():
         src_type = str( dl.links['meta'][link_type][0])
@@ -238,10 +240,19 @@ def load_dblp(remove_self_loop):
     hg = dgl.heterograph(data_dic)
 
     # author feature
-    features = th.FloatTensor(dl.nodes['attr'][0])
+    if feat_type == 0:
+        '''preprocessed feature'''
+        features = th.FloatTensor(dl.nodes['attr'][0])
+    else:
+        '''one-hot'''
+        # indices = np.vstack((np.arange(author_num), np.arange(author_num)))
+        # indices = th.LongTensor(indices)
+        # values = th.FloatTensor(np.ones(author_num))
+        # features = th.sparse.FloatTensor(indices, values, th.Size([author_num,author_num]))
+        features = th.FloatTensor(np.eye(author_num))
 
     # author labels
-    author_num = dl.nodes['count'][0]
+
     labels = dl.labels_test['data'][:author_num] + dl.labels_train['data'][:author_num]
     labels = [np.argmax(l)for l in labels] # one-hot to value
     labels = th.LongTensor(labels)
@@ -260,16 +271,17 @@ def load_dblp(remove_self_loop):
     valid_mask[train_indices]= False
     test_indices = np.where(test_mask == True)[0]
 
+    meta_paths = [['ap', 'pa'], ['ap', 'pt', 'tp', 'pa'], ['ap', 'pc', 'cp', 'pa']]
     return hg, features, labels, num_classes, train_indices, valid_indices, test_indices, \
-           th.BoolTensor(train_mask), th.BoolTensor(valid_mask), th.BoolTensor(test_mask)
+           th.BoolTensor(train_mask), th.BoolTensor(valid_mask), th.BoolTensor(test_mask), meta_paths
 
-def load_data(dataset, remove_self_loop=False):
+def load_data(dataset, remove_self_loop=False, feat_type=0):
     if dataset == 'ACM':
         return load_acm(remove_self_loop)
     elif dataset == 'ACMRaw':
         return load_acm_raw(remove_self_loop)
     elif dataset == 'DBLP':
-        return load_dblp(remove_self_loop)
+        return load_dblp(remove_self_loop, feat_type=feat_type)
     else:
         return NotImplementedError('Unsupported dataset {}'.format(dataset))
 

@@ -28,7 +28,7 @@ def main(args):
     # If args['hetero'] is True, g would be a heterogeneous graph.
     # Otherwise, it will be a list of homogeneous graphs.
     g, features, labels, num_classes, train_idx, val_idx, test_idx, train_mask, \
-    val_mask, test_mask = load_data(args['dataset'])
+    val_mask, test_mask, meta_paths = load_data(args['dataset'], feat_type=0)
 
     if args['model'] != 'han':
         g = dgl.to_homogeneous(g)
@@ -60,14 +60,14 @@ def main(args):
     if args['hetero']:
         if args['model'] == 'han':
             from model_hetero import HAN
-            model = HAN(
-                # meta_paths=[['ap', 'pa'], ['ap', 'pc', 'cp', 'pa'], ['ap', 'pt', 'tp', 'pa']],
-                meta_paths=[['ap', 'pa']],
-                        in_size=features.shape[1],
-                        hidden_size=args['hidden_units'],
-                        out_size=num_classes,
-                        num_heads=args['num_heads'],
-                        dropout=args['dropout']).to(args['device'])
+            if args['dataset']=='DBLP':
+                model = HAN(
+                    meta_paths=meta_paths,
+                            in_size=features.shape[1],
+                            hidden_size=args['hidden_units'],
+                            out_size=num_classes,
+                            num_heads=args['num_heads'],
+                            dropout=args['dropout']).to(args['device'])
         elif args['model'] == 'gcn':
             from GNN import GCN
             model = GCN(D, args['hidden_units'], num_classes, args['num_layers'], F.relu, args['dropout']).to(args['device'])
