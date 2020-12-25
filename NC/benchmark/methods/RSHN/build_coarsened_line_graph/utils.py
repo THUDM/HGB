@@ -1,3 +1,4 @@
+from tokenize import Comment
 import scipy.sparse as sp
 import numpy as np
 from numba import jit
@@ -95,7 +96,8 @@ def edge_path_from_random_walk(graph, rws):
         row_index = row.eq(node_src)
         col_index = col.eq(node_des)
 
-        common_index = (row_index + col_index).eq(2)
+
+        common_index = (row_index + col_index).nonzero()
         common_edge = data[common_index]
         id = random.randint(1, len(common_edge))
         edge.append(int(common_edge[id - 1]))
@@ -105,7 +107,7 @@ def edge_path_from_random_walk(graph, rws):
             node_des = rw[i]
             row_index = row.eq(node_src)
             col_index = col.eq(node_des)
-            common_index = (row_index + col_index).eq(2)
+            common_index = (row_index + col_index).nonzero()
             common_edge = data[common_index]
             id = random.randint(1, len(common_edge))
             edge.append(int(common_edge[id - 1]))

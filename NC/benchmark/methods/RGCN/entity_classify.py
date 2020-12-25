@@ -16,15 +16,15 @@ import torch
 import torch.nn.functional as F
 import dgl
 from dgl.nn.pytorch import RelGraphConv
-from functools import partial
-from dgl.data.rdf import AIFBDataset, MUTAGDataset, BGSDataset, AMDataset
-from scripts.data_loader import data_loader
 from scipy import sparse
 from sklearn.metrics import f1_score
 import json
 
 from model import BaseRGCN, GCN, GAT
 
+import sys
+sys.path.append('../../')
+from scripts.data_loader import data_loader
 
 def evaluate(model_pred, labels):
     # 注意这里的model_pred是经过sigmoid处理的，sigmoid处理后可以视为预测是这一类的概率
@@ -42,6 +42,7 @@ def evaluate(model_pred, labels):
 def multi_evaluate(model_pred, labels):
     # 注意这里的model_pred是经过sigmoid处理的，sigmoid处理后可以视为预测是这一类的概率
     # 预测结果，大于这个阈值则视为预测正确
+    model_pred = F.sigmoid(model_pred)
     accuracy_th = 0.5
     pred_result = model_pred > accuracy_th
     pred_result = pred_result.float()
@@ -116,6 +117,10 @@ def main(args):
     num_classes = dl.labels_test['num_classes']
 
     num_rels = len(hg.canonical_etypes)
+    if args.dataset == 'imdb':
+        EVALUATE = multi_evaluate
+    else:
+        EVALUATE = evaluate
 
     # split dataset into train, validate, test
     if args.validation:
@@ -213,6 +218,13 @@ def main(args):
     print("start training...")
     forward_time = []
     backward_time = []
+    save_dict_micro = {}
+    save_dict_macro = {}
+    best_result_micro = 0
+    best_result_macro = 0
+    best_epoch_micro = 0
+    best_epoch_macro = 0
+
     model.train()
     for epoch in range(args.n_epochs):
         optimizer.zero_grad()
@@ -233,52 +245,43 @@ def main(args):
         print("Epoch {:05d} | Train Forward Time(s) {:.4f} | Backward Time(s) {:.4f}".
               format(epoch, forward_time[-1], backward_time[-1]))
         val_loss = LOSS(logits[val_idx], labels[val_idx])
-        if args.dataset == 'imdb':
-            train_micro, train_macro = multi_evaluate(
-                logits[train_idx], labels[train_idx])
-            valid_micro, valid_macro = multi_evaluate(
-                logits[val_idx], labels[val_idx])
-            print("Train micro: {:.4f} | Train macro: {:.4f} | Train Loss: {:.4f} | Validation micro: {:.4f} | Validation macro: {:.4f} | Validation loss: {:.4f}".
-                  format(train_micro, train_macro, loss.item(), valid_micro, valid_macro, val_loss.item()))
-        elif args.dataset == 'dblp':
-            train_micro, train_macro = evaluate(
-                logits[train_idx], labels[train_idx])
-            valid_micro, valid_macro = evaluate(
-                logits[val_idx], labels[val_idx])
-            print("Train micro: {:.4f} | Train macro: {:.4f} | Train Loss: {:.4f} | Validation micro: {:.4f} | Validation macro: {:.4f} | Validation loss: {:.4f}".
-                  format(train_micro, train_macro, loss.item(), valid_micro, valid_macro, val_loss.item()))
-        else:
-            train_acc = torch.sum(logits[train_idx].argmax(
-                dim=1) == labels[train_idx]).item() / len(train_idx)
-            val_acc = torch.sum(logits[val_idx].argmax(
-                dim=1) == labels[val_idx]).item() / len(val_idx)
-            print("Train Accuracy: {:.4f} | Train Loss: {:.4f} | Validation Accuracy: {:.4f} | Validation loss: {:.4f}".
-                  format(train_acc, loss.item(), val_acc, val_loss.item()))
+        train_micro, train_macro = EVALUATE(
+            logits[train_idx], labels[train_idx])
+        valid_micro, valid_macro = EVALUATE(
+            logits[val_idx], labels[val_idx])
+        if valid_micro > best_result_micro:
+            save_dict_micro = model.state_dict()
+            best_result_micro = valid_micro
+            best_epoch_micro = epoch 
+        if valid_macro > best_result_macro:
+            save_dict_macro = model.state_dict()
+            best_result_macro = valid_macro
+            best_epoch_macro = epoch 
+
+        print("Train micro: {:.4f} | Train macro: {:.4f} | Train Loss: {:.4f} | Validation micro: {:.4f} | Validation macro: {:.4f} | Validation loss: {:.4f}".
+                format(train_micro, train_macro, loss.item(), valid_micro, valid_macro, val_loss.item()))
     print()
 
     model.eval()
-    if not args.model == "rgcn":
-        logits = model(g, feats)
-    else:
-        logits = model.forward(g, feats, edge_type, edge_norm)
-    logits = logits[target_idx]
-    test_loss = LOSS(logits[test_idx], labels[test_idx])
-    if args.dataset == 'imdb':
-        test_micro, test_macro = multi_evaluate(
+    result = [save_dict_micro,save_dict_macro]
+    for i in range(2):
+        if i == 0:
+            print("Best Micro At:"+str(best_epoch_micro))
+        else:
+            print("Best Macro At:"+str(best_epoch_macro))
+        model.load_state_dict(result[i])
+        if not args.model == "rgcn":
+            logits = model(g, feats)
+        else:
+            logits = model.forward(g, feats, edge_type, edge_norm)
+        logits = logits[target_idx]
+        test_loss = LOSS(logits[test_idx], labels[test_idx])
+        test_micro, test_macro = EVALUATE(
             logits[test_idx], labels[test_idx])
         print("Test micro: {:.4f} | Test macro: {:.4f} | Test loss: {:.4f}".format(
             test_micro, test_macro, test_loss.item()))
-    elif args.dataset == 'dblp':
-        test_micro, test_macro = evaluate(logits[test_idx], labels[test_idx])
-        print("Test micro: {:.4f} | Test macro: {:.4f} | Test loss: {:.4f}".format(
-            test_micro, test_macro, test_loss.item()))
-    else:
-        test_acc = torch.sum(logits[test_idx].argmax(
-            dim=1) == labels[test_idx]).item() / len(test_idx)
-        print("Test Accuracy: {:.4f} | Test loss: {:.4f}".format(
-            test_acc, test_loss.item()))
+        print()
 
-    print()
     print("Mean forward time: {:4f}".format(
         np.mean(forward_time[len(forward_time) // 4:])))
     print("Mean backward time: {:4f}".format(

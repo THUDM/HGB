@@ -19,12 +19,8 @@ We add GCN and GAT comparison and tried to reproduce the result in the RSHN pape
 * run RSHN_gnn.py
 
 ```bash
-python RSHN_gnn.py --dataset AIFB --model gcn
-python RSHN_gnn.py --dataset AIFB --model gat
-python RSHN_gnn.py --dataset MUTAG --model gcn
-python RSHN_gnn.py --dataset MUTAG --model gat
-python RSHN_gnn.py --dataset BGS --model gcn --sparse_input 1
-python RSHN_gnn.py --dataset BGS --model gat --sparse_input 1 --weight_decay 5e-4 --epoch 60
+python RSHN.py --dataset IMDB --lr 0.01 --weight_decay 5e-4 --dim 16 --num_node_layer 3 --num_edge_layer 2 --dropout 0.6 --epoch 100
+python RSHN.py --dataset DBLP --lr 0.01 --weight_decay 5e-4 --dim 16 --num_node_layer 2 --num_edge_layer 2 --dropout 0.6 --epoch 100
 ```
 
 ## performance report
