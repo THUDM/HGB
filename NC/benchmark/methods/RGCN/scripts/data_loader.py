@@ -4,6 +4,14 @@ import scipy.sparse as sp
 from collections import Counter, defaultdict
 from sklearn.metrics import f1_score
 
+"""
+To avoid different data types in PyTorch and TensorFlow,
+we just represent heterogeneous links with a dict of scipy sparse matrices.
+For each node type, it has a index shift. We force each node type to take a continuous range.
+For node attributes, each node type has a matrix (or None if no attributs for that type, and we see None as one-hot feature as default).
+For node label, we only use one matrix and one mask.
+"""
+
 class data_loader:
     def __init__(self, path):
         self.path = path
@@ -12,80 +20,22 @@ class data_loader:
         self.labels_train = self.load_labels('label.dat')
         self.labels_test = self.load_labels('label.dat.test')
 
-    def get_sub_graph(self, node_types_tokeep):
-        """
-        node_types_tokeep is a list or set of node types that you want to keep in the sub-graph
-        We only support whole type sub-graph for now.
-        This is an in-place update function!
-        return: old node type id to new node type id dict, old edge type id to new edge type id dict
-        """
-        keep = set(node_types_tokeep)
-        new_node_type = 0
-        new_node_id = 0
-        new_nodes = {'total':0, 'count':Counter(), 'attr':{}, 'shift':{}}
-        new_links = {'total':0, 'count':Counter(), 'meta':{}, 'data':defaultdict(list)}
-        new_labels_train = {'num_classes':0, 'total':0, 'count':Counter(), 'data':None, 'mask':None}
-        new_labels_test = {'num_classes':0, 'total':0, 'count':Counter(), 'data':None, 'mask':None}
-        old_nt2new_nt = {}
-        old_idx = []
-        for node_type in self.nodes['count']:
-            if node_type in keep:
-                nt = node_type
-                nnt = new_node_type
-                old_nt2new_nt[nt] = nnt
-                cnt = self.nodes['count'][nt]
-                new_nodes['total'] += cnt
-                new_nodes['count'][nnt] = cnt
-                new_nodes['attr'][nnt] = self.nodes['attr'][nt]
-                new_nodes['shift'][nnt] = new_node_id
-                beg = self.nodes['shift'][nt]
-                old_idx.extend(range(beg, beg+cnt))
-                
-                cnt_label_train = self.labels_train['count'][nt]
-                new_labels_train['count'][nnt] = cnt_label_train
-                new_labels_train['total'] += cnt_label_train
-                cnt_label_test = self.labels_test['count'][nt]
-                new_labels_test['count'][nnt] = cnt_label_test
-                new_labels_test['total'] += cnt_label_test
-                
-                new_node_type += 1
-                new_node_id += cnt
-
-        new_labels_train['num_classes'] = self.labels_train['num_classes']
-        new_labels_test['num_classes'] = self.labels_test['num_classes']
-        for k in ['data', 'mask']:
-            new_labels_train[k] = self.labels_train[k][old_idx]
-            new_labels_test[k] = self.labels_test[k][old_idx]
-
-        old_et2new_et = {}
-        new_edge_type = 0
-        for edge_type in self.links['count']:
-            h, t = self.links['meta'][edge_type]
-            if h in keep and t in keep:
-                et = edge_type
-                net = new_edge_type
-                old_et2new_et[et] = net
-                new_links['total'] += self.links['count'][et]
-                new_links['meta'][net] = tuple(map(lambda x:old_nt2new_nt[x], self.links['meta'][et]))
-                new_links['data'][net] = self.links['data'][et][old_idx][:, old_idx]
-                new_edge_type += 1
-
-        self.nodes = new_nodes
-        self.links = new_links
-        self.labels_train = new_labels_train
-        self.labels_test = new_labels_test
-        return old_nt2new_nt, old_et2new_et
-
     def get_meta_path(self, meta=[]):
         """
-        Get meta path matrix
-            meta is a list of edge types (also can be denoted by a pair of node types)
-            return a sparse matrix with shape [node_num, node_num]
+        meta is a list of edge types (also can be denoted by a pair of node types)
         """
         ini = sp.eye(self.nodes['total'])
         meta = [self.get_edge_type(x) for x in meta]
+        """meta_info = [self.get_edge_info(x) for x in meta]
+        sym = True
+        for i in range(len(meta)//2):
+            if meta_info[i][0] != meta_info[-i-1][1] or meta_info[i][1] != meta_info[-i-1][0]:
+                sym = False
+                break"""
         for x in meta:
             ini = ini.dot(self.links['data'][x])
+        #if sym:
+        #    ini /= 2
         return ini
 
     def dfs(self, now, meta, meta_dict):
@@ -98,11 +48,6 @@ class data_loader:
             self.dfs(now+[col], meta[1:], meta_dict)
 
     def get_full_meta_path(self, meta=[]):
-        """
-        Get full meta path for each node
-            meta is a list of edge types (also can be denoted by a pair of node types)
-            return a dict of list[list] (key is node_id)
-        """
         meta = [self.get_edge_type(x) for x in meta]
         if len(meta) == 1:
             meta_dict = {}
