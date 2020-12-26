@@ -27,23 +27,23 @@ python homGNN.py twitter/amazon/youtube GCN/GAT
 ```
 
 ## performance report
-dataset: Amazon  
+dataset: Amazon   
 
 |                      |     ROC-AUC   |    PR-AUC     | F1 |
 | ---------------------- | --------- | --------- | --------- |
 | GATNE-T(in paper)   | 97.44     | 97.05   | 92.87  |
 | GATNE-T(reproduction)   | 97.00     | 96.55   | 91.79  |
-| GCN        | 97.63 | **97.41**|  93.14 |
-| GAT        | **98.01** | 96.81|  **94.50** |
- 
-dataset: Youtube  
+| GCN        | **98.68** | **98.45**|  **95.42** |
+| GAT        | 98.58 | 98.12|  95.35 |
+
+dataset: Youtube
 
 |                      |     ROC-AUC   |    PR-AUC     | F1 |
 | ---------------------- | --------- | --------- | --------- |
 | GATNE-T(in paper)   |84.61     | 81.93   | 76.83  |
 | GATNE-T(reproduction)   | 83.86     | 81.70   | 76.33  |
-| GCN        |  89.69 | 89.25|  82.20 |
-| GAT        |  **90.76** | **89.73**|  **83.28** |
+| GCN        |  91.38 | 91.81|  84.12 |
+| GAT        |  **90.76** | **89.73**|  **83.28** | 
 
 dataset: Twitter  
 
@@ -51,8 +51,8 @@ dataset: Twitter
 | ---------------------- | --------- | --------- | --------- |
 | GATNE-T(in paper)   | 92.30    | 91.77   | 84.96  |
 | GATNE-T(reproduction)   | 92.45     | 92.36   | 85.43  |
-| GCN        |  **94.87** | **94.50** |  88.37 |
-| GAT        |  94.40 | 93.32 |  **89.28** |
+| GCN        |  96.08 | 95.50 |  89.87 |
+| GAT        |  **96.18** | **95.81** |  **90.21** |
 
 ***The following content is from the initial THUDM/GATNE repo.***
 

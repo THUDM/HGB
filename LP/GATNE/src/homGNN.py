@@ -8,14 +8,18 @@ from torch_geometric.nn import GCNConv, SAGEConv, TopKPooling, GATConv
 import torch.nn.functional as F
 from sklearn.metrics import (auc, f1_score, precision_recall_curve,
                              roc_auc_score)
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 node_num = {'amazon': 10166, 'youtube': 2000, 'twitter': 10000}
-dataset_eval_type = {'amazon': ['1','2'], 'youtube': ['1', '2', '3', '4', '5'], 'twitter': ['1']}
+dataset_eval_type = {'amazon': ['1', '2'], 'youtube': ['1', '2', '3', '4', '5'], 'twitter': ['1']}
 class_num = {'amazon': 3, 'youtube': 6, 'twitter': 2}
 device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
+print(f'use device: {device}')
 patience = 20
 
-def gen_edge_list(train_file):
+
+def gen_edge_list(train_file, data_name):
     edge_list = [[], []]
     with open(train_file) as train_file_handle:
         for line in train_file_handle:
@@ -23,6 +27,8 @@ def gen_edge_list(train_file):
             if label != '0':
                 edge_list[0].append(int(left))
                 edge_list[1].append(int(right))
+                edge_list[0].append(int(right))
+                edge_list[1].append(int(left))
     print(f'generate graph with {len(edge_list[0])} edges')
     return th.LongTensor(edge_list)
 
@@ -82,8 +88,11 @@ class EarlyStop:
                 self.save_checkpoint(model)
         else:
             self.patience_now += 1
+
             if self.patience_now >= self.patience:
                 self.stop = True
+            else:
+                print(f'EarlyStopping counter: {self.patience_now} out of {self.patience}')
 
     def get_best(self):
         return self.best_auc, self.pr, self.f1
@@ -107,53 +116,55 @@ class GCN(th.nn.Module):
         nn.init.xavier_normal_(self.fc.weight, gain=1.4)
         for layer in self.layers:
             nn.init.xavier_normal_(layer.weight, gain=1.4)
+
     def encode(self, data):
         x, edge_list = data
         for i, layer in enumerate(self.layers):
             if i != 0:
                 x = self.dropout(x)
             x = layer(x, edge_list)
-            if i < len(self.layers) - 1:
-                x = F.relu(x)
+            x = F.leaky_relu(x)
         return x
 
     def decode(self, x, edge_index):
         x = (x[edge_index[0]] * x[edge_index[1]])
         x = self.fc(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x)
         return x
 
+
 class GAT(th.nn.Module):
-    def __init__(self, in_feats, hid_feats, out_feats,n_layers=2,dropout=0.5,heads=[1]):
+    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5, heads=[1]):
         super(GAT, self).__init__()
         self.layers = nn.ModuleList()
         # input layer
-        self.layers.append(GATConv(in_feats, hid_feats,heads[0]))
+        self.layers.append(GATConv(in_feats, hid_feats, heads[0]))
         # hidden layers
-        for l in range(1,n_layers-1):
-            self.layers.append(GATConv(hid_feats* heads[l-1], hid_feats, heads[l]))
+        for l in range(1, n_layers - 1):
+            self.layers.append(GATConv(hid_feats * heads[l - 1], hid_feats, heads[l]))
         # output layer
-        self.layers.append(GATConv(hid_feats*heads[-2], hid_feats,heads[-1]))
-        self.fc = nn.Linear(hid_feats,out_feats)
+        self.layers.append(GATConv(hid_feats * heads[-2], hid_feats, heads[-1]))
+        self.fc = nn.Linear(hid_feats, out_feats)
         self.dropout = nn.Dropout(p=dropout)
         nn.init.xavier_normal_(self.fc.weight, gain=1.4)
         for layer in self.layers:
             nn.init.xavier_normal_(layer.lin_l.weight, gain=1.4)
 
     def encode(self, data):
-        x, edge_list= data
+        x, edge_list = data
         for i, layer in enumerate(self.layers):
             if i != 0:
                 x = self.dropout(x)
-            x = layer(x,edge_list)
-            x = F.relu(x)
+            x = layer(x, edge_list)
+            x = F.leaky_relu(x)
         return x
 
     def decode(self, x, edge_index):
         x = (x[edge_index[0]] * x[edge_index[1]])
         x = self.fc(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x)
         return x
+
 
 def evaluate(out_feat, true_edges, false_edges):
     true_list = list()
@@ -196,12 +207,12 @@ def main(data_name, eval_type, model):
     valid_file = f'../data/{data_name}/hom_valid.txt'
     test_file = f'../data/{data_name}/hom_test.txt'
     model_save_path = f'../data/{data_name}/best_eval_{eval_type}.pt'
-    edge_list = gen_edge_list(train_file).to(device)
+    edge_list = gen_edge_list(train_file, data_name=data_name).to(device)
     feat = gen_feat(node_num[data_name], feat_type=0).to(device)
     train_data_loader = DataLoader(hom_data(train_file, eval_type), batch_size=10000, shuffle=True, num_workers=0)
 
-    epochs = 50
-    early_stopping = EarlyStop(save_path=model_save_path,patience=20)
+    epochs = 30
+    early_stopping = EarlyStop(save_path=model_save_path, patience=10)
 
     lossFun = nn.MSELoss()
     optimizer = th.optim.Adam([{'params': model.parameters()}], lr=0.01, weight_decay=0)
@@ -218,7 +229,7 @@ def main(data_name, eval_type, model):
             loss.backward()
             optimizer.step()
             if index % 10 == 0:
-                print(f'epoch {epoch} | batch {index} | loss {loss.item()}')
+                print(f'epoch {epoch} | batch {index} |train loss {loss.item()}')
 
             # valid
             model.eval()
@@ -259,20 +270,19 @@ if __name__ == '__main__':
         exit('need dataset_name para and model_type para')
     data_name = sys.argv[1]
     model_type = sys.argv[2]
-    print(data_name)
-    model=None
-    if model_type=='GCN':
+    model = None
+    if model_type == 'GCN':
         model = GCN(in_feats=node_num[data_name], hid_feats=200, out_feats=1).to(device)
-    elif model_type=="GAT":
-        n_heads=[2]
-        n_layers=2
+    elif model_type == "GAT":
+        n_heads = [4]
+        n_layers = 2
         heads = n_heads * (n_layers - 1) + [1]
         model = GAT(in_feats=node_num[data_name], hid_feats=200, out_feats=1, n_layers=n_layers, heads=heads).to(device)
     else:
         exit('please input true model_type within [GCN, GAT]')
     auc_list, pr_list, f1_list = list(), list(), list()
     for eval_type in dataset_eval_type[data_name]:
-        print(f'dataset: {data_name}, eval_type: {eval_type}')
+        print(f'dataset: {data_name}, eval_type: {eval_type} of {len(dataset_eval_type[data_name])}')
         roc_auc, pr_auc, f1 = main(data_name, eval_type, model)
         auc_list.append(roc_auc)
         pr_list.append(pr_auc)

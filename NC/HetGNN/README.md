@@ -27,14 +27,14 @@ python homoGNN.py --model GAT
 |          train ratio:0.1           | micro f1 score | macro f1 score |
 | ------------------- | -------------- | -------------- |
 | HetGNN + LogisticRegression | 97.3  | 97.2     |
-| GCN   | 97.5              | 97.4          |
-| GAT   | **98.5**          | **98.6**          |
+| GCN   | 96.4            | 96.5     |
+| GAT   | **98.7**          | **98.7**          |
 
 |          train ratio:0.3           | micro f1 score | macro f1 score |
 | ------------------- | -------------- | -------------- |
 | HetGNN + LogisticRegression | 97.4  | 97.5     |
-| GCN   | 97.8              | 97.7          |
-| GAT   | **98.6**          | **98.7**          |
+| GCN   | 97.9   | 97.8 |
+| GAT   | **99.0**   | **99.0**|
 
 ***The following content is from the initial chuxuzhang/KDD2019_HetGNN repo.***
 
