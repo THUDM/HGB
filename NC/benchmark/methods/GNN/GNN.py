@@ -85,7 +85,6 @@ class GCN(nn.Module):
             h.append(fc(feature))
         h = torch.cat(h, 0)
         for i, layer in enumerate(self.layers):
-            if i != 0:
-                h = self.dropout(h)
+            h = self.dropout(h)
             h = layer(self.g, h)
         return h
