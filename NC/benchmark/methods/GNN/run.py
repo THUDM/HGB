@@ -8,7 +8,7 @@ import torch.nn.functional as F
 import numpy as np
 
 from utils.pytorchtools import EarlyStopping
-from utils.data import load_DBLP_data
+from utils.data import load_data
 from utils.tools import index_generator, evaluate_results_nc, parse_minibatch
 from GNN import GCN, GAT
 import dgl
@@ -31,7 +31,7 @@ def mat2tensor(mat):
 
 def run_model_DBLP(args):
     feats_type = args.feats_type
-    features_list, adjM, labels, train_val_test_idx, dl = load_DBLP_data()
+    features_list, adjM, labels, train_val_test_idx, dl = load_data(args.dataset)
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     features_list = [mat2tensor(features).to(device) for features in features_list]
     if feats_type == 0:
@@ -92,7 +92,7 @@ def run_model_DBLP(args):
 
         # training loop
         net.train()
-        early_stopping = EarlyStopping(patience=args.patience, verbose=True, save_path='checkpoint/checkpoint_{}.pt'.format(args.model_type))
+        early_stopping = EarlyStopping(patience=args.patience, verbose=True, save_path='checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.model_type))
         for epoch in range(args.epoch):
             t_start = time.time()
             # training
@@ -130,7 +130,7 @@ def run_model_DBLP(args):
                 break
 
         # testing with evaluate_results_nc
-        net.load_state_dict(torch.load('checkpoint/checkpoint_{}.pt'.format(args.model_type)))
+        net.load_state_dict(torch.load('checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.model_type)))
         net.eval()
         test_logits = []
         with torch.no_grad():
@@ -163,6 +163,7 @@ if __name__ == '__main__':
     ap.add_argument('--dropout', type=float, default=0.5)
     ap.add_argument('--weight-decay', type=float, default=1e-4)
     ap.add_argument('--slope', type=float, default=0.01)
+    ap.add_argument('--dataset', type=str)
 
     args = ap.parse_args()
     run_model_DBLP(args)

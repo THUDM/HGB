@@ -1,8 +1,8 @@
 # GCN and GAT for benchmark
 
 ```
-python run_DBLP.py --model-type gat
-python run_DBLP.py --model-type gcn --weight-decay 1e-6 --lr 1e-3
+python run.py --dataset DBLP --model-type gat
+python run.py --dataset DBLP --model-type gcn --weight-decay 1e-6 --lr 1e-3
 ```
 
 ## running environment
