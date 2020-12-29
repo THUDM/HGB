@@ -25,7 +25,7 @@ class GAT(nn.Module):
         self.num_layers = num_layers
         self.gat_layers = nn.ModuleList([nn.ModuleList() for i in range(len(gs))])
         self.activation = activation
-        self.weights = nn.Parameter(torch.zeros((len(in_dims), num_layers, len(gs))))
+        self.weights = nn.Parameter(torch.zeros((len(in_dims), num_layers+1, len(gs))))
         self.sm = nn.Softmax(2)
         self.fc_list = nn.ModuleList([nn.Linear(in_dim, num_hidden, bias=True) for in_dim in in_dims])
         for fc in self.fc_list:
