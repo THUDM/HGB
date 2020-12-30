@@ -9,6 +9,7 @@ import torch.nn.functional as F
 from sklearn.metrics import (auc, f1_score, precision_recall_curve,
                              roc_auc_score)
 import os
+
 os.environ['CUDA_VISIBLE_DEVICES'] = ''
 
 node_num = {'amazon': 10166, 'youtube': 2000, 'twitter': 10000}
@@ -30,20 +31,21 @@ def gen_edge_list(train_file, data_name):
                 edge_list[0].append(int(right))
                 edge_list[1].append(int(left))
     print(f'generate graph with {len(edge_list[0])} edges')
-    return th.LongTensor(edge_list)
+    return th.ShortTensor(edge_list)
 
 
 def gen_feat(node_num, feat_dim=200, feat_type=0):
     feat = None
     if feat_type == 0:
+        # sparse
         indices = np.vstack((np.arange(node_num), np.arange(node_num)))
         indices = th.LongTensor(indices)
-
         values = th.FloatTensor(np.ones(node_num))
         feat = th.sparse.FloatTensor(indices, values, th.Size([node_num, node_num])).to(device)
 
     elif feat_type == 1:
-        feat = th.FloatTensor(np.eye(node_num))
+        # dense
+        feat = th.FloatTensor(np.eye(node_num)).to(device)
     return feat
 
 
@@ -70,7 +72,7 @@ class hom_data(Dataset):
 
 
 class EarlyStop:
-    def __init__(self, save_path='./best.pt', patience=20):
+    def __init__(self, save_path='', patience=20):
         self.patience = patience
         self.best_auc = 0
         self.model_auc = 0
@@ -85,7 +87,8 @@ class EarlyStop:
             # update model
             if self.best_auc - self.model_auc > 0.001:
                 self.model_auc = self.best_auc
-                self.save_checkpoint(model)
+                if self.save_path!='':
+                    self.save_checkpoint(model)
         else:
             self.patience_now += 1
 
@@ -156,7 +159,7 @@ class GAT(th.nn.Module):
             if i != 0:
                 x = self.dropout(x)
             x = layer(x, edge_list)
-            x = F.leaky_relu(x)
+            x = F.leaky_relu(x, inplace=True)
         return x
 
     def decode(self, x, edge_index):
@@ -207,12 +210,14 @@ def main(data_name, eval_type, model):
     valid_file = f'../data/{data_name}/hom_valid.txt'
     test_file = f'../data/{data_name}/hom_test.txt'
     model_save_path = f'../data/{data_name}/best_eval_{eval_type}.pt'
-    edge_list = gen_edge_list(train_file, data_name=data_name).to(device)
+    edge_list = gen_edge_list(train_file, data_name=data_name)
     feat = gen_feat(node_num[data_name], feat_type=0).to(device)
     train_data_loader = DataLoader(hom_data(train_file, eval_type), batch_size=10000, shuffle=True, num_workers=0)
 
     epochs = 30
-    early_stopping = EarlyStop(save_path=model_save_path, patience=10)
+    early_stopping = EarlyStop(save_path='', patience=10)
+    edge_sample_ratio = 0.5
+    edge_num = edge_list.shape[1]
 
     lossFun = nn.MSELoss()
     optimizer = th.optim.Adam([{'params': model.parameters()}], lr=0.01, weight_decay=0)
@@ -221,9 +226,11 @@ def main(data_name, eval_type, model):
     for epoch in range(epochs):
         for index, train_data_bach in enumerate(train_data_loader):
             model.train()
-            hid_feat = model.encode([feat, edge_list])
+            edge_sample_index = np.random.choice(edge_num, int(edge_num * edge_sample_ratio), replace=False)
+            edge_list_part = edge_list[:, edge_sample_index].to(device)
+            hid_feat = model.encode([feat, edge_list_part])
             out_feat = model.decode(hid_feat, [train_data_bach[0], train_data_bach[1]])
-            target = th.DoubleTensor(train_data_bach[2]).float().view(-1, 1).to(device)
+            target = train_data_bach[2].float().view(-1, 1).to(device)
             loss = lossFun(out_feat, target)
             optimizer.zero_grad()
             loss.backward()
@@ -233,7 +240,7 @@ def main(data_name, eval_type, model):
 
             # valid
             model.eval()
-            hid_feat = model.encode([feat, edge_list])
+            hid_feat = model.encode([feat, edge_list_part])
             out_feat = model.decode(hid_feat, [valid_list[0], valid_list[1]])
             target = th.FloatTensor(valid_list[2]).view(-1, 1).to(device)
             loss = lossFun(out_feat, target)
@@ -249,13 +256,16 @@ def main(data_name, eval_type, model):
         if early_stopping.stop:
             break
 
+    th.cuda.empty_cache()
     # test
     model.load_state_dict(th.load(model_save_path))
     model.eval()
     test_list = file2list(test_file, eval_type)
-    hid_feat = model.encode([feat, edge_list])
+    '''use CPU to avoid OOM'''
+    model = model.cpu()
+    hid_feat = model.encode([feat.cpu(), edge_list])
     out_feat = model.decode(hid_feat, [test_list[0], test_list[1]])
-    target = th.FloatTensor(test_list[2]).view(-1, 1).to(device)
+    target = th.FloatTensor(test_list[2]).view(-1, 1)
     loss = lossFun(out_feat, target)
     valid_half_len = int(len(valid_list[0]) / 2)
     roc_auc, fpr_auc, f1 = evaluate(out_feat, [test_list[0][:valid_half_len], test_list[1][:valid_half_len]],
@@ -272,17 +282,18 @@ if __name__ == '__main__':
     model_type = sys.argv[2]
     model = None
     if model_type == 'GCN':
-        model = GCN(in_feats=node_num[data_name], hid_feats=200, out_feats=1).to(device)
+        model = GCN(in_feats=node_num[data_name], hid_feats=200, out_feats=1)
     elif model_type == "GAT":
-        n_heads = [4]
+        n_heads = [2]
         n_layers = 2
         heads = n_heads * (n_layers - 1) + [1]
-        model = GAT(in_feats=node_num[data_name], hid_feats=200, out_feats=1, n_layers=n_layers, heads=heads).to(device)
+        model = GAT(in_feats=node_num[data_name], hid_feats=200, out_feats=1, n_layers=n_layers, heads=heads)
     else:
         exit('please input true model_type within [GCN, GAT]')
     auc_list, pr_list, f1_list = list(), list(), list()
     for eval_type in dataset_eval_type[data_name]:
         print(f'dataset: {data_name}, eval_type: {eval_type} of {len(dataset_eval_type[data_name])}')
+        model = model.to(device)
         roc_auc, pr_auc, f1 = main(data_name, eval_type, model)
         auc_list.append(roc_auc)
         pr_list.append(pr_auc)
