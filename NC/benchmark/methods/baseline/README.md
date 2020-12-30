@@ -1,10 +1,16 @@
 # new baseline for benchmark
 
-Still tuning...
+For message passing with relation attention version:
 
 ```
 python run_new.py --dataset DBLP --num-layers 2
 python run_new.py --dataset ACM --feats-type 0
+```
+
+For relational gat version:
+
+```
+python run.py --dataset DBLP
 ```
 
 ## running environment

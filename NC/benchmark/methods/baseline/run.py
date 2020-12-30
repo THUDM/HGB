@@ -9,7 +9,7 @@ import numpy as np
 
 from utils.pytorchtools import EarlyStopping
 from utils.data import load_data
-from GNN import GCN, GAT
+from GNN import GCN, GAT, RGAT
 import dgl
 
 def sp_to_spt(mat):
@@ -84,7 +84,7 @@ def run_model_DBLP(args):
     for _ in range(args.repeat):
         num_classes = dl.labels_train['num_classes']
         heads = [args.num_heads] * args.num_layers + [1]
-        net = GAT(gs, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, False)
+        net = RGAT(gs, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, False)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
