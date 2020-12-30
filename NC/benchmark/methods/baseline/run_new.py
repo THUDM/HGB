@@ -94,7 +94,7 @@ def run_model_DBLP(args):
     for _ in range(args.repeat):
         num_classes = dl.labels_train['num_classes']
         heads = [args.num_heads] * args.num_layers + [1]
-        net = myGAT(g, args.edge_feats, len(dl.links['count'])+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, False)
+        net = myGAT(g, args.edge_feats, len(dl.links['count'])+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, True)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -165,13 +165,13 @@ if __name__ == '__main__':
     ap.add_argument('--epoch', type=int, default=300, help='Number of epochs.')
     ap.add_argument('--patience', type=int, default=30, help='Patience.')
     ap.add_argument('--repeat', type=int, default=1, help='Repeat the training and testing for N times. Default is 1.')
-    ap.add_argument('--num-layers', type=int, default=2)
+    ap.add_argument('--num-layers', type=int, default=3)
     ap.add_argument('--lr', type=float, default=5e-4)
     ap.add_argument('--dropout', type=float, default=0.5)
     ap.add_argument('--weight-decay', type=float, default=1e-4)
-    ap.add_argument('--slope', type=float, default=0.01)
+    ap.add_argument('--slope', type=float, default=0.05)
     ap.add_argument('--dataset', type=str)
-    ap.add_argument('--edge-feats', type=int, default=50)
+    ap.add_argument('--edge-feats', type=int, default=64)
 
     args = ap.parse_args()
     run_model_DBLP(args)

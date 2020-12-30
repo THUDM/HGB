@@ -66,6 +66,7 @@ class data_loader:
                 net = new_edge_type
                 old_et2new_et[et] = net
                 new_links['total'] += self.links['count'][et]
+                new_links['count'][net] = self.links['count'][et]
                 new_links['meta'][net] = tuple(map(lambda x:old_nt2new_nt[x], self.links['meta'][et]))
                 new_links['data'][net] = self.links['data'][et][old_idx][:, old_idx]
                 new_edge_type += 1
