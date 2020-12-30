@@ -3,7 +3,8 @@
 Still tuning...
 
 ```
-python run.py --dataset DBLP
+python run_new.py --dataset DBLP --num-layers 2
+python run_new.py --dataset ACM --feats-type 0
 ```
 
 ## running environment
