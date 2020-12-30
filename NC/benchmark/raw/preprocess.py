@@ -1,9 +1,10 @@
 import json
-from os import ctermid, write
+from os import PRIO_PGRP, ctermid, write
 import numpy as np
-from numpy.core.defchararray import replace, title
+from numpy.core.defchararray import count, replace, title
 from numpy.core.numeric import NaN, moveaxis
 from numpy.lib.npyio import save
+from numpy.testing._private.utils import print_assert_equal
 import pandas as pd
 from sklearn.feature_extraction.text import CountVectorizer
 from sklearn.model_selection import train_test_split
@@ -19,7 +20,6 @@ lan_list = list(set(movies['language']))
 cty_list = list(set(movies['country']))
 rat_list = list(set(movies['content_rating']))
 
-
 all_label = ["Romance", "Thriller", "Comedy", "Action", "Drama"]
 label_cnt = [0 for i in range(len(all_label))]
 
@@ -34,15 +34,30 @@ for movie_idx, genres in movies['genres'].iteritems():
             label_cnt[index] += 1
 # extract attr
 graph_field = ["director_name", 'actor_1_name', 'actor_2_name',
-               'actor_3_name', 'genres', 'plot_keywords', 'movie_title', 'movie_imdb_link']
+               'actor_3_name', 'genres', 'plot_keywords', 'movie_title', 'movie_imdb_link', 'color', 'language', 'country', 'content_rating']
 
-attr_list = [[] for i in range(len(movies))]
+attr_list = []
+color = []
+language = []
+country = []
+rating = []
 for movie_idx, row in movies.iterrows():
-    attr_list[movie_idx] = row.drop(graph_field)
-    attr_list[movie_idx][0] = color_list.index(attr_list[movie_idx][0])
-    attr_list[movie_idx][11] = lan_list.index(attr_list[movie_idx][11])
-    attr_list[movie_idx][12] = cty_list.index(attr_list[movie_idx][12])
-    attr_list[movie_idx][13] = rat_list.index(attr_list[movie_idx][13])
+    color.append(color_list.index(row['color']))
+    language.append(lan_list.index(row['language']))
+    country.append(cty_list.index(row['country']))
+    rating.append(rat_list.index(row['content_rating']))
+    attr_list.append(row.drop(graph_field))
+    attr_list[movie_idx] = attr_list[movie_idx].fillna(0)
+attr_list = pd.DataFrame(attr_list)
+attr_list = (attr_list - attr_list.mean()) / (attr_list.std())
+attr_list = attr_list.to_numpy()
+color = np.eye(len(color_list))[color]
+language = np.eye(len(lan_list))[language]
+country = np.eye(len(cty_list))[country]
+rating = np.eye(len(rat_list))[rating]
+
+attr_list = np.hstack(
+    (attr_list, color, language, country, rating))
 
 # get director list and actor list
 directors = list(set(movies['director_name'].dropna()))
@@ -189,25 +204,26 @@ info_dict['node.dat']['node type'][0] = "movie"
 info_dict['node.dat']['node type'][1] = "director"
 info_dict['node.dat']['node type'][2] = "actor"
 info_dict['node.dat']['node type'][3] = "keyword"
-info_dict['node.dat']['Attributes'][0] = "color"
-info_dict['node.dat']['Attributes'][1] = "num_critic_for_reviews"
-info_dict['node.dat']['Attributes'][2] = "duration"
-info_dict['node.dat']['Attributes'][3] = "director_facebook_likes"
-info_dict['node.dat']['Attributes'][4] = "actor_1_facebook_likes"
-info_dict['node.dat']['Attributes'][5] = "actor_3_facebook_likes"
-info_dict['node.dat']['Attributes'][6] = "gross"
-info_dict['node.dat']['Attributes'][7] = "num_voted_users"
-info_dict['node.dat']['Attributes'][8] = "cast_total_facebook_likes"
-info_dict['node.dat']['Attributes'][9] = "facenumber_in_poster"
-info_dict['node.dat']['Attributes'][10] = "language"
-info_dict['node.dat']['Attributes'][11] = "country"
-info_dict['node.dat']['Attributes'][12] = "content_rating"
-info_dict['node.dat']['Attributes'][13] = "budget"
-info_dict['node.dat']['Attributes'][14] = "title_year"
-info_dict['node.dat']['Attributes'][15] = "actor_2_facebook_likes"
-info_dict['node.dat']['Attributes'][16] = "imdb_score"
-info_dict['node.dat']['Attributes'][17] = "aspect_ration"
-info_dict['node.dat']['Attributes'][18] = "movie_facebook_likes"
+info_dict['node.dat']['Attributes'][0] = "num_critic_for_reviews"
+info_dict['node.dat']['Attributes'][1] = "duration"
+info_dict['node.dat']['Attributes'][2] = "director_facebook_likes"
+info_dict['node.dat']['Attributes'][3] = "actor_1_facebook_likes"
+info_dict['node.dat']['Attributes'][4] = "actor_3_facebook_likes"
+info_dict['node.dat']['Attributes'][5] = "gross"
+info_dict['node.dat']['Attributes'][6] = "num_voted_users"
+info_dict['node.dat']['Attributes'][7] = "cast_total_facebook_likes"
+info_dict['node.dat']['Attributes'][8] = "facenumber_in_poster"
+info_dict['node.dat']['Attributes'][9] = "num_user_for_reviews"
+info_dict['node.dat']['Attributes'][10] = "budget"
+info_dict['node.dat']['Attributes'][11] = "title_year"
+info_dict['node.dat']['Attributes'][12] = "actor_2_facebook_likes"
+info_dict['node.dat']['Attributes'][13] = "imdb_score"
+info_dict['node.dat']['Attributes'][14] = "aspect_ration"
+info_dict['node.dat']['Attributes'][15] = "movie_facebook_likes"
+info_dict['node.dat']['Attributes']["16:19"] = "color"
+info_dict['node.dat']['Attributes']["19:67"] = "language"
+info_dict['node.dat']['Attributes']["67:132"] = "country"
+info_dict['node.dat']['Attributes']["132:148"] = "content_rating"
 for i in range(len(color_list)):
     info_dict['node.dat']['color'][i] = color_list[i]
 for i in range(len(lan_list)):
