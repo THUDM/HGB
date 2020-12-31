@@ -5,6 +5,7 @@ For message passing with relation attention version:
 ```
 python run_new.py --dataset DBLP --num-layers 2
 python run_new.py --dataset ACM --feats-type 0
+python run_multi.py --dataset IMDB --feats-type 2
 ```
 
 For relational gat version:
