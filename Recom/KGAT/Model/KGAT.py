@@ -144,6 +144,7 @@ class KGAT(object):
         all_weights['trans_W'] = tf.Variable(initializer([self.n_relations, self.emb_dim, self.kge_dim]))
         all_weights['trans_gat'] = tf.Variable(initializer([1, self.emb_dim*2]))
         all_weights['trans_kgcn'] = tf.Variable(initializer([1, self.emb_dim+self.kge_dim]))
+        all_weights['trans_rgat'] = tf.Variable(initializer([1, self.emb_dim*2+self.kge_dim]))
 
         self.weight_size_list = [self.emb_dim] + self.weight_size
         self.weight_size_list.append(self.weight_size_list[-1])
@@ -211,6 +212,8 @@ class KGAT(object):
             self.A_kg_score = self._generate_gat_score(h=self.h, t=self.pos_t)
         elif self.att_type == 'kgcn':
             self.A_kg_score = self._generate_kgcn_score(h=self.h, r=self.r)
+        elif self.att_type == 'rgat':
+            self.A_kg_score = self._generate_rgat_score(h=self.h, r=self.r, t=self.pos_t)
         else:
             raise Exception('invalid att_type!')
         self.A_out = self._create_attentive_A_out()
@@ -519,6 +522,22 @@ class KGAT(object):
         kgcn_score = tf.reduce_sum(tf.multiply(e, self.weights['trans_kgcn']), 1)
 
         return kgcn_score
+
+    def _generate_rgat_score(self, h, r, t):
+        embeddings = tf.concat([self.weights['user_embed'], self.weights['entity_embed']], axis=0)
+        embeddings = tf.expand_dims(embeddings, 1)
+
+        h_e = tf.nn.embedding_lookup(embeddings, h)
+        h_e = tf.reshape(h_e, [-1, self.emb_dim])
+        t_e = tf.nn.embedding_lookup(embeddings, t)
+        t_e = tf.reshape(t_e, [-1, self.emb_dim])
+        # relation embeddings: batch_size * kge_dim
+        r_e = tf.nn.embedding_lookup(self.weights['relation_embed'], r)
+        e = tf.concat([h_e, r_e, t_e], axis=1)
+
+        rgat_score = tf.reduce_sum(tf.multiply(e, self.weights['trans_rgat']), 1)
+
+        return tf.nn.leaky_relu(rgat_score, alpha=0.1)
 
 
     def _statistics_params(self):
