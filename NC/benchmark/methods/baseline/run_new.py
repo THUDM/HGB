@@ -78,9 +78,15 @@ def run_model_DBLP(args):
         for u,v in zip(*dl.links['data'][k].nonzero()):
             edge2type[(u,v)] = k
     for i in range(dl.nodes['total']):
-        edge2type[(i,i)] = len(dl.links['count'])
+        if (i,i) not in edge2type:
+            edge2type[(i,i)] = len(dl.links['count'])
+    for k in dl.links['data']:
+        for u,v in zip(*dl.links['data'][k].nonzero()):
+            if (v,u) not in edge2type:
+                edge2type[(v,u)] = k+1+len(dl.links['count'])
+    
 
-    g = dgl.DGLGraph(adjM)
+    g = dgl.DGLGraph(adjM+(adjM.T))
     g = dgl.remove_self_loop(g)
     g = dgl.add_self_loop(g)
     g = g.to(device)
@@ -94,7 +100,7 @@ def run_model_DBLP(args):
     for _ in range(args.repeat):
         num_classes = dl.labels_train['num_classes']
         heads = [args.num_heads] * args.num_layers + [1]
-        net = myGAT(g, args.edge_feats, len(dl.links['count'])+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, True)
+        net = myGAT(g, args.edge_feats, len(dl.links['count'])*2+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, True)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
