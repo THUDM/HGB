@@ -171,7 +171,7 @@ if __name__ == '__main__':
     ap.add_argument('--epoch', type=int, default=300, help='Number of epochs.')
     ap.add_argument('--patience', type=int, default=30, help='Patience.')
     ap.add_argument('--repeat', type=int, default=1, help='Repeat the training and testing for N times. Default is 1.')
-    ap.add_argument('--num-layers', type=int, default=3)
+    ap.add_argument('--num-layers', type=int, default=2)
     ap.add_argument('--lr', type=float, default=5e-4)
     ap.add_argument('--dropout', type=float, default=0.5)
     ap.add_argument('--weight-decay', type=float, default=1e-4)

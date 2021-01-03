@@ -54,6 +54,7 @@ class myGAT(nn.Module):
             h = self.gat_layers[l](self.g, h, e_feat).flatten(1)
         # output projection
         logits = self.gat_layers[-1](self.g, h, e_feat).mean(1)
+        logits = logits / torch.norm(logits, dim=1, keepdim=True)
         return logits
 
 class RGAT(nn.Module):
