@@ -8,20 +8,20 @@ import torch.nn.functional as F
 import numpy as np
 
 from utils.pytorchtools import EarlyStopping
-from utils.data import load_DBLP_data
+from utils.data import load_ACM_data
 from utils.tools import index_generator, evaluate_results_nc, parse_minibatch
 from model import MAGNN_nc_mb
 
 # Params
-out_dim = 4
+out_dim = 3
 dropout_rate = 0.5
 lr = 0.005
 weight_decay = 0.001
-etypes_list = [[0, 1], [0, 2, 3, 1], [0, 4, 5, 1]]
+etypes_list = [[2, 3], [4, 5], [0, 2, 3], [0, 4, 5], [1, 2, 3], [1, 4, 5]]
 
 def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
                    num_epochs, patience, batch_size, neighbor_samples, repeat, save_postfix):
-    adjlists, edge_metapath_indices_list, features_list, adjM, type_mask, labels, train_val_test_idx, dl = load_DBLP_data()
+    adjlists, edge_metapath_indices_list, features_list, adjM, type_mask, labels, train_val_test_idx, dl = load_ACM_data()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     features_list = [torch.FloatTensor(features).to(device) for features in features_list]
     if feats_type == 0:
@@ -70,7 +70,7 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
     ari_mean_list = []
     ari_std_list = []
     for _ in range(repeat):
-        net = MAGNN_nc_mb(3, 6, etypes_list, in_dims, hidden_dim, out_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
+        net = MAGNN_nc_mb(6, 8, etypes_list, in_dims, hidden_dim, out_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
@@ -165,7 +165,7 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
             test_logits = torch.cat(test_logits, 0)
             #np.save('out.npy', test_logits.cpu().numpy())
             pred = test_logits.cpu().numpy().argmax(axis=1)
-            onehot = np.eye(4, dtype=np.int32)
+            onehot = np.eye(out_dim, dtype=np.int32)
             pred = onehot[pred]
             print(dl.evaluate(pred))
             """svm_macro_f1_list, svm_micro_f1_list, nmi_mean, nmi_std, ari_mean, ari_std = evaluate_results_nc(
@@ -216,7 +216,7 @@ if __name__ == '__main__':
     ap.add_argument('--batch-size', type=int, default=8, help='Batch size. Default is 8.')
     ap.add_argument('--samples', type=int, default=100, help='Number of neighbors sampled. Default is 100.')
     ap.add_argument('--repeat', type=int, default=1, help='Repeat the training and testing for N times. Default is 1.')
-    ap.add_argument('--save-postfix', default='DBLP', help='Postfix for the saved model and result. Default is DBLP.')
+    ap.add_argument('--save-postfix', default='ACM', help='Postfix for the saved model and result. Default is DBLP.')
 
     args = ap.parse_args()
     run_model_DBLP(args.feats_type, args.hidden_dim, args.num_heads, args.attn_vec_dim, args.rnn_type,
