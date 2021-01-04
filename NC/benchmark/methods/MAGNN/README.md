@@ -1,6 +1,12 @@
 ## MAGNN for benchmark
 
-run_DBLP.py with our benchmark DBLP dataset.
+MAGNN for benchmark datasets.
+
+```
+python run_DBLP.py
+python run_ACM.py
+python run_IMDB_new.py
+```
 
 ## MAGNN
 

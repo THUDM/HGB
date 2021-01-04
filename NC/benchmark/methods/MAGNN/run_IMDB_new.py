@@ -135,7 +135,7 @@ def run_model_IMDB(feats_type, num_layers, hidden_dim, num_heads, attn_vec_dim, 
         with torch.no_grad():
             logits, embeddings = net((g_lists, features_list, type_mask, edge_metapath_indices_lists), target_node_indices)
             logp = F.sigmoid(logits)
-            dl.evaluate((logp[test_idx]>0.5).cpu().numpy())
+            print(dl.evaluate((logp[test_idx]>0.5).cpu().numpy()))
             #svm_macro_f1_list, svm_micro_f1_list, nmi_mean, nmi_std, ari_mean, ari_std = evaluate_results_nc(
             #    embeddings[test_idx].cpu().numpy(), labels[test_idx].cpu().numpy(), num_classes=out_dim)
         #svm_macro_f1_lists.append(svm_macro_f1_list)
