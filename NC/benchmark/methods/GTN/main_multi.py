@@ -20,10 +20,15 @@ def load_data(args):
             drop_feat = [0,1,3]
         elif feats_type == 2:
             drop_feat = [0]
+    if dataset == 'IMDB':
+        if feats_type == 1:
+            drop_feat = [0]
     dl = data_loader('../../data/'+dataset)
     if dataset == 'DBLP' and not full:
         dl.get_sub_graph([0,1,3])
     if dataset == 'ACM' and not full:
+        dl.get_sub_graph([0,1,2])
+    if dataset == 'IMDB' and not full:
         dl.get_sub_graph([0,1,2])
     edges = list(dl.links['data'].values())
     node_features = []
@@ -49,11 +54,11 @@ def load_data(args):
     labels = np.zeros((dl.nodes['count'][0], dl.labels_train['num_classes']), dtype=int)
     labels[train_idx] = dl.labels_train['data'][train_idx]
     labels[val_idx] = dl.labels_train['data'][val_idx]
-    labels = labels.argmax(axis=1)
+    #labels = labels.argmax(axis=1)
     train_label = labels[train_idx]
     val_label = labels[val_idx]
-    train_label = list(zip(train_idx.tolist(), train_label.tolist()))
-    val_label = list(zip(val_idx.tolist(), val_label.tolist()))
+    train_label = (train_idx.tolist(), train_label) #list(zip(train_idx.tolist(), train_label.tolist()))
+    val_label = (val_idx.tolist(), val_label) #list(zip(val_idx.tolist(), val_label.tolist()))
     labels = [train_label, val_label, test_idx.tolist()]
     return node_features, edges, labels, dl, w_ins
 
@@ -123,14 +128,14 @@ if __name__ == '__main__':
     A = torch.cat([A,torch.eye(num_nodes).type(torch.FloatTensor).unsqueeze(-1)], dim=-1)
     
     node_features = [mat2tensor(x) for x in node_features] # torch.from_numpy(node_features).type(torch.FloatTensor)
-    train_node = torch.from_numpy(np.array(labels[0])[:,0]).type(torch.LongTensor)
-    train_target = torch.from_numpy(np.array(labels[0])[:,1]).type(torch.LongTensor)
-    valid_node = torch.from_numpy(np.array(labels[1])[:,0]).type(torch.LongTensor)
-    valid_target = torch.from_numpy(np.array(labels[1])[:,1]).type(torch.LongTensor)
+    train_node = torch.from_numpy(np.array(labels[0][0])).type(torch.LongTensor)
+    train_target = torch.from_numpy(np.array(labels[0][1])).type(torch.FloatTensor)
+    valid_node = torch.from_numpy(np.array(labels[1][0])).type(torch.LongTensor)
+    valid_target = torch.from_numpy(np.array(labels[1][1])).type(torch.FloatTensor)
     test_node = torch.from_numpy(np.array(labels[2])).type(torch.LongTensor)
     #test_target = torch.from_numpy(np.array(labels[2])[:,1]).type(torch.LongTensor)
     
-    num_classes = torch.max(train_target).item()+1
+    num_classes = dl.labels_train['num_classes']#torch.max(train_target).item()+1
     final_f1 = 0
     for l in range(1):
         model = GTN(num_edge=A.shape[-1],
@@ -148,7 +153,7 @@ if __name__ == '__main__':
                                         {'params':model.linear2.parameters()},
                                         {"params":model.layers.parameters(), "lr":0.5}
                                         ], lr=0.005, weight_decay=0.001)
-        loss = nn.CrossEntropyLoss()
+        loss_func = nn.BCELoss() #nn.CrossEntropyLoss()
         # Train & Valid & Test
         best_val_loss = 10000
         best_test_loss = 10000
@@ -164,21 +169,23 @@ if __name__ == '__main__':
             print('Epoch:  ',i+1)
             model.zero_grad()
             model.train()
-            loss,y_train,Ws = model(A, node_features, train_node, train_target)
-            train_f1 = torch.mean(f1_score(torch.argmax(y_train.detach(),dim=1), train_target, num_classes=num_classes)).cpu().numpy()
+            loss,y_train,Ws = model(A, node_features, train_node, None)#, train_target)
+            y_train = F.sigmoid(y_train)
+            loss = loss_func(y_train, train_target)
+            train_f1 = torch.mean(f1_score(y_train.detach()>0.5, train_target, num_classes=num_classes)).cpu().numpy()
             print('Train - Loss: {}, Macro_F1: {}'.format(loss.detach().cpu().numpy(), train_f1))
             loss.backward()
             optimizer.step()
             model.eval()
             # Valid
             with torch.no_grad():
-                val_loss, y_valid,_ = model.forward(A, node_features, valid_node, valid_target)
-                val_f1 = torch.mean(f1_score(torch.argmax(y_valid,dim=1), valid_target, num_classes=num_classes)).cpu().numpy()
+                val_loss, y_valid,_ = model.forward(A, node_features, valid_node, None)#, valid_target)
+                y_valid = F.sigmoid(y_valid)
+                val_loss = loss_func(y_valid, valid_target)
+                val_f1 = torch.mean(f1_score(y_valid>0.5, valid_target, num_classes=num_classes)).cpu().numpy()
                 print('Valid - Loss: {}, Macro_F1: {}'.format(val_loss.detach().cpu().numpy(), val_f1))
                 test_loss, y_test,W = model.forward(A, node_features, test_node, None)
-                pred = y_test.cpu().numpy().argmax(axis=1)
-                onehot = np.eye(num_classes, dtype=np.int32)
-                pred = onehot[pred]
+                pred = F.sigmoid(y_test).cpu().numpy()>0.5
                 test_f1 = dl.evaluate(pred)
                 print(test_f1)
                 #test_f1 = torch.mean(f1_score(torch.argmax(y_test,dim=1), test_target, num_classes=num_classes)).cpu().numpy()
