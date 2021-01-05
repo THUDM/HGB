@@ -4,13 +4,14 @@ import time
 import argparse
 
 import torch
+import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
 
 from utils.pytorchtools import EarlyStopping
 from utils.data import load_data
 #from utils.tools import index_generator, evaluate_results_nc, parse_minibatch
-from GNN import myGAT
+from GNN import GCN, GAT
 import dgl
 
 def sp_to_spt(mat):
@@ -65,7 +66,7 @@ def run_model_DBLP(args):
             indices = torch.LongTensor(indices)
             values = torch.FloatTensor(np.ones(dim))
             features_list[i] = torch.sparse.FloatTensor(indices, values, torch.Size([dim, dim])).to(device)
-    labels = torch.LongTensor(labels).to(device)
+    labels = torch.FloatTensor(labels).to(device)
     train_idx = train_val_test_idx['train_idx']
     train_idx = np.sort(train_idx)
     val_idx = train_val_test_idx['val_idx']
@@ -73,34 +74,22 @@ def run_model_DBLP(args):
     test_idx = train_val_test_idx['test_idx']
     test_idx = np.sort(test_idx)
     
-    edge2type = {}
-    for k in dl.links['data']:
-        for u,v in zip(*dl.links['data'][k].nonzero()):
-            edge2type[(u,v)] = k
-    for i in range(dl.nodes['total']):
-        if (i,i) not in edge2type:
-            edge2type[(i,i)] = len(dl.links['count'])
-    for k in dl.links['data']:
-        for u,v in zip(*dl.links['data'][k].nonzero()):
-            if (v,u) not in edge2type:
-                edge2type[(v,u)] = k+1+len(dl.links['count'])
-    
-
-    g = dgl.DGLGraph(adjM+(adjM.T))
+    g = dgl.DGLGraph(adjM)
     g = dgl.remove_self_loop(g)
     g = dgl.add_self_loop(g)
     g = g.to(device)
-    e_feat = []
-    for u, v in zip(*g.edges()):
-        u = u.cpu().item()
-        v = v.cpu().item()
-        e_feat.append(edge2type[(u,v)])
-    e_feat = torch.tensor(e_feat, dtype=torch.long).to(device)
 
     for _ in range(args.repeat):
+        loss = nn.BCELoss()
         num_classes = dl.labels_train['num_classes']
         heads = [args.num_heads] * args.num_layers + [1]
-        net = myGAT(g, args.edge_feats, len(dl.links['count'])*2+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, True)
+        if args.model_type == 'gat':
+            heads = [args.num_heads] * args.num_layers + [1]
+            net = GAT(g, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, False)
+        elif args.model_type == 'gcn':
+            net = GCN(g, in_dims, args.hidden_dim, num_classes, args.num_layers, F.elu, args.dropout)
+        else:
+            raise Exception('{} model is not defined!'.format(args.model_type))
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -112,9 +101,9 @@ def run_model_DBLP(args):
             # training
             net.train()
 
-            logits = net(features_list, e_feat)
-            logp = F.log_softmax(logits, 1)
-            train_loss = F.nll_loss(logp[train_idx], labels[train_idx])
+            logits = net(features_list)
+            logp = F.sigmoid(logits)
+            train_loss = loss(logp[train_idx], labels[train_idx])
 
             # autograd
             optimizer.zero_grad()
@@ -130,9 +119,9 @@ def run_model_DBLP(args):
             # validation
             net.eval()
             with torch.no_grad():
-                logits = net(features_list, e_feat)
-                logp = F.log_softmax(logits, 1)
-                val_loss = F.nll_loss(logp[val_idx], labels[val_idx])
+                logits = net(features_list)
+                logp = F.sigmoid(logits)
+                val_loss = loss(logp[val_idx], labels[val_idx])
             t_end = time.time()
             # print validation info
             print('Epoch {:05d} | Val_Loss {:.4f} | Time(s) {:.4f}'.format(
@@ -148,11 +137,9 @@ def run_model_DBLP(args):
         net.eval()
         test_logits = []
         with torch.no_grad():
-            logits = net(features_list, e_feat)
+            logits = net(features_list)
             test_logits = logits[test_idx]
-            pred = test_logits.cpu().numpy().argmax(axis=1)
-            onehot = np.eye(num_classes, dtype=np.int32)
-            pred = onehot[pred]
+            pred = (test_logits.cpu().numpy()>0).astype(int)
             print(dl.evaluate(pred))
 
 
@@ -171,13 +158,13 @@ if __name__ == '__main__':
     ap.add_argument('--epoch', type=int, default=300, help='Number of epochs.')
     ap.add_argument('--patience', type=int, default=30, help='Patience.')
     ap.add_argument('--repeat', type=int, default=1, help='Repeat the training and testing for N times. Default is 1.')
-    ap.add_argument('--num-layers', type=int, default=2)
-    ap.add_argument('--lr', type=float, default=5e-4)
+    ap.add_argument('--num-layers', type=int, default=4)
+    ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--dropout', type=float, default=0.5)
     ap.add_argument('--weight-decay', type=float, default=1e-4)
-    ap.add_argument('--slope', type=float, default=0.05)
+    ap.add_argument('--slope', type=float, default=0.1)
     ap.add_argument('--dataset', type=str)
-    ap.add_argument('--edge-feats', type=int, default=64)
+    ap.add_argument('--model-type', type=str)
 
     args = ap.parse_args()
     run_model_DBLP(args)

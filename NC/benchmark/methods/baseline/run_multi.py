@@ -10,7 +10,7 @@ import numpy as np
 
 from utils.pytorchtools import EarlyStopping
 from utils.data import load_data
-from utils.tools import index_generator, evaluate_results_nc, parse_minibatch
+#from utils.tools import index_generator, evaluate_results_nc, parse_minibatch
 from GNN import myGAT
 import dgl
 
