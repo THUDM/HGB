@@ -8,7 +8,7 @@ def load_data(prefix='DBLP'):
     from scripts.data_loader import data_loader
     dl = data_loader('../../data/'+prefix)
     features = []
-    for i in range(4):
+    for i in range(len(dl.nodes['count'])):
         th = dl.nodes['attr'][i]
         if th is None:
             features.append(sp.eye(dl.nodes['count'][i]))
