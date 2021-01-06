@@ -74,7 +74,7 @@ links = []
 
 for user in user_artist_list:
     for artist in user_artist_list[user]:
-        links.append((user, artist, 0, 1.0))
+        links.append((user, artist+num_user, 0, 1.0))
 
 ratio = 0.8
 split = int(len(links)*ratio)
@@ -89,7 +89,7 @@ for user in user_user_list:
         links.append((user, friend, 1, 1.0))
 for artist in artist_tag_list:
     for tag in artist_tag_list[artist]:
-        links.append((num_user+artist, tag, 2, 1.0))
+        links.append((num_user+artist, tag+num_user+num_artist, 2, 1.0))
 
 
 info = {
