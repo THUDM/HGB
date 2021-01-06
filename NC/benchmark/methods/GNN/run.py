@@ -9,7 +9,7 @@ import numpy as np
 
 from utils.pytorchtools import EarlyStopping
 from utils.data import load_data
-from utils.tools import index_generator, evaluate_results_nc, parse_minibatch
+#from utils.tools import index_generator, evaluate_results_nc, parse_minibatch
 from GNN import GCN, GAT
 import dgl
 
@@ -73,7 +73,7 @@ def run_model_DBLP(args):
     test_idx = train_val_test_idx['test_idx']
     test_idx = np.sort(test_idx)
     
-    g = dgl.DGLGraph(adjM)
+    g = dgl.DGLGraph(adjM+(adjM.T))
     g = dgl.remove_self_loop(g)
     g = dgl.add_self_loop(g)
     g = g.to(device)
@@ -162,7 +162,7 @@ if __name__ == '__main__':
     ap.add_argument('--lr', type=float, default=5e-4)
     ap.add_argument('--dropout', type=float, default=0.5)
     ap.add_argument('--weight-decay', type=float, default=1e-4)
-    ap.add_argument('--slope', type=float, default=0.01)
+    ap.add_argument('--slope', type=float, default=0.05)
     ap.add_argument('--dataset', type=str)
 
     args = ap.parse_args()

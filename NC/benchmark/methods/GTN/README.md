@@ -2,6 +2,8 @@
 
 ```
 python main.py --dataset DBLP --num_layers 2 --feats-type 2 --adaptive_lr true
+python main.py --dataset ACM --num_layers 2 --adaptive_lr true
+python main_multi.py --dataset IMDB --num_layers 3 --adaptive_lr true
 ```
 
 ***GTN is very sensitive to the input feat and runs really slow (since it can only run on CPUs). We have tried our best to tune it.***
