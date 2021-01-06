@@ -103,8 +103,12 @@ def run_model_DBLP(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
         if mn == 'gat':
             net = GAT(g, num_layers, hidden_dim, hidden_dim, out_dim, heads, F.elu, dropout_rate, dropout_rate, 0.01, False, in_dims).cuda()
         elif mn == 'gcn':
-            net = GCN(g, hidden_dim, hidden_dim, out_dim, num_layers, F.relu, dropout_rate, in_dims).cuda() #MAGNN_nc_mb(3, 6, etypes_list, in_dims, hidden_dim, out_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
+            net = GCN(g, hidden_dim, hidden_dim, out_dim, num_layers, F.elu, dropout_rate, in_dims).cuda() #MAGNN_nc_mb(3, 6, etypes_list, in_dims, hidden_dim, out_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
         #net.to(device)
+        if mn == 'gcn':
+            weight_decay = 0.
+        else:
+            weight_decay = 0.001
         optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
         # training loop
@@ -240,7 +244,7 @@ if __name__ == '__main__':
     ap.add_argument('--attn-vec-dim', type=int, default=128, help='Dimension of the attention vector. Default is 128.')
     ap.add_argument('--rnn-type', default='RotatE0', help='Type of the aggregator. Default is RotatE0.')
     ap.add_argument('--epoch', type=int, default=200, help='Number of epochs. Default is 100.')
-    ap.add_argument('--patience', type=int, default=100, help='Patience. Default is 5.')
+    ap.add_argument('--patience', type=int, default=30, help='Patience. Default is 5.')
     ap.add_argument('--batch-size', type=int, default=8, help='Batch size. Default is 8.')
     ap.add_argument('--samples', type=int, default=100, help='Number of neighbors sampled. Default is 100.')
     ap.add_argument('--repeat', type=int, default=1, help='Repeat the training and testing for N times. Default is 1.')

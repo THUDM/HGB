@@ -83,7 +83,7 @@ class GCN(nn.Module):
         for fc in self.fc_list:
             nn.init.xavier_normal_(fc.weight, gain=1.414)
         # input layer
-        self.layers.append(GraphConv(n_hidden, n_hidden, activation=activation))
+        self.layers.append(GraphConv(n_hidden, n_hidden, activation=activation, weight=False))
         # hidden layers
         for i in range(n_layers - 1):
             self.layers.append(GraphConv(n_hidden, n_hidden, activation=activation))
@@ -97,7 +97,6 @@ class GCN(nn.Module):
             h.append(fc(feature))
         h = torch.cat(h, 0)
         for i, layer in enumerate(self.layers):
-            if i != 0:
-                h = self.dropout(h)
+            h = self.dropout(h)
             h = layer(self.g, h)
         return h
