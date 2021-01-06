@@ -4,7 +4,7 @@ import os
 
 from scripts.data_loader import data_loader
 
-data_name = LastFM
+data_name = 'LastFM'
 data_dir = f'./data/{data_name}'
 dl_pickle_f = os.path.join(data_dir, 'dl_pickle')
 if os.path.exists(dl_pickle_f):
