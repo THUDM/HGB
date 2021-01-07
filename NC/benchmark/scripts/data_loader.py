@@ -188,7 +188,7 @@ class data_loader:
 
     def get_edge_info(self, edge_id):
         return self.links['meta'][edge_id]
-
+    ]
     def list_to_sp_mat(self, li):
         data = [x[2] for x in li]
         i = [x[0] for x in li]
@@ -201,7 +201,7 @@ class data_loader:
             total: total number of links
             count: a dict of int, number of links for each type
             meta: a dict of tuple, explaining the link type is from what type of node to what type of node
-            data: a dict of sparse matrices, each link type with one matrix. Shapes are all (nodes['total', nodes['total'])
+            data: a dict of sparse matrices, each link type with one matrix. Shapes are all (nodes['total'], nodes['total'])
         """
         links = {'total':0, 'count':Counter(), 'meta':{}, 'data':defaultdict(list)}
         with open(os.path.join(self.path, 'link.dat'), 'r', encoding='utf-8') as f:
