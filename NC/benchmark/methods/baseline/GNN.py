@@ -43,7 +43,8 @@ class myGAT(nn.Module):
         # output projection
         self.gat_layers.append(myGATConv(edge_dim, num_etypes,
             num_hidden * heads[-2], num_classes, heads[-1],
-            feat_drop, attn_drop, negative_slope, residual, None))
+            feat_drop, attn_drop, negative_slope, residual, None, True))
+        self.epsilon = torch.FloatTensor([1e-12]).cuda()
 
     def forward(self, features_list, e_feat):
         h = []
@@ -54,7 +55,8 @@ class myGAT(nn.Module):
             h = self.gat_layers[l](self.g, h, e_feat).flatten(1)
         # output projection
         logits = self.gat_layers[-1](self.g, h, e_feat).mean(1)
-        logits = logits / (torch.norm(logits, dim=1, keepdim=True)+1e-9)
+        # This is an equivalent replacement for tf.l2_normalize, see https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/math/l2_normalize for more information.
+        logits = logits / (torch.max(torch.norm(logits, dim=1, keepdim=True), self.epsilon))
         return logits
 
 class RGAT(nn.Module):

@@ -26,7 +26,8 @@ class myGATConv(nn.Module):
                  negative_slope=0.2,
                  residual=False,
                  activation=None,
-                 allow_zero_in_degree=False):
+                 allow_zero_in_degree=False,
+                 bias=False):
         super(myGATConv, self).__init__()
         self._edge_feats = edge_feats
         self._num_heads = num_heads
@@ -59,6 +60,9 @@ class myGATConv(nn.Module):
             self.register_buffer('res_fc', None)
         self.reset_parameters()
         self.activation = activation
+        self.bias = bias
+        if bias:
+            self.bias_param = nn.Parameter(torch.zeros((1, num_heads, out_feats)))
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
@@ -124,6 +128,9 @@ class myGATConv(nn.Module):
             if self.res_fc is not None:
                 resval = self.res_fc(h_dst).view(h_dst.shape[0], -1, self._out_feats)
                 rst = rst + resval
+            # bias
+            if self.bias:
+                rst = rst + self.bias_param
             # activation
             if self.activation:
                 rst = self.activation(rst)

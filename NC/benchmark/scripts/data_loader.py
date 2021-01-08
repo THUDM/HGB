@@ -188,7 +188,7 @@ class data_loader:
 
     def get_edge_info(self, edge_id):
         return self.links['meta'][edge_id]
-    ]
+    
     def list_to_sp_mat(self, li):
         data = [x[2] for x in li]
         i = [x[0] for x in li]
