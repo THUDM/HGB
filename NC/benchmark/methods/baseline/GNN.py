@@ -43,7 +43,7 @@ class myGAT(nn.Module):
         # output projection
         self.gat_layers.append(myGATConv(edge_dim, num_etypes,
             num_hidden * heads[-2], num_classes, heads[-1],
-            feat_drop, attn_drop, negative_slope, residual, None, True))
+            feat_drop, attn_drop, negative_slope, residual, None))
         self.epsilon = torch.FloatTensor([1e-12]).cuda()
 
     def forward(self, features_list, e_feat):

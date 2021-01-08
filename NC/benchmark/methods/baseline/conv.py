@@ -62,7 +62,7 @@ class myGATConv(nn.Module):
         self.activation = activation
         self.bias = bias
         if bias:
-            self.bias_param = nn.Parameter(torch.zeros((1, num_heads, out_feats)))
+            self.bias_param = nn.Parameter(th.zeros((1, num_heads, out_feats)))
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
