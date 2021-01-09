@@ -27,7 +27,8 @@ class myGATConv(nn.Module):
                  residual=False,
                  activation=None,
                  allow_zero_in_degree=False,
-                 bias=False):
+                 bias=False,
+                 alpha=0.):
         super(myGATConv, self).__init__()
         self._edge_feats = edge_feats
         self._num_heads = num_heads
@@ -63,6 +64,7 @@ class myGATConv(nn.Module):
         self.bias = bias
         if bias:
             self.bias_param = nn.Parameter(th.zeros((1, num_heads, out_feats)))
+        self.alpha = alpha
 
     def reset_parameters(self):
         gain = nn.init.calculate_gain('relu')
@@ -81,7 +83,7 @@ class myGATConv(nn.Module):
     def set_allow_zero_in_degree(self, set_value):
         self._allow_zero_in_degree = set_value
 
-    def forward(self, graph, feat, e_feat):
+    def forward(self, graph, feat, e_feat, res_attn=None):
         with graph.local_scope():
             if not self._allow_zero_in_degree:
                 if (graph.in_degrees() == 0).any():
@@ -120,6 +122,8 @@ class myGATConv(nn.Module):
             e = self.leaky_relu(graph.edata.pop('e')+graph.edata.pop('ee'))
             # compute softmax
             graph.edata['a'] = self.attn_drop(edge_softmax(graph, e))
+            if res_attn is not None:
+                graph.edata['a'] = graph.edata['a'] * (1-self.alpha) + res_attn * self.alpha
             # message passing
             graph.update_all(fn.u_mul_e('ft', 'a', 'm'),
                              fn.sum('m', 'ft'))
@@ -134,5 +138,5 @@ class myGATConv(nn.Module):
             # activation
             if self.activation:
                 rst = self.activation(rst)
-            return rst
+            return rst, graph.edata.pop('a').detach()
 
