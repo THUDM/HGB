@@ -70,7 +70,7 @@ def parse_args():
     parser.add_argument('--patience', type=int, default=5,
                         help='Early stopping patience. Default is 5.')
     
-    parser.add_argument('--num-workers', type=int, default=16,
+    parser.add_argument('--num-workers', type=int, default=1,
                         help='Number of workers for generating random walks. Default is 16.')
 
     return parser.parse_args()
@@ -99,7 +99,6 @@ def load_training_data(f_name):
     all_nodes = list(set(all_nodes))
     print('Total training nodes: ' + str(len(all_nodes)))
     return edge_data_by_type
-
 
 def load_testing_data(f_name):
     print('We are loading data from:', f_name)
