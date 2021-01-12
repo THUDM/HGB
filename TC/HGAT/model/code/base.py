@@ -41,12 +41,12 @@ DP = 0.7
 WD = 0 if dataset == 'snippets' else 5e-8
 LR = 0.05 if 'multi' in dataset else LR
 WD = 0 if 'multi' in dataset else WD
-head_number = 4
+head_number = 2
 parser = argparse.ArgumentParser()
 parser.add_argument('--no_cuda', action='store_true', default=False,
                     help='Disables CUDA training.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=300,
+parser.add_argument('--epochs', type=int, default=100,
                     help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=LR,
                     help='Initial learning rate.')
@@ -66,7 +66,7 @@ parser.add_argument('--node', action='store_false', default=True,
                     help='Use node-level attention or not. ')
 parser.add_argument('--type', action='store_false', default=True,
                     help='Use type-level attention or not. ')
-parser.add_argument('--edge_feats', type=int, default=64)
+parser.add_argument('--edge_feats', type=int, default=32)
 parser.add_argument('--baseline', action='store_true', default=False,
                     help='Use baseline')
 args = parser.parse_args()
@@ -261,16 +261,18 @@ def change_to_homo(input_adj_train, input_features_train):
     v = torch.FloatTensor(values)
     shape = homo_adj_sci.shape
     homo_adj = torch.sparse.FloatTensor(i, v, torch.Size(shape))
+    #print(homo_adj)
+    #input()
 
     hg = dgl.from_scipy(homo_adj_sci, eweight_name='weight')
-    hg = dgl.remove_self_loop(hg)
-    hg = dgl.add_self_loop(hg)
-    hg.edata['weight'][hg.edata['weight'] == 0.] = 1.
+    #hg = dgl.remove_self_loop(hg)
+    #hg = dgl.add_self_loop(hg)
+    #hg.edata['weight'][hg.edata['weight'] == 0.] = 1.
     return hg, homo_features, coo.shape[1], homo_adj
 
 
 def baseline_model(hg, args, edge_type_count, feature_dims):
-    heads = [head_number]*args.layer + [1]
+    heads = [head_number]*args.layer + [head_number]
     if args.baseline:
         model = myGAT(
             g=hg,
@@ -286,7 +288,7 @@ def baseline_model(hg, args, edge_type_count, feature_dims):
             attn_drop=args.dropout,
             negative_slope=0.05,
             residual=True,
-            alpha=0.05)
+            alpha=0.4)
     else:
         model = GAT(
             g=hg,

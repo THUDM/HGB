@@ -57,7 +57,7 @@ class myGAT(nn.Module):
             h, res_attn = self.gat_layers[l](self.g, h, e_feat, res_attn=res_attn)
             h = h.flatten(1)
         # output projection
-        logits, _ = self.gat_layers[-1](self.g, h, e_feat, res_attn=None)
+        logits, _ = self.gat_layers[-1](self.g, h, e_feat, res_attn=res_attn)
         logits = logits.mean(1)
         # This is an equivalent replacement for tf.l2_normalize, see https://www.tensorflow.org/versions/r1.15/api_docs/python/tf/math/l2_normalize for more information.
         logits = logits / (torch.max(torch.norm(logits, dim=1, keepdim=True), self.epsilon))
