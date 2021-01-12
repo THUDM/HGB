@@ -25,6 +25,7 @@ python train.py --baseline=gcn  --hidden=50 # for GCN
 python train.py --baseline=gat  --hidden=50 # for GAT
 python train.py --baseline=weighted_gcn  # for weighted GCN
 python train.py --baseline=weighted_gcn  # for weighted GCN
+python base.py --baseline  # for our baseline
 ```
 
 You may change the dataset by modifying the variable "dataset = 'example'" in the top of the code "train.py" or use arguments (see train.py). 

@@ -21,12 +21,9 @@ from scipy.sparse import coo_matrix, bmat
 import dgl
 
 from utils import load_data, accuracy, dense_tensor_to_sparse, resample, makedirs
-from models import HGAT, GCN, GAT, weighted_GCN
-import os
-import gc
 import sys
 from print_log import Logger
-from baseline.GNN import myGAT
+from baseline.GNN import myGAT, GAT
 
 logdir = "log/"
 savedir = 'model/'
@@ -38,10 +35,13 @@ dataset = 'agnews'
 
 
 # Training settings
-write_embeddings = True
-LR = 0.005 
-DP = 0.1
-WD = 1e-5
+# LR = 0.01 if dataset == 'snippets' else 0.005
+LR = 0.01 if dataset == 'snippets' else 0.005
+DP = 0.7
+WD = 0 if dataset == 'snippets' else 5e-8
+LR = 0.05 if 'multi' in dataset else LR
+WD = 0 if 'multi' in dataset else WD
+head_number = 4
 parser = argparse.ArgumentParser()
 parser.add_argument('--no_cuda', action='store_true', default=False,
                     help='Disables CUDA training.')
@@ -52,9 +52,9 @@ parser.add_argument('--lr', type=float, default=LR,
                     help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=WD,
                     help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=512,
+parser.add_argument('--hidden', type=int, default=50,
                     help='Number of hidden units.')
-parser.add_argument('--layer', type=int, default=4,
+parser.add_argument('--layer', type=int, default=1,
                     help='Number of layer.')
 parser.add_argument('--dropout', type=float, default=DP,
                     help='Dropout rate (1 - keep probability).')
@@ -67,6 +67,8 @@ parser.add_argument('--node', action='store_false', default=True,
 parser.add_argument('--type', action='store_false', default=True,
                     help='Use type-level attention or not. ')
 parser.add_argument('--edge_feats', type=int, default=64)
+parser.add_argument('--baseline', action='store_true', default=False,
+                    help='Use baseline')
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -157,12 +159,15 @@ def evaluate(preds_list, y_list):
 LOSS = margin_loss if 'multi' in dataset else cross_entropy
 
 
-def train(epoch, homo_features, e_feat,idx_out_train, idx_train,idx_out_val, idx_val):
+def train(epoch, homo_features, e_feat, idx_out_train, idx_train, idx_out_val, idx_val):
     print('Epoch: {:04d}'.format(epoch+1), end='')
     t = time.time()
     model.train()
     optimizer.zero_grad()
-    output = model(homo_features, e_feat)
+    if args.baseline:
+        output = model(homo_features, e_feat)
+    else:
+        output = model(homo_features)
 
     if isinstance(output, list):
         O, L = output[0][idx_out_train], labels[idx_train]
@@ -174,14 +179,19 @@ def train(epoch, homo_features, e_feat,idx_out_train, idx_train,idx_out_val, idx
     optimizer.step()
 
     model.eval()
-    output = model(homo_features,e_feat)
+    if args.baseline:
+        output = model(homo_features, e_feat)
+    else:
+        output = model(homo_features)
     if isinstance(output, list):
         loss_val = LOSS(output[0][idx_out_val], labels[idx_val])
         print(' | loss: {:.4f}'.format(loss_val.item()), end='')
+        output = F.softmax(output, 1)
         results = evaluate(output[0][idx_out_val], labels[idx_val])
     else:
         loss_val = LOSS(output[idx_out_val], labels[idx_val])
         print(' | loss: {:.4f}'.format(loss_val.item()), end='')
+        output = F.softmax(output, 1)
         results = evaluate(output[idx_out_val], labels[idx_val])
     print(' | time: {:.4f}s'.format(time.time() - t))
     loss_list[epoch] = [loss_train.item()]
@@ -198,15 +208,20 @@ def test(epoch, homo_features, e_feat, idx_out_test, idx_test):
     print(' '*90 if 'multi' in dataset else ' '*65, end='')
     t = time.time()
     model.eval()
-    output = model(homo_features,e_feat)
+    if args.baseline:
+        output = model(homo_features, e_feat)
+    else:
+        output = model(homo_features)
 
     if isinstance(output, list):
         loss_test = LOSS(output[0][idx_out_test], labels[idx_test])
         print(' | loss: {:.4f}'.format(loss_test.item()), end='')
+        output = F.softmax(output, 1)
         results = evaluate(output[0][idx_out_test], labels[idx_test])
     else:
         loss_test = LOSS(output[idx_out_test], labels[idx_test])
         print(' | loss: {:.4f}'.format(loss_test.item()), end='')
+        output = F.softmax(output, 1)
         results = evaluate(output[idx_out_test], labels[idx_test])
     print(' | time: {:.4f}s'.format(time.time() - t))
     loss_list[epoch] += [loss_test.item()]
@@ -247,30 +262,45 @@ def change_to_homo(input_adj_train, input_features_train):
     shape = homo_adj_sci.shape
     homo_adj = torch.sparse.FloatTensor(i, v, torch.Size(shape))
 
-    hg = dgl.from_scipy(homo_adj_sci,eweight_name='weight')
+    hg = dgl.from_scipy(homo_adj_sci, eweight_name='weight')
     hg = dgl.remove_self_loop(hg)
     hg = dgl.add_self_loop(hg)
-    hg.edata['weight'][hg.edata['weight']==0.] = 1.
+    hg.edata['weight'][hg.edata['weight'] == 0.] = 1.
     return hg, homo_features, coo.shape[1], homo_adj
 
 
-def baseline_model(hg,args,edge_type_count,feature_dims):
-    heads = [4]*args.layer + [1]
-    model = myGAT(
-        g = hg,
-        edge_dim = args.edge_feats, 
-        num_etypes = edge_type_count+1, 
-        in_dims = [feature_dims], 
-        num_hidden = args.hidden,
-        num_classes = labels.shape[1],
-        num_layers = args.layer-2, 
-        heads = heads, 
-        activation = F.elu, 
-        feat_drop = args.dropout, 
-        attn_drop = args.dropout, 
-        negative_slope = 0.05, 
-        residual = False, 
-        alpha=1.0)
+def baseline_model(hg, args, edge_type_count, feature_dims):
+    heads = [head_number]*args.layer + [1]
+    if args.baseline:
+        model = myGAT(
+            g=hg,
+            edge_dim=args.edge_feats,
+            num_etypes=edge_type_count+1,
+            in_dims=[feature_dims],
+            num_hidden=args.hidden,
+            num_classes=labels.shape[1],
+            num_layers=args.layer,
+            heads=heads,
+            activation=F.elu,
+            feat_drop=args.dropout,
+            attn_drop=args.dropout,
+            negative_slope=0.05,
+            residual=True,
+            alpha=0.05)
+    else:
+        model = GAT(
+            g=hg,
+            in_dims=[feature_dims],
+            num_hidden=args.hidden,
+            num_classes=labels.shape[1],
+            num_layers=args.layer,
+            heads=heads,
+            activation=F.elu,
+            feat_drop=args.dropout,
+            attn_drop=args.dropout,
+            negative_slope=0.05,
+            residual=False)
+        pass
     return model
 
 
@@ -284,29 +314,30 @@ input_adj_val, input_features_val, idx_out_val = adj, features, idx_val_ori
 input_adj_test, input_features_test, idx_out_test = adj, features, idx_test_ori
 idx_train, idx_val, idx_test = idx_train_ori, idx_val_ori, idx_test_ori
 
-hg, homo_features, feature_dims, homo_adj = change_to_homo(input_adj_train, input_features_train)
+hg, homo_features, feature_dims, homo_adj = change_to_homo(
+    input_adj_train, input_features_train)
 
 new_adj = []
-edge_type_count=0
+edge_type_count = 0
 edge2type = {}
 e_feat = []
 edge2id = {}
 col_begin = 0
 row_begin = 0
 for x in input_adj_train:
-    col_begin=0
+    col_begin = 0
     for y in x:
         y = y.coalesce()
-        for i,j,v in zip(y.indices()[0], y.indices()[1], y.values()):
-            edge2type[(i+row_begin,j+col_begin)] = edge_type_count
+        for i, j, v in zip(y.indices()[0], y.indices()[1], y.values()):
+            edge2type[(i+row_begin, j+col_begin)] = edge_type_count
             e_feat.append(edge_type_count)
-            edge2id[(i+row_begin,j+col_begin)] = len(edge2id)
+            edge2id[(i+row_begin, j+col_begin)] = len(edge2id)
         edge_type_count += 1
         col_begin += y.size()[1]
     row_begin += x[0].size()[0]
 for i in range(homo_adj.shape[0]):
-    edge2type[(i,i)] = edge_type_count
-    edge2id[(i,i)] = len(edge2id)
+    edge2type[(i, i)] = edge_type_count
+    edge2id[(i, i)] = len(edge2id)
 e_feat = torch.tensor(e_feat, dtype=torch.long)
 homo_features = homo_features.unsqueeze(0)
 
@@ -328,7 +359,7 @@ for i in range(args.repeat):
     # Model and optimizer
     print("\n\nNo. {} test.\n".format(i+1))
 
-    model = baseline_model(hg,args,edge_type_count,feature_dims)
+    model = baseline_model(hg, args, edge_type_count, feature_dims)
     optimizer = optim.Adam(model.parameters(), lr=args.lr,
                            weight_decay=args.weight_decay)
     if args.cuda:
@@ -343,9 +374,10 @@ for i in range(args.repeat):
     vali_max = [0, [0, 0], -1]
 
     for epoch in range(args.epochs):
-        vali_acc, vali_f1 = train(epoch, homo_features, e_feat , idx_out_train, idx_train,
-                                   idx_out_val, idx_val)
-        test_acc, test_f1 = test(epoch, homo_features, e_feat, idx_out_test, idx_test)
+        vali_acc, vali_f1 = train(
+            epoch, homo_features, e_feat, idx_out_train, idx_train, idx_out_val, idx_val)
+        test_acc, test_f1 = test(epoch, homo_features,
+                                 e_feat, idx_out_test, idx_test)
         if vali_acc > vali_max[0]:
             vali_max = [vali_acc, (test_acc, test_f1), epoch+1]
             with open(savedir + "{}.pkl".format(dataset), 'wb') as f:
