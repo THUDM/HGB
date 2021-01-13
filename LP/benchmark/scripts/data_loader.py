@@ -2,17 +2,21 @@ import os
 import numpy as np
 import scipy.sparse as sp
 from collections import Counter, defaultdict
-from sklearn.metrics import f1_score, auc
+from sklearn.metrics import f1_score, auc, roc_auc_score, precision_recall_curve
 import random
 
 
 class data_loader:
-    def __init__(self, path):
+    def __init__(self, path, random_test=False):
         self.path = path
         self.nodes = self.load_nodes()
         self.links = self.load_links('link.dat')
         self.links_test = self.load_links('link.dat.test')
-        self.test_neigh = self.get_test_neigh()
+        if random_test:
+            self.test_neigh = self.get_test_neigh_w_random()
+        else:
+            self.test_neigh = self.get_test_neigh()
+        self.types = self.load_types('node.dat')
 
     def get_sub_graph(self, node_types_tokeep):
         """
@@ -88,14 +92,14 @@ class data_loader:
         ini = sp.eye(self.nodes['total'])
         meta = [self.get_edge_type(x) for x in meta]
         for x in meta:
-            ini = ini.dot(self.links['data'][x])
+            ini = ini.dot(self.links['data'][x]) if x >= 0 else ini.dot(self.links['data'][-x - 1].T)
         return ini
 
     def dfs(self, now, meta, meta_dict):
         if len(meta) == 0:
             meta_dict[now[0]].append(now)
             return
-        th_mat = self.links['data'][meta[0]]
+        th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data'][-meta[0]-1].T
         th_node = now[-1]
         for col in th_mat[th_node].nonzero()[1]:
             self.dfs(now + [col], meta[1:], meta_dict)
@@ -132,25 +136,39 @@ class data_loader:
                         meta_dict[i].append(beg + end[1:])
         return meta_dict
 
-    def evaluate(self, confidence, threshold=0.5):
+    def evaluate(self, edge_list, confidence, labels, threshold=0.5):
         """
-        :param pred: {r_id: confidence}
-        :return: AUC, F1, MRR
+        :param edge_list: shape(2, edge_num)
+        :param confidence: shape(1, edge_num)
+        :param labels: shape(1, edge_num)
+        :param threshold: label of confidence in range(0,threshold) is 0 else 1
+        :return: dict with all scores we need
         """
+        confidence = np.array(confidence)
+        labels = np.array(labels)
+        labels_pred = np.zeros(np.shape(confidence)[0])
+        labels_pred[np.where(confidence >= threshold)] = 1
+        ps, rs, _ = precision_recall_curve(labels, confidence)
+        auc_socre = auc(rs, ps)
+        roc_auc = roc_auc_score(labels, confidence)
+        f1 = f1_score(labels, labels_pred)
 
-        auc_list, f1_list = list(), list()
-        for r_id in self.links_test['meta'].keys():
-            y_confidence = confidence[r_id].data
-            y_pred = np.zeros(y_confidence.size)
-            y_pred[np.where(y_confidence > threshold)] = 1
-            y_true = self.links_test['data'][r_id].data
-
-            auc_list.append(auc(y_true, y_confidence))
-            f1_list.append(f1_score(y_true, y_pred))
-
-        auc_ave, f1_ave = np.mean(auc_list), np.mean(f1_list)
-
-        return auc_ave, f1_ave
+        mrr_list, cur_mrr = [], 0
+        t_dict, labels_dict, conf_dict = defaultdict(list), defaultdict(list), defaultdict(list)
+        for i, h_id in enumerate(edge_list[0]):
+            t_dict[h_id].append(edge_list[1][i])
+            labels_dict[h_id].append(labels[i])
+            conf_dict[h_id].append(confidence[i])
+        for h_id in t_dict.keys():
+            rank = np.argsort(conf_dict[h_id])
+            sorted_label_array = np.array(labels_dict[h_id])[rank]
+            pos_index = np.where(sorted_label_array == 1)[0]
+            if pos_index.size == 0:
+                return
+            min_pos_rank = np.max(pos_index)
+            cur_mrr = 1 / (1 + min_pos_rank)
+            mrr_list.append(cur_mrr)
+        return {'auc_score': auc_socre, 'roc_auc': roc_auc, 'F1': f1, 'MRR': np.mean(mrr_list)}
 
     def get_node_type(self, node_id):
         for i in range(len(self.nodes['shift'])):
@@ -163,6 +181,10 @@ class data_loader:
         for i in range(len(self.links['meta'])):
             if self.links['meta'][i] == info:
                 return i
+        info = (info[1], info[0])
+        for i in range(len(self.links['meta'])):
+            if self.links['meta'][i] == info:
+                return -i-1
         raise Exception('No available edge type')
 
     def get_edge_info(self, edge_id):
@@ -174,12 +196,58 @@ class data_loader:
         j = [x[1] for x in li]
         return sp.coo_matrix((data, (i, j)), shape=(self.nodes['total'], self.nodes['total'])).tocsr()
 
-    def node_belong_type(self, node_id, type_id):
-        return node_id >= self.nodes['shift'][type_id] and \
-               (type_id + 1 == len(self.nodes['shift']) or node_id < self.nodes['shift'][type_id + 1])
+    def load_types(self, name):
+        """
+        return types dict
+            types: list of types
+            total: total number of nodes
+            data: a dictionary of type of all nodes)
+        """
+        types = {'types': list(), 'total': 0, 'data': dict()}
+        with open(os.path.join(self.path, name), 'r', encoding='utf-8') as f:
+            for line in f:
+                th = line.strip().split('\t')
+                node_id, node_name, node_type = int(th[0]), th[1], int(th[2])
+                types['data'][node_id] = node_type
+                types['types'].append(node_type)
+                types['total'] += 1
+        types['types'] = list(set(types['types']))
+        return types
 
     def get_test_neigh(self):
-        sec_neigh, pos_neigh, test_neigh = dict(), dict(), dict()
+        neg_neigh, pos_neigh, test_neigh = dict(), dict(), dict()
+        '''get sec_neigh'''
+        pos_links = 0
+        for r_id in self.links['data'].keys():
+            pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
+        for r_id in self.links_test['data'].keys():
+            pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
+        r_double_neighs = np.dot(pos_links, pos_links)
+        data = r_double_neighs.data
+        data[:] = 1
+        r_double_neighs = \
+            sp.coo_matrix((data, r_double_neighs.nonzero()), shape=np.shape(pos_links), dtype=int) \
+            - sp.coo_matrix(pos_links, dtype=int) \
+            - sp.lil_matrix(np.eye(np.shape(pos_links)[0], dtype=int))
+
+        row, col = r_double_neighs.nonzero()
+        data = r_double_neighs.data
+        sec_index = np.where(data > 0)
+        row, col = row[sec_index], col[sec_index]
+
+        relation_range = [self.nodes['shift'][k] for k in range(len(self.nodes['shift']))] + [self.nodes['total']]
+        for r_id in self.links_test['data'].keys():
+            neg_neigh[r_id] = defaultdict(list)
+            h_type, t_type = self.links_test['meta'][r_id]
+            r_id_index = np.where((row >= relation_range[h_type]) & (row < relation_range[h_type + 1])
+                                  & (col >= relation_range[t_type]) & (col < relation_range[t_type + 1]))[0]
+            # r_num = np.zeros((3, 3))
+            # for h_id, t_id in zip(row, col):
+            #     r_num[self.get_node_type(h_id)][self.get_node_type(t_id)] += 1
+            r_row, r_col = row[r_id_index], col[r_id_index]
+            for h_id, t_id in zip(r_row, r_col):
+                neg_neigh[r_id][h_id].append(t_id)
+
         for r_id in self.links_test['data'].keys():
             h_type, t_type = self.links_test['meta'][r_id]
             '''get pos_neigh'''
@@ -188,32 +256,34 @@ class data_loader:
             for h_id, t_id in zip(row, col):
                 pos_neigh[r_id][h_id].append(t_id)
 
-            '''get sec_neigh'''
-            pos_links = self.links['data'][r_id] + self.links_test['data'][r_id] + self.links['data'][r_id].T + \
-                        self.links_test['data'][r_id].T
-            r_double_neighs = np.dot(pos_links, pos_links)
-            data = r_double_neighs.data
-            data[:] = 1
-            r_double_neighs = \
-                sp.coo_matrix((data, r_double_neighs.nonzero()), shape=np.shape(pos_links), dtype=int) \
-                - sp.coo_matrix(pos_links, dtype=int) \
-                - sp.lil_matrix(np.eye(np.shape(pos_links)[0], dtype=int))
-
-            row, col = r_double_neighs.nonzero()
-            data = r_double_neighs.data
-            sec_index = np.where(data > 0)
-            row, col = row[sec_index], col[sec_index]
-            sec_neigh[r_id] = defaultdict(list)
-            for h_id, t_id in zip(row, col):
-                if self.node_belong_type(h_id, h_type) and self.node_belong_type(t_id, t_type):
-                    sec_neigh[r_id][h_id].append(t_id)
-
             '''get the same number of pos and neg samples'''
             test_neigh[r_id] = defaultdict(list)
             for h_id in pos_neigh[r_id].keys():
                 pos_list = pos_neigh[r_id][h_id]
                 random.seed(1)
-                neg_list = random.choices(sec_neigh[r_id][h_id], k=len(pos_list))
+                neg_list = random.choices(neg_neigh[r_id][h_id], k=len(pos_list))
+                test_neigh[r_id][h_id] = pos_list + neg_list
+        return test_neigh
+
+    def get_test_neigh_w_random(self):
+        neg_neigh, pos_neigh, test_neigh = dict(), dict(), dict()
+
+        for r_id in self.links_test['data'].keys():
+            h_type, t_type = self.links_test['meta'][r_id]
+            t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
+            '''get pos_neigh and neg_neigh'''
+            pos_neigh[r_id], neg_neigh[r_id] = defaultdict(list), defaultdict(list)
+            (row, col), data = self.links_test['data'][r_id].nonzero(), self.links_test['data'][r_id].data
+            for h_id, t_id in zip(row, col):
+                pos_neigh[r_id][h_id].append(t_id)
+                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                neg_neigh[r_id][h_id].append(neg_t)
+
+            '''get the test_neigh'''
+            test_neigh[r_id] = defaultdict(list)
+            for h_id in pos_neigh[r_id].keys():
+                pos_list = pos_neigh[r_id][h_id]
+                neg_list = neg_neigh[r_id][h_id]
                 test_neigh[r_id][h_id] = pos_list + neg_list
         return test_neigh
 
