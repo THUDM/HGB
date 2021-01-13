@@ -148,7 +148,8 @@ class NSLoss(nn.Module):
 
 
 def train_model(network_data, feature_dic):
-    vocab, index2word, train_pairs = generate(network_data, args.num_walks, args.walk_length, args.schema, file_name, args.window_size, args.num_workers, args.walk_file)
+    walk_file = f'walks/{args.data}-walks.txt'
+    vocab, index2word, train_pairs = generate(network_data, args.num_walks, args.walk_length, args.schema, args.window_size, args.num_workers, walk_file, node_type=dl.types['data'])
 
     edge_types = list(network_data.keys())
 
@@ -214,7 +215,7 @@ def train_model(network_data, feature_dic):
 
             avg_loss += loss.item()
 
-            if i % 5000 == 0:
+            if i % 10000 == 0:
                 post_fix = {
                     "epoch": epoch,
                     "iter": i,
@@ -243,6 +244,7 @@ def train_model(network_data, feature_dic):
                     final_model[edge_types[i]],
                     valid_true_data_by_edge[edge_types[i]],
                     valid_false_data_by_edge[edge_types[i]],
+                    dl
                 )
                 valid_aucs.append(tmp_auc)
                 valid_f1s.append(tmp_f1)
@@ -252,6 +254,7 @@ def train_model(network_data, feature_dic):
                     final_model[edge_types[i]],
                     testing_true_data_by_edge[edge_types[i]],
                     testing_false_data_by_edge[edge_types[i]],
+                    dl
                 )
                 test_aucs.append(tmp_auc)
                 test_f1s.append(tmp_f1)
@@ -275,27 +278,32 @@ def train_model(network_data, feature_dic):
             if patience > args.patience:
                 print("Early Stopping")
                 break
+        print(f"test: {test_score}")
     return test_score
 
 
 if __name__ == "__main__":
     args = parse_args()
-    print(args)
-    file_name = 'temp'
+    print('args: ',args)
+    file_name = 'walks'
     if args.features is not None:
         feature_dic = load_feature_data(args.features)
     else:
         feature_dic = None
     data_name = args.data
     data_dir = os.path.join('../../data',data_name)
+    node_type_file = os.path.join('../../data', data_name, 'node.dat')
     dl_pickle_f = os.path.join(data_dir, 'dl_pickle')
-    if os.path.exists(dl_pickle_f):
+    random_test = True
+    if os.path.exists(dl_pickle_f) and not random_test:
         dl = pickle.load(open(dl_pickle_f, 'rb'))
         print(f'Info: load {data_name} from {dl_pickle_f}')
     else:
-        dl = data_loader(data_dir)
-        pickle.dump(dl, open(dl_pickle_f, 'wb'))
-        print(f'Info: load {data_name} from original data and generate {dl_pickle_f}')
+        dl = data_loader(data_dir, random_test)
+        if not random_test:
+            pickle.dump(dl, open(dl_pickle_f, 'wb'))
+            print(f'Info: load {data_name} from original data '
+                  f'and generate {dl_pickle_f} ')
 
     training_data_by_type,valid_true_data_by_edge, valid_false_data_by_edge = load_train_valid_data(dl)
     testing_true_data_by_edge, testing_false_data_by_edge = load_testing_data(dl)

@@ -23,7 +23,7 @@ class Vocab(object):
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data', type=str, default='LastFM', choices=['LastFM'],
+    parser.add_argument('--data', type=str, default='LastFM', choices=['LastFM', 'amazon', 'youtube'],
                         help='Input dataset path')
 
     parser.add_argument('--features', type=str, default=None,
@@ -70,9 +70,9 @@ def parse_args():
 
     parser.add_argument('--patience', type=int, default=5,
                         help='Early stopping patience. Default is 5.')
-    '''Set num-workers=0  in windows to avoid error.'''
+    '''Set num-workers=1  in windows to avoid error.'''
     parser.add_argument('--num-workers', type=int, default=1,
-                        help='Number of workers for generating random walks. Default is 16.')
+                        help='Number of workers for generating random walks. Default is 1.')
 
     return parser.parse_args()
 
@@ -130,7 +130,7 @@ def load_train_valid_data(dl):
 
 
 def load_testing_data(dl):
-    print('We are loading data from data_loader')
+    print('We are loading testing data from data_loader')
     true_edge_data_by_type = defaultdict(list)
     false_edge_data_by_type = defaultdict(list)
     for r_id in dl.test_neigh.keys():
@@ -145,14 +145,12 @@ def load_testing_data(dl):
     return true_edge_data_by_type, false_edge_data_by_type
 
 
-def load_node_type(f_name):
-    print('We are loading node type from:', f_name)
-    node_type = {}
-    with open(f_name, 'r') as f:
-        for line in f:
-            items = line.strip().split()
-            node_type[items[0]] = items[1]
-    return node_type
+def load_node_type(node_type):
+    print('Info: We are loading node type')
+    node_type_str = {}
+    for k in node_type.keys():
+        node_type_str[str(k)] = str(node_type[k])
+    return node_type_str
 
 
 def load_feature_data(f_name):
@@ -168,9 +166,10 @@ def load_feature_data(f_name):
     return feature_dic
 
 
-def generate_walks(network_data, num_walks, walk_length, schema, file_name, num_workers):
+def generate_walks(network_data, num_walks, walk_length, schema, node_type, num_workers):
     if schema is not None:
-        node_type = load_node_type(file_name + '/node_type.txt')
+        node_type = load_node_type(node_type)
+        schema = schema.split(';')
     else:
         node_type = None
 
@@ -181,7 +180,7 @@ def generate_walks(network_data, num_walks, walk_length, schema, file_name, num_
 
         layer_walker = RWGraph(get_G_from_edges(tmp_data), node_type, num_workers)
         print('Generating random walks for layer', layer_id)
-        layer_walks = layer_walker.simulate_walks(num_walks, walk_length, schema=schema)
+        layer_walks = layer_walker.simulate_walks(num_walks, walk_length, schema=schema[layer_id])
 
         all_walks.append(layer_walks)
 
@@ -248,12 +247,15 @@ def save_walks(walk_file, all_walks):
                 f.write(' '.join([str(layer_id)] + [str(x) for x in walk]) + '\n')
 
 
-def generate(network_data, num_walks, walk_length, schema, file_name, window_size, num_workers, walk_file):
-    if walk_file is not None:
+def generate(network_data, num_walks, walk_length, schema, window_size, num_workers, walk_file, node_type=None):
+    if os.path.exists(walk_file):
+        print(f'Data: Load walks from {walk_file}')
         all_walks = load_walks(walk_file)
     else:
-        all_walks = generate_walks(network_data, num_walks, walk_length, schema, file_name, num_workers)
-        save_walks(file_name + '/walks.txt', all_walks)
+        print(f'Data: Generate walks and write into {walk_file}')
+        all_walks = generate_walks(network_data, num_walks, walk_length, schema, node_type, num_workers)
+        save_walks(walk_file, all_walks)
+
     vocab, index2word = generate_vocab(all_walks)
     train_pairs = generate_pairs(all_walks, vocab, window_size, num_workers)
 
@@ -267,7 +269,8 @@ def generate_neighbors(network_data, vocab, num_nodes, edge_types, neighbor_samp
         print('Generating neighbors for layer', r)
         g = network_data[edge_types[r]]
         for (x, y) in tqdm(g):
-            if x in vocab.keys() and y in vocab.keys():
+            tmp = set(vocab.keys())
+            if x in tmp and y in tmp:
                 ix = vocab[x].index
                 iy = vocab[y].index
                 neighbors[ix][r].append(iy)
@@ -292,22 +295,27 @@ def get_score(local_model, node1, node2):
         pass
 
 
-def evaluate(model, true_edges, false_edges):
+def evaluate(model, true_edges, false_edges, dl):
     true_list = list()
     prediction_list = list()
     true_num = 0
+    edge_list = [[], []]
     for edge in true_edges:
         tmp_score = get_score(model, str(edge[0]), str(edge[1]))
         if tmp_score is not None:
             true_list.append(1)
             prediction_list.append(tmp_score)
             true_num += 1
+            edge_list[0].append(int(edge[0]))
+            edge_list[1].append(int(edge[1]))
 
     for edge in false_edges:
         tmp_score = get_score(model, str(edge[0]), str(edge[1]))
         if tmp_score is not None:
             true_list.append(0)
             prediction_list.append(tmp_score)
+            edge_list[0].append(int(edge[0]))
+            edge_list[1].append(int(edge[1]))
 
     sorted_pred = prediction_list[:]
     sorted_pred.sort()
@@ -321,4 +329,7 @@ def evaluate(model, true_edges, false_edges):
     y_true = np.array(true_list)
     y_scores = np.array(prediction_list)
     ps, rs, _ = precision_recall_curve(y_true, y_scores)
-    return roc_auc_score(y_true, y_scores), f1_score(y_true, y_pred), auc(rs, ps)
+    res = roc_auc_score(y_true, y_scores), f1_score(y_true, y_pred), auc(rs, ps)
+    dl_scores = dl.evaluate(edge_list=edge_list, confidence=prediction_list, labels=y_true, threshold=threshold)
+    print(f'dl_scores: {dl_scores}')
+    return res

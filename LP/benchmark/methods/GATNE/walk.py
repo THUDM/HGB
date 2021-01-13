@@ -47,7 +47,7 @@ class RWGraph():
         nodes = list(self.G.keys())
         random.shuffle(nodes)
 
-        if schema is None:
+        if schema is None or schema=='':
             with multiprocessing.Pool(self.num_workers, initializer=initializer, initargs=(self.G, self.node_type)) as pool:
                 all_walks = list(pool.imap(walk, ((walk_length, node, '') for node in tqdm(self.node_list(nodes, num_walks))), chunksize=256))
         else:
