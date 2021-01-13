@@ -21,12 +21,9 @@ from scipy.sparse import coo_matrix, bmat
 import dgl
 
 from utils import load_data, accuracy, dense_tensor_to_sparse, resample, makedirs
-from models import HGAT, GCN, GAT, weighted_GCN
-import os
-import gc
 import sys
 from print_log import Logger
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+from baseline.GNN import myGAT, GAT
 
 logdir = "log/"
 savedir = 'model/'
@@ -34,28 +31,28 @@ embdir = 'embeddings/'
 makedirs([logdir, savedir, embdir])
 
 
-dataset = 'mr'
+dataset = 'agnews'
 
 
 # Training settings
-write_embeddings = True
+# LR = 0.01 if dataset == 'snippets' else 0.005
 LR = 0.01 if dataset == 'snippets' else 0.005
-DP = 0.95 if dataset in ['agnews', 'tagmynews'] else 0.8
+DP = 0.7
 WD = 0 if dataset == 'snippets' else 5e-8
 LR = 0.05 if 'multi' in dataset else LR
-DP = 0.5 if 'multi' in dataset else DP
 WD = 0 if 'multi' in dataset else WD
+head_number = 2
 parser = argparse.ArgumentParser()
 parser.add_argument('--no_cuda', action='store_true', default=False,
                     help='Disables CUDA training.')
 parser.add_argument('--seed', type=int, default=42, help='Random seed.')
-parser.add_argument('--epochs', type=int, default=300,
+parser.add_argument('--epochs', type=int, default=100,
                     help='Number of epochs to train.')
 parser.add_argument('--lr', type=float, default=LR,
                     help='Initial learning rate.')
 parser.add_argument('--weight_decay', type=float, default=WD,
                     help='Weight decay (L2 loss on parameters).')
-parser.add_argument('--hidden', type=int, default=512,
+parser.add_argument('--hidden', type=int, default=50,
                     help='Number of hidden units.')
 parser.add_argument('--layer', type=int, default=1,
                     help='Number of layer.')
@@ -69,8 +66,9 @@ parser.add_argument('--node', action='store_false', default=True,
                     help='Use node-level attention or not. ')
 parser.add_argument('--type', action='store_false', default=True,
                     help='Use type-level attention or not. ')
-parser.add_argument('--baseline', type=str, default=None,
-                    help='Use Baseline')
+parser.add_argument('--edge_feats', type=int, default=32)
+parser.add_argument('--baseline', action='store_true', default=False,
+                    help='Use baseline')
 args = parser.parse_args()
 
 dataset = args.dataset
@@ -105,9 +103,9 @@ def margin_loss(preds, y, weighted_sample=False):
     return loss
 
 
-def nll_loss(preds, y):
+def cross_entropy(preds, y):
     y = y.max(1)[1].type_as(labels)
-    return F.nll_loss(preds, y)
+    return F.cross_entropy(preds, y)
 
 
 def evaluate(preds_list, y_list):
@@ -158,17 +156,18 @@ def evaluate(preds_list, y_list):
         return ER, F1
 
 
-LOSS = margin_loss if 'multi' in dataset else nll_loss
+LOSS = margin_loss if 'multi' in dataset else cross_entropy
 
 
-def train(epoch,
-          input_adj_train, input_features_train, idx_out_train, idx_train,
-          input_adj_val, input_features_val, idx_out_val, idx_val):
+def train(epoch, homo_features, e_feat, idx_out_train, idx_train, idx_out_val, idx_val):
     print('Epoch: {:04d}'.format(epoch+1), end='')
     t = time.time()
     model.train()
     optimizer.zero_grad()
-    output = model(input_features_train, input_adj_train)
+    if args.baseline:
+        output = model(homo_features, e_feat)
+    else:
+        output = model(homo_features)
 
     if isinstance(output, list):
         O, L = output[0][idx_out_train], labels[idx_train]
@@ -176,19 +175,23 @@ def train(epoch,
         O, L = output[idx_out_train], labels[idx_train]
     loss_train = LOSS(O, L)
     print(' | loss: {:.4f}'.format(loss_train.item()), end='')
-    acc_train, f1_train = evaluate(O, L)
     loss_train.backward()
     optimizer.step()
 
     model.eval()
-    output = model(input_features_val, input_adj_val)
+    if args.baseline:
+        output = model(homo_features, e_feat)
+    else:
+        output = model(homo_features)
     if isinstance(output, list):
         loss_val = LOSS(output[0][idx_out_val], labels[idx_val])
         print(' | loss: {:.4f}'.format(loss_val.item()), end='')
+        output = F.softmax(output, 1)
         results = evaluate(output[0][idx_out_val], labels[idx_val])
     else:
         loss_val = LOSS(output[idx_out_val], labels[idx_val])
         print(' | loss: {:.4f}'.format(loss_val.item()), end='')
+        output = F.softmax(output, 1)
         results = evaluate(output[idx_out_val], labels[idx_val])
     print(' | time: {:.4f}s'.format(time.time() - t))
     loss_list[epoch] = [loss_train.item()]
@@ -201,19 +204,24 @@ def train(epoch,
         return float(acc_val.item()), float(f1_val.item())
 
 
-def test(epoch, input_adj_test, input_features_test, idx_out_test, idx_test):
+def test(epoch, homo_features, e_feat, idx_out_test, idx_test):
     print(' '*90 if 'multi' in dataset else ' '*65, end='')
     t = time.time()
     model.eval()
-    output = model(input_features_test, input_adj_test)
+    if args.baseline:
+        output = model(homo_features, e_feat)
+    else:
+        output = model(homo_features)
 
     if isinstance(output, list):
         loss_test = LOSS(output[0][idx_out_test], labels[idx_test])
         print(' | loss: {:.4f}'.format(loss_test.item()), end='')
+        output = F.softmax(output, 1)
         results = evaluate(output[0][idx_out_test], labels[idx_test])
     else:
         loss_test = LOSS(output[idx_out_test], labels[idx_test])
         print(' | loss: {:.4f}'.format(loss_test.item()), end='')
+        output = F.softmax(output, 1)
         results = evaluate(output[idx_out_test], labels[idx_test])
     print(' | time: {:.4f}s'.format(time.time() - t))
     loss_list[epoch] += [loss_test.item()]
@@ -227,8 +235,7 @@ def test(epoch, input_adj_test, input_features_test, idx_out_test, idx_test):
 
 
 # change to homo graph
-def change_to_homo(input_adj_train, input_features_train,
-                   input_adj_val, input_features_val):
+def change_to_homo(input_adj_train, input_features_train):
     sf = []  # scipy features
     for x in input_features_train:
         sf.append(coo_matrix(x.to_dense().numpy()))
@@ -239,11 +246,7 @@ def change_to_homo(input_adj_train, input_features_train,
     i = torch.LongTensor(indices)
     v = torch.FloatTensor(values)
     shape = coo.shape
-    if args.cuda:
-        homo_features = torch.sparse.FloatTensor(
-            i, v, torch.Size(shape)).cuda()
-    else:
-        homo_features = torch.sparse.FloatTensor(i, v, torch.Size(shape))
+    homo_features = torch.sparse.FloatTensor(i, v, torch.Size(shape))
 
     new_adj = []
     for x in input_adj_train:
@@ -257,67 +260,50 @@ def change_to_homo(input_adj_train, input_features_train,
     i = torch.LongTensor(indices)
     v = torch.FloatTensor(values)
     shape = homo_adj_sci.shape
-    if args.cuda:
-        homo_adj = torch.sparse.FloatTensor(
-            i, v, torch.Size(shape)).cuda()
-    else:
-        homo_adj = torch.sparse.FloatTensor(i, v, torch.Size(shape))
+    homo_adj = torch.sparse.FloatTensor(i, v, torch.Size(shape))
+    #print(homo_adj)
+    #input()
 
-    hg = dgl.from_scipy(homo_adj_sci)
-    hg = hg.to("cuda:0")
-
+    hg = dgl.from_scipy(homo_adj_sci, eweight_name='weight')
+    #hg = dgl.remove_self_loop(hg)
+    #hg = dgl.add_self_loop(hg)
+    #hg.edata['weight'][hg.edata['weight'] == 0.] = 1.
     return hg, homo_features, coo.shape[1], homo_adj
 
 
-def baseline_model(input_adj_train, input_features_train,
-                   input_adj_val, input_features_val):
-    hg, homo_feature, feature_dim, homo_adj = change_to_homo(input_adj_train, input_features_train,
-                                                             input_adj_val, input_features_val)
-    if args.baseline == "gcn":
-        model = GCN(g=hg,
-                    in_feats=feature_dim,
-                    n_hidden=args.hidden,
-                    n_classes=labels.shape[1],
-                    n_layers=args.layer,
-                    activation=F.relu,
-                    dropout=args.dropout,
-                    sparse_input=True)
-    elif args.baseline == "gat":
-        heads = [4]*args.layer + [1]
-        slope = 0.1
-        model = GAT(
+def baseline_model(hg, args, edge_type_count, feature_dims):
+    heads = [head_number]*args.layer + [head_number]
+    if args.baseline:
+        model = myGAT(
             g=hg,
-            in_dim=feature_dim,
+            edge_dim=args.edge_feats,
+            num_etypes=edge_type_count+1,
+            in_dims=[feature_dims],
             num_hidden=args.hidden,
             num_classes=labels.shape[1],
             num_layers=args.layer,
+            heads=heads,
             activation=F.elu,
             feat_drop=args.dropout,
             attn_drop=args.dropout,
-            heads=heads,
-            negative_slope=slope,
-            residual=False,
-            sparse_input=True)
-    if args.baseline == "weighted_gcn":
-        model = weighted_GCN(in_feats=feature_dim,
-                             n_hidden=args.hidden,
-                             n_classes=labels.shape[1],
-                             n_layers=args.layer,
-                             activation=F.relu,
-                             dropout=args.dropout,
-                             sparse_input=True)
-    if args.baseline == "baseline":
-        model = weighted_GCN(in_feats=feature_dim,
-                             n_hidden=args.hidden,
-                             n_classes=labels.shape[1],
-                             n_layers=args.layer,
-                             activation=F.relu,
-                             dropout=args.dropout,
-                             sparse_input=True)
+            negative_slope=0.05,
+            residual=True,
+            alpha=0.4)
     else:
-        print("Invalid baseline type")
-        model = None
-    return model, homo_feature, homo_adj
+        model = GAT(
+            g=hg,
+            in_dims=[feature_dims],
+            num_hidden=args.hidden,
+            num_classes=labels.shape[1],
+            num_layers=args.layer,
+            heads=heads,
+            activation=F.elu,
+            feat_drop=args.dropout,
+            attn_drop=args.dropout,
+            negative_slope=0.05,
+            residual=False)
+        pass
+    return model
 
 
 path = '../data/' + dataset + '/'
@@ -330,60 +316,54 @@ input_adj_val, input_features_val, idx_out_val = adj, features, idx_val_ori
 input_adj_test, input_features_test, idx_out_test = adj, features, idx_test_ori
 idx_train, idx_val, idx_test = idx_train_ori, idx_val_ori, idx_test_ori
 
+hg, homo_features, feature_dims, homo_adj = change_to_homo(
+    input_adj_train, input_features_train)
 
-if not args.baseline and args.cuda:
-    N = len(features)
-    for i in range(N):
-        if input_features_train[i] is not None:
-            input_features_train[i] = input_features_train[i].cuda()
-        if input_features_val[i] is not None:
-            input_features_val[i] = input_features_val[i].cuda()
-        if input_features_test[i] is not None:
-            input_features_test[i] = input_features_test[i].cuda()
-    for i in range(N):
-        for j in range(N):
-            if input_adj_train[i][j] is not None:
-                input_adj_train[i][j] = input_adj_train[i][j].cuda()
-            if input_adj_val[i][j] is not None:
-                input_adj_val[i][j] = input_adj_val[i][j].cuda()
-            if input_adj_test[i][j] is not None:
-                input_adj_test[i][j] = input_adj_test[i][j].cuda()
+new_adj = []
+edge_type_count = 0
+edge2type = {}
+e_feat = []
+edge2id = {}
+col_begin = 0
+row_begin = 0
+for x in input_adj_train:
+    col_begin = 0
+    for y in x:
+        y = y.coalesce()
+        for i, j, v in zip(y.indices()[0], y.indices()[1], y.values()):
+            edge2type[(i+row_begin, j+col_begin)] = edge_type_count
+            e_feat.append(edge_type_count)
+            edge2id[(i+row_begin, j+col_begin)] = len(edge2id)
+        edge_type_count += 1
+        col_begin += y.size()[1]
+    row_begin += x[0].size()[0]
+for i in range(homo_adj.shape[0]):
+    edge2type[(i, i)] = edge_type_count
+    edge2id[(i, i)] = len(edge2id)
+e_feat = torch.tensor(e_feat, dtype=torch.long)
+homo_features = homo_features.unsqueeze(0)
+
+
 if args.cuda:
+    N = len(features)
     labels = labels.cuda()
     idx_train, idx_out_train = idx_train.cuda(), idx_out_train.cuda()
     idx_val, idx_out_val = idx_val.cuda(), idx_out_val.cuda()
     idx_test, idx_out_test = idx_test.cuda(), idx_out_test.cuda()
+    e_feat = e_feat.cuda()
+    homo_features = homo_features.cuda()
+    hg = hg.to("cuda:0")
 
 
 FINAL_RESULT = []
+
 for i in range(args.repeat):
     # Model and optimizer
-    input_adj_train, input_features_train = adj, features
-    input_adj_val, input_features_val = adj, features
-    input_adj_test, input_features_test = adj, features
     print("\n\nNo. {} test.\n".format(i+1))
-    if args.baseline:
-        model, homo_features, homo_adj = baseline_model(input_adj_train, input_features_train,
-                                                        input_adj_val, input_features_val)
-        input_features_train = homo_features
-        input_features_test = homo_features
-        input_features_val = homo_features
-        input_adj_train = homo_adj
-        input_adj_test = homo_adj
-        input_adj_val = homo_adj
-    else:
-        model = HGAT(nfeat_list=[i.shape[1] for i in features],
-                     type_attention=args.type,
-                     node_attention=args.node,
-                     nhid=args.hidden,
-                     nclass=labels.shape[1],
-                     dropout=args.dropout,
-                     gamma=0.1,
-                     orphan=True,
-                     )
+
+    model = baseline_model(hg, args, edge_type_count, feature_dims)
     optimizer = optim.Adam(model.parameters(), lr=args.lr,
                            weight_decay=args.weight_decay)
-
     if args.cuda:
         model = model.cuda()
 
@@ -396,25 +376,14 @@ for i in range(args.repeat):
     vali_max = [0, [0, 0], -1]
 
     for epoch in range(args.epochs):
-        vali_acc, vali_f1 = train(epoch,
-                                  input_adj_train, input_features_train, idx_out_train, idx_train,
-                                  input_adj_val, input_features_val, idx_out_val, idx_val)
-        test_acc, test_f1 = test(epoch,
-                                 input_adj_test, input_features_test, idx_out_test, idx_test)
-
+        vali_acc, vali_f1 = train(
+            epoch, homo_features, e_feat, idx_out_train, idx_train, idx_out_val, idx_val)
+        test_acc, test_f1 = test(epoch, homo_features,
+                                 e_feat, idx_out_test, idx_test)
         if vali_acc > vali_max[0]:
             vali_max = [vali_acc, (test_acc, test_f1), epoch+1]
             with open(savedir + "{}.pkl".format(dataset), 'wb') as f:
                 pkl.dump(model, f)
-
-            if write_embeddings and not args.baseline:
-                makedirs([embdir])
-                with open(embdir + "{}.emb".format(dataset), 'w') as f:
-                    for i in model.emb.tolist():
-                        f.write("{}\n".format(i))
-                with open(embdir + "{}.emb2".format(dataset), 'w') as f:
-                    for i in model.emb2.tolist():
-                        f.write("{}\n".format(i))
 
     print("Optimization Finished!")
     print("Total time elapsed: {:.4f}s".format(time.time() - t_total))
