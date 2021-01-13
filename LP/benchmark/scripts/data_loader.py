@@ -99,7 +99,7 @@ class data_loader:
         if len(meta) == 0:
             meta_dict[now[0]].append(now)
             return
-        th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data'][-meta[0]-1].T
+        th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data'][-meta[0] - 1].T
         th_node = now[-1]
         for col in th_mat[th_node].nonzero()[1]:
             self.dfs(now + [col], meta[1:], meta_dict)
@@ -160,13 +160,12 @@ class data_loader:
             labels_dict[h_id].append(labels[i])
             conf_dict[h_id].append(confidence[i])
         for h_id in t_dict.keys():
-            rank = np.argsort(conf_dict[h_id])
+            conf_array = np.array(conf_dict[h_id])
+            rank = np.argsort(-conf_array)
             sorted_label_array = np.array(labels_dict[h_id])[rank]
             pos_index = np.where(sorted_label_array == 1)[0]
-            if pos_index.size == 0:
-                return
-            min_pos_rank = np.max(pos_index)
-            cur_mrr = 1 / (1 + min_pos_rank)
+            pos_min_rank = np.min(pos_index)
+            cur_mrr = 1 / (1 + pos_min_rank)
             mrr_list.append(cur_mrr)
         return {'auc_score': auc_socre, 'roc_auc': roc_auc, 'F1': f1, 'MRR': np.mean(mrr_list)}
 
@@ -184,7 +183,7 @@ class data_loader:
         info = (info[1], info[0])
         for i in range(len(self.links['meta'])):
             if self.links['meta'][i] == info:
-                return -i-1
+                return -i - 1
         raise Exception('No available edge type')
 
     def get_edge_info(self, edge_id):
@@ -220,7 +219,7 @@ class data_loader:
             h_type, t_type = self.links['meta'][r_id]
             t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
             '''get neg_neigh'''
-            neg_neigh[r_id] =  defaultdict(list)
+            neg_neigh[r_id] = defaultdict(list)
             (row, col), data = self.links['data'][r_id].nonzero(), self.links['data'][r_id].data
             for h_id, t_id in zip(row, col):
                 neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
