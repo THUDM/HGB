@@ -4,99 +4,12 @@ from dgl.nn.pytorch import GraphConv, GATConv
 import torch.nn.functional as F
 
 
-class GAT(nn.Module):
-    def __init__(self,
-                 in_dim,
-                 num_hidden,
-                 num_classes,
-                 num_layers,
-                 activation,
-                 feat_drop,
-                 attn_drop,
-                 heads,
-                 negative_slope,
-                 residual=False,
-                 sparse_input=False):
-        super(GAT, self).__init__()
-        self.num_layers = num_layers
-        self.gat_layers = nn.ModuleList()
-        self.activation = activation
-        self.sparse_input = sparse_input
-        if self.sparse_input:
-            self.linear = nn.Linear(in_dim, num_hidden)
-            in_dim = num_hidden
-        # input projection (no residual)
-        self.gat_layers.append(GATConv(
-            in_dim, num_hidden, heads[0],
-            feat_drop, attn_drop, negative_slope, False, self.activation))
-        # hidden layers
-        for l in range(1, num_layers):
-            # due to multi-head, the in_dim = num_hidden * num_heads
-            self.gat_layers.append(GATConv(
-                num_hidden * heads[l-1], num_hidden, heads[l],
-                feat_drop, attn_drop, negative_slope, residual, self.activation))
-        # output projection
-        self.gat_layers.append(GATConv(
-            num_hidden * heads[-2], num_classes, heads[-1],
-            feat_drop, attn_drop, negative_slope, residual, None))
-
-    def forward(self, g, feature):
-        if self.sparse_input:
-            h = self.linear(feature)
-        else:
-            h = feature
-        for l in range(self.num_layers):
-            h = self.gat_layers[l](g, h).flatten(1)
-        # output projection
-        logits = self.gat_layers[-1](g, h).mean(1)
-        logits = F.log_softmax(logits, dim=1)
-        return logits
-
-
-class GCN(nn.Module):
-    def __init__(self,
-                 in_feats,
-                 n_hidden,
-                 out_classes,
-                 n_layers,
-                 activation,
-                 dropout,
-                 sparse=False):
-        super(GCN, self).__init__()
-        self.sparse_input = sparse
-        if self.sparse_input:
-            self.linear = nn.Linear(in_feats, n_hidden)
-            in_feats = n_hidden
-        self.layers = nn.ModuleList()
-        # input layer
-        self.layers.append(
-            GraphConv(in_feats, n_hidden, activation=activation))
-        # hidden layers
-        for i in range(n_layers - 1):
-            self.layers.append(
-                GraphConv(n_hidden, n_hidden, activation=activation))
-        # output layer
-        self.layers.append(GraphConv(n_hidden, out_classes))
-        self.dropout = nn.Dropout(p=dropout)
-
-    def forward(self, g, feature):
-        if self.sparse_input:
-            h = self.linear(feature)
-        else:
-            h = feature
-        for i, layer in enumerate(self.layers):
-            if i != 0:
-                h = self.dropout(h)
-            h = layer(g, h)
-        return h
-
-
 class BaseRGCN(nn.Module):
-    def __init__(self, num_nodes, h_dim, out_dim, num_rels, num_bases,
+    def __init__(self, in_dims, h_dim, out_dim, num_rels, num_bases,
                  num_hidden_layers=1, dropout=0,
                  use_self_loop=False, use_cuda=False):
         super(BaseRGCN, self).__init__()
-        self.num_nodes = num_nodes
+        self.in_dims = in_dims
         self.h_dim = h_dim
         self.out_dim = out_dim
         self.num_rels = num_rels
@@ -112,9 +25,7 @@ class BaseRGCN(nn.Module):
     def build_model(self):
         self.layers = nn.ModuleList()
         # i2h
-        i2h = self.build_input_layer()
-        if i2h is not None:
-            self.layers.append(i2h)
+        self.i2h = self.build_input_layer()
         # h2h
         for idx in range(self.num_hidden_layers):
             h2h = self.build_hidden_layer(idx)
@@ -133,7 +44,11 @@ class BaseRGCN(nn.Module):
     def build_output_layer(self):
         return None
 
-    def forward(self, g, h, r, norm):
+    def forward(self, g, features_list, r, norm):
+        h = []
+        for i2h, feature in zip(self.i2h, features_list):
+            h.append(i2h(feature))
+        h = th.cat(h, 0)
         for layer in self.layers:
             h = layer(g, h, r, norm)
         return h
