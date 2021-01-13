@@ -214,6 +214,19 @@ class data_loader:
         types['types'] = list(set(types['types']))
         return types
 
+    def get_train_neg_neigh(self):
+        neg_neigh = dict()
+        for r_id in self.links['data'].keys():
+            h_type, t_type = self.links['meta'][r_id]
+            t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
+            '''get neg_neigh'''
+            neg_neigh[r_id] =  defaultdict(list)
+            (row, col), data = self.links['data'][r_id].nonzero(), self.links['data'][r_id].data
+            for h_id, t_id in zip(row, col):
+                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                neg_neigh[r_id][h_id].append(neg_t)
+        return neg_neigh
+
     def get_test_neigh(self):
         neg_neigh, pos_neigh, test_neigh = dict(), dict(), dict()
         '''get sec_neigh'''
@@ -249,14 +262,13 @@ class data_loader:
                 neg_neigh[r_id][h_id].append(t_id)
 
         for r_id in self.links_test['data'].keys():
-            h_type, t_type = self.links_test['meta'][r_id]
             '''get pos_neigh'''
             pos_neigh[r_id] = defaultdict(list)
             (row, col), data = self.links_test['data'][r_id].nonzero(), self.links_test['data'][r_id].data
             for h_id, t_id in zip(row, col):
                 pos_neigh[r_id][h_id].append(t_id)
 
-            '''get the same number of pos and neg samples'''
+            '''sample neg as same number as pos for each head node'''
             test_neigh[r_id] = defaultdict(list)
             for h_id in pos_neigh[r_id].keys():
                 pos_list = pos_neigh[r_id][h_id]
@@ -276,6 +288,7 @@ class data_loader:
             (row, col), data = self.links_test['data'][r_id].nonzero(), self.links_test['data'][r_id].data
             for h_id, t_id in zip(row, col):
                 pos_neigh[r_id][h_id].append(t_id)
+                random.seed(1)
                 neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 neg_neigh[r_id][h_id].append(neg_t)
 
