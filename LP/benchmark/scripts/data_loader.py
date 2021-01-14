@@ -12,9 +12,31 @@ class data_loader:
         self.nodes = self.load_nodes()
         self.links = self.load_links('link.dat')
         self.links_test = self.load_links('link.dat.test')
-        self.random_test_neigh = self.get_test_neigh_w_random()
-        self.test_neigh = self.get_test_neigh()
         self.types = self.load_types('node.dat')
+        self.train_pos, self.valid_pos = self.get_train_valid_pos()
+        self.train_neg, self.valid_neg = self.get_train_neg(), self.get_valid_neg()
+
+    def get_train_valid_pos(self, edge_types=[], train_ratio=0.9):
+        edge_types = self.links['data'].keys() if edge_types == [] else edge_types
+        train_pos, valid_pos = dict(), dict()
+        for r_id in edge_types:
+            train_pos[r_id] = [[], []]
+            valid_pos[r_id] = [[], []]
+            row, col = self.links['data'][r_id].nonzero()
+            last_h_id = -1
+            for (h_id, t_id) in zip(row, col):
+                if h_id != last_h_id:
+                    train_pos[r_id][0].append(h_id)
+                    train_pos[r_id][1].append(t_id)
+                    last_h_id = h_id
+                else:
+                    if random.random() < train_ratio:
+                        train_pos[r_id][0].append(h_id)
+                        train_pos[r_id][1].append(t_id)
+                    else:
+                        valid_pos[r_id][0].append(h_id)
+                        valid_pos[r_id][1].append(t_id)
+        return train_pos, valid_pos
 
     def get_sub_graph(self, node_types_tokeep):
         """
@@ -211,21 +233,36 @@ class data_loader:
         types['types'] = list(set(types['types']))
         return types
 
-    def get_train_neg_neigh(self):
-        neg_neigh = dict()
-        for r_id in self.links['data'].keys():
+    def get_train_neg(self, edge_types=[]):
+        edge_types = self.links['data'].keys() if edge_types == [] else edge_types
+        train_neg = dict()
+        for r_id in edge_types:
             h_type, t_type = self.links['meta'][r_id]
             t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
             '''get neg_neigh'''
-            neg_neigh[r_id] = defaultdict(list)
-            (row, col), data = self.links['data'][r_id].nonzero(), self.links['data'][r_id].data
-            for h_id, t_id in zip(row, col):
+            train_neg[r_id] = [[], []]
+            for h_id in self.train_pos[r_id][0]:
+                train_neg[r_id][0].append(h_id)
                 neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
-                neg_neigh[r_id][h_id].append(neg_t)
-        return neg_neigh
+                train_neg[r_id][1].append(neg_t)
+        return train_neg
+
+    def get_valid_neg(self, edge_types=[]):
+        edge_types = self.links['data'].keys() if edge_types == [] else edge_types
+        valid_neg = dict()
+        for r_id in edge_types:
+            h_type, t_type = self.links['meta'][r_id]
+            t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
+            '''get neg_neigh'''
+            valid_neg[r_id] = [[], []]
+            for h_id in self.valid_pos[r_id][0]:
+                valid_neg[r_id][0].append(h_id)
+                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                valid_neg[r_id][1].append(neg_t)
+        return valid_neg
 
     def get_test_neigh(self, edge_types=[]):
-        neg_neigh, pos_neigh, test_neigh = dict(), dict(), dict()
+        neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
         edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
         '''get sec_neigh'''
         pos_links = 0
@@ -267,16 +304,24 @@ class data_loader:
                 pos_neigh[r_id][h_id].append(t_id)
 
             '''sample neg as same number as pos for each head node'''
-            test_neigh[r_id] = OrderedDict()
+            test_neigh[r_id] = [[], []]
+            pos_list = [[], []]
+            test_label[r_id] = []
             for h_id in sorted(list(pos_neigh[r_id].keys())):
-                pos_list = pos_neigh[r_id][h_id]
+                pos_list[0] = [h_id] * len(pos_neigh[r_id][h_id])
+                pos_list[1] = pos_neigh[r_id][h_id]
+                test_neigh[r_id][0].extend(pos_list[0])
+                test_neigh[r_id][1].extend(pos_list[1])
+                test_label[r_id].extend([1] * len(pos_neigh[r_id][h_id]))
                 random.seed(1)
                 neg_list = random.choices(neg_neigh[r_id][h_id], k=len(pos_list))
-                test_neigh[r_id][h_id] = pos_list + neg_list
-        return test_neigh
+                test_neigh[r_id][0].extend([h_id] * len(neg_list))
+                test_neigh[r_id][1].extend(neg_list)
+                test_label[r_id].extend([0] * len(neg_list))
+        return test_neigh, test_label
 
     def get_test_neigh_w_random(self, edge_types=[]):
-        neg_neigh, pos_neigh, test_neigh = dict(), dict(), dict()
+        neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
         edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
         for r_id in edge_types:
             h_type, t_type = self.links_test['meta'][r_id]
@@ -291,12 +336,22 @@ class data_loader:
                 neg_neigh[r_id][h_id].append(neg_t)
 
             '''get the test_neigh'''
-            test_neigh[r_id] = OrderedDict()
+            test_neigh[r_id] = [[], []]
+            pos_list = [[], []]
+            neg_list = [[], []]
+            test_label[r_id] = []
             for h_id in sorted(list(pos_neigh[r_id].keys())):
-                pos_list = pos_neigh[r_id][h_id]
-                neg_list = neg_neigh[r_id][h_id]
-                test_neigh[r_id][h_id] = pos_list + neg_list
-        return test_neigh
+                pos_list[0] = [h_id] * len(pos_neigh[r_id][h_id])
+                pos_list[1] = pos_neigh[r_id][h_id]
+                test_neigh[r_id][0].extend(pos_list[0])
+                test_neigh[r_id][1].extend(pos_list[1])
+                test_label[r_id].extend([1] * len(pos_neigh[r_id][h_id]))
+                neg_list[0] = [h_id] * len(neg_neigh[r_id][h_id])
+                neg_list[1] = neg_neigh[r_id][h_id]
+                test_neigh[r_id][0].extend(neg_list[0])
+                test_neigh[r_id][1].extend(neg_list[1])
+                test_label[r_id].extend([0] * len(neg_neigh[r_id][h_id]))
+        return test_neigh, test_label
 
     def load_links(self, name):
         """
@@ -327,11 +382,11 @@ class data_loader:
     def load_nodes(self):
         """
         return nodes dict
-            total: total number of nodes
-            count: a dict of int, number of nodes for each type
-            attr: a dict of np.array (or None), attribute matrices for each type of nodes
-            shift: node_id shift for each type. You can get the id range of a type by 
-                        [ shift[node_type], shift[node_type]+count[node_type] )
+        total: total number of nodes
+        count: a dict of int, number of nodes for each type
+        attr: a dict of np.array (or None), attribute matrices for each type of nodes
+        shift: node_id shift for each type. You can get the id range of a type by
+                    [ shift[node_type], shift[node_type]+count[node_type] )
         """
         nodes = {'total': 0, 'count': Counter(), 'attr': {}, 'shift': {}}
         with open(os.path.join(self.path, 'node.dat'), 'r', encoding='utf-8') as f:
