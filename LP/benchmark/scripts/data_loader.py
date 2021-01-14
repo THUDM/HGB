@@ -1,21 +1,19 @@
 import os
 import numpy as np
 import scipy.sparse as sp
-from collections import Counter, defaultdict
+from collections import Counter, defaultdict, OrderedDict
 from sklearn.metrics import f1_score, auc, roc_auc_score, precision_recall_curve
 import random
 
 
 class data_loader:
-    def __init__(self, path, random_test=False):
+    def __init__(self, path):
         self.path = path
         self.nodes = self.load_nodes()
         self.links = self.load_links('link.dat')
         self.links_test = self.load_links('link.dat.test')
-        if random_test:
-            self.test_neigh = self.get_test_neigh_w_random()
-        else:
-            self.test_neigh = self.get_test_neigh()
+        self.random_test_neigh = self.get_test_neigh_w_random()
+        self.test_neigh = self.get_test_neigh()
         self.types = self.load_types('node.dat')
 
     def get_sub_graph(self, node_types_tokeep):
@@ -226,8 +224,9 @@ class data_loader:
                 neg_neigh[r_id][h_id].append(neg_t)
         return neg_neigh
 
-    def get_test_neigh(self):
+    def get_test_neigh(self, edge_types=[]):
         neg_neigh, pos_neigh, test_neigh = dict(), dict(), dict()
+        edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
         '''get sec_neigh'''
         pos_links = 0
         for r_id in self.links['data'].keys():
@@ -260,7 +259,7 @@ class data_loader:
             for h_id, t_id in zip(r_row, r_col):
                 neg_neigh[r_id][h_id].append(t_id)
 
-        for r_id in self.links_test['data'].keys():
+        for r_id in edge_types:
             '''get pos_neigh'''
             pos_neigh[r_id] = defaultdict(list)
             (row, col), data = self.links_test['data'][r_id].nonzero(), self.links_test['data'][r_id].data
@@ -268,18 +267,18 @@ class data_loader:
                 pos_neigh[r_id][h_id].append(t_id)
 
             '''sample neg as same number as pos for each head node'''
-            test_neigh[r_id] = defaultdict(list)
-            for h_id in pos_neigh[r_id].keys():
+            test_neigh[r_id] = OrderedDict()
+            for h_id in sorted(list(pos_neigh[r_id].keys())):
                 pos_list = pos_neigh[r_id][h_id]
                 random.seed(1)
                 neg_list = random.choices(neg_neigh[r_id][h_id], k=len(pos_list))
                 test_neigh[r_id][h_id] = pos_list + neg_list
         return test_neigh
 
-    def get_test_neigh_w_random(self):
+    def get_test_neigh_w_random(self, edge_types=[]):
         neg_neigh, pos_neigh, test_neigh = dict(), dict(), dict()
-
-        for r_id in self.links_test['data'].keys():
+        edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
+        for r_id in edge_types:
             h_type, t_type = self.links_test['meta'][r_id]
             t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
             '''get pos_neigh and neg_neigh'''
@@ -292,8 +291,8 @@ class data_loader:
                 neg_neigh[r_id][h_id].append(neg_t)
 
             '''get the test_neigh'''
-            test_neigh[r_id] = defaultdict(list)
-            for h_id in pos_neigh[r_id].keys():
+            test_neigh[r_id] = OrderedDict()
+            for h_id in sorted(list(pos_neigh[r_id].keys())):
                 pos_list = pos_neigh[r_id][h_id]
                 neg_list = neg_neigh[r_id][h_id]
                 test_neigh[r_id][h_id] = pos_list + neg_list
