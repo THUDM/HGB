@@ -218,5 +218,3 @@ mp.get_meta_from_nodes()
 
 #mp.adj_matrix()
 #mp.get_nodes_type_of_edge()
-
-pdb.set_trace()

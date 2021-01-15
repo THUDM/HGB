@@ -19,6 +19,7 @@ train_val_test_idx = np.load('data/raw/LastFM/train_val_test_idx.npz')
 train_idx = train_val_test_idx['train_idx']
 val_idx = train_val_test_idx['val_idx']
 test_idx = train_val_test_idx['test_idx']
+train_idx = np.sort(np.concatenate([train_idx, val_idx, test_idx]))
  
 user_artist = user_artist.loc[train_idx].reset_index(drop=True)
 
