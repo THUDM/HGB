@@ -9,34 +9,43 @@ import random
 class data_loader:
     def __init__(self, path):
         self.path = path
+        self.splited = False
         self.nodes = self.load_nodes()
         self.links = self.load_links('link.dat')
         self.links_test = self.load_links('link.dat.test')
         self.types = self.load_types('node.dat')
         self.train_pos, self.valid_pos = self.get_train_valid_pos()
         self.train_neg, self.valid_neg = self.get_train_neg(), self.get_valid_neg()
+        self.gen_transpose_links()
 
     def get_train_valid_pos(self, edge_types=[], train_ratio=0.9):
-        edge_types = self.links['data'].keys() if edge_types == [] else edge_types
-        train_pos, valid_pos = dict(), dict()
-        for r_id in edge_types:
-            train_pos[r_id] = [[], []]
-            valid_pos[r_id] = [[], []]
-            row, col = self.links['data'][r_id].nonzero()
-            last_h_id = -1
-            for (h_id, t_id) in zip(row, col):
-                if h_id != last_h_id:
-                    train_pos[r_id][0].append(h_id)
-                    train_pos[r_id][1].append(t_id)
-                    last_h_id = h_id
-                else:
-                    if random.random() < train_ratio:
+        if self.splited:
+            return self.train_pos, self.valid_pos
+        else:
+            edge_types = self.links['data'].keys() if edge_types == [] else edge_types
+            train_pos, valid_pos = dict(), dict()
+            for r_id in edge_types:
+                train_pos[r_id] = [[], []]
+                valid_pos[r_id] = [[], []]
+                row, col = self.links['data'][r_id].nonzero()
+                last_h_id = -1
+                for (h_id, t_id) in zip(row, col):
+                    if h_id != last_h_id:
                         train_pos[r_id][0].append(h_id)
                         train_pos[r_id][1].append(t_id)
+                        last_h_id = h_id
+
                     else:
-                        valid_pos[r_id][0].append(h_id)
-                        valid_pos[r_id][1].append(t_id)
-        return train_pos, valid_pos
+                        if random.random() < train_ratio:
+                            train_pos[r_id][0].append(h_id)
+                            train_pos[r_id][1].append(t_id)
+                        else:
+                            valid_pos[r_id][0].append(h_id)
+                            valid_pos[r_id][1].append(t_id)
+                            self.links['data'][r_id][h_id, t_id] = 0
+                self.links['data'][r_id].eliminate_zeros()
+            self.splited = True
+            return train_pos, valid_pos
 
     def get_sub_graph(self, node_types_tokeep):
         """
@@ -112,14 +121,14 @@ class data_loader:
         ini = sp.eye(self.nodes['total'])
         meta = [self.get_edge_type(x) for x in meta]
         for x in meta:
-            ini = ini.dot(self.links['data'][x]) if x >= 0 else ini.dot(self.links['data'][-x - 1].T)
+            ini = ini.dot(self.links['data'][x]) if x >= 0 else ini.dot(self.links['data_trans'][-x - 1])
         return ini
 
     def dfs(self, now, meta, meta_dict):
         if len(meta) == 0:
             meta_dict[now[0]].append(now)
             return
-        th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data'][-meta[0] - 1].T
+        th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data_trans'][-meta[0] - 1]
         th_node = now[-1]
         for col in th_mat[th_node].nonzero()[1]:
             self.dfs(now + [col], meta[1:], meta_dict)
@@ -159,9 +168,9 @@ class data_loader:
     def evaluate(self, edge_list, confidence, labels, threshold=0.5):
         """
         :param edge_list: shape(2, edge_num)
-        :param confidence: shape(1, edge_num)
-        :param labels: shape(1, edge_num)
-        :param threshold: label of confidence in range(0,threshold) is 0 else 1
+        :param confidence: shape(edge_num,)
+        :param labels: shape(edge_num,)
+        :param threshold: confidence less than threshold is label 0 else label 1
         :return: dict with all scores we need
         """
         confidence = np.array(confidence)
@@ -352,6 +361,11 @@ class data_loader:
                 test_neigh[r_id][1].extend(neg_list[1])
                 test_label[r_id].extend([0] * len(neg_neigh[r_id][h_id]))
         return test_neigh, test_label
+
+    def gen_transpose_links(self):
+        self.links['data_trans'] = defaultdict()
+        for r_id in self.links['data'].keys():
+            self.links['data_trans'][r_id] = self.links['data'][r_id].T
 
     def load_links(self, name):
         """
