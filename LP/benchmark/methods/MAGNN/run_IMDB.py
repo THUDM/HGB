@@ -1,5 +1,3 @@
-import sys
-sys.path.append('../../')
 import time
 import argparse
 
@@ -9,15 +7,12 @@ import numpy as np
 import dgl
 
 from utils.pytorchtools import EarlyStopping
-from utils.data import load_IMDB_data_new
+from utils.data import load_IMDB_data
 from utils.tools import evaluate_results_nc
 from model import MAGNN_nc
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
 
 # Params
-out_dim = 5
+out_dim = 3
 dropout_rate = 0.5
 lr = 0.005
 weight_decay = 0.001
@@ -27,9 +22,9 @@ etypes_lists = [[[0, 1], [2, 3]],
 
 def run_model_IMDB(feats_type, num_layers, hidden_dim, num_heads, attn_vec_dim, rnn_type,
                    num_epochs, patience, repeat, save_postfix):
-    nx_G_lists, edge_metapath_indices_lists, features_list, adjM, type_mask, labels, train_val_test_idx, dl = load_IMDB_data_new()
+    nx_G_lists, edge_metapath_indices_lists, features_list, adjM, type_mask, labels, train_val_test_idx = load_IMDB_data()
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    features_list = [torch.FloatTensor(features).to(device) for features in features_list]
+    features_list = [torch.FloatTensor(features.todense()).to(device) for features in features_list]
     if feats_type == 0:
         in_dims = [features.shape[1] for features in features_list]
     elif feats_type == 1:
@@ -55,7 +50,7 @@ def run_model_IMDB(feats_type, num_layers, hidden_dim, num_heads, attn_vec_dim, 
             features_list[i] = torch.sparse.FloatTensor(indices, values, torch.Size([dim, dim])).to(device)
     edge_metapath_indices_lists = [[torch.LongTensor(indices).to(device) for indices in indices_list] for indices_list in
                                    edge_metapath_indices_lists]
-    labels = torch.FloatTensor(labels).to(device)
+    labels = torch.LongTensor(labels).to(device)
     g_lists = []
     for nx_G_list in nx_G_lists:
         g_lists.append([])
@@ -63,7 +58,7 @@ def run_model_IMDB(feats_type, num_layers, hidden_dim, num_heads, attn_vec_dim, 
             g = dgl.DGLGraph(multigraph=True)
             g.add_nodes(nx_G.number_of_nodes())
             g.add_edges(*list(zip(*sorted(map(lambda tup: (int(tup[0]), int(tup[1])), nx_G.edges())))))
-            g_lists[-1].append(g.to(device))
+            g_lists[-1].append(g)
     train_idx = train_val_test_idx['train_idx']
     val_idx = train_val_test_idx['val_idx']
     test_idx = train_val_test_idx['test_idx']
@@ -87,15 +82,14 @@ def run_model_IMDB(feats_type, num_layers, hidden_dim, num_heads, attn_vec_dim, 
         dur1 = []
         dur2 = []
         dur3 = []
-        loss_func = nn.BCELoss()
         for epoch in range(num_epochs):
             t0 = time.time()
 
             # training forward
             net.train()
             logits, embeddings = net((g_lists, features_list, type_mask, edge_metapath_indices_lists), target_node_indices)
-            logp = F.sigmoid(logits) #F.log_softmax(logits, 1)
-            train_loss = loss_func(logp[train_idx], labels[train_idx])
+            logp = F.log_softmax(logits, 1)
+            train_loss = F.nll_loss(logp[train_idx], labels[train_idx])
 
             t1 = time.time()
             dur1.append(t1 - t0)
@@ -112,8 +106,8 @@ def run_model_IMDB(feats_type, num_layers, hidden_dim, num_heads, attn_vec_dim, 
             net.eval()
             with torch.no_grad():
                 logits, embeddings = net((g_lists, features_list, type_mask, edge_metapath_indices_lists), target_node_indices)
-                logp = F.sigmoid(logits) #F.log_softmax(logits, 1)
-                val_loss = loss_func(logp[val_idx], labels[val_idx])
+                logp = F.log_softmax(logits, 1)
+                val_loss = F.nll_loss(logp[val_idx], labels[val_idx])
 
             t3 = time.time()
             dur3.append(t3 - t2)
@@ -134,19 +128,17 @@ def run_model_IMDB(feats_type, num_layers, hidden_dim, num_heads, attn_vec_dim, 
         net.eval()
         with torch.no_grad():
             logits, embeddings = net((g_lists, features_list, type_mask, edge_metapath_indices_lists), target_node_indices)
-            logp = F.sigmoid(logits)
-            print(dl.evaluate((logp[test_idx]>0.5).cpu().numpy()))
-            #svm_macro_f1_list, svm_micro_f1_list, nmi_mean, nmi_std, ari_mean, ari_std = evaluate_results_nc(
-            #    embeddings[test_idx].cpu().numpy(), labels[test_idx].cpu().numpy(), num_classes=out_dim)
-        #svm_macro_f1_lists.append(svm_macro_f1_list)
-        #svm_micro_f1_lists.append(svm_micro_f1_list)
-        #nmi_mean_list.append(nmi_mean)
-        #nmi_std_list.append(nmi_std)
-        #ari_mean_list.append(ari_mean)
-        #ari_std_list.append(ari_std)
+            svm_macro_f1_list, svm_micro_f1_list, nmi_mean, nmi_std, ari_mean, ari_std = evaluate_results_nc(
+                embeddings[test_idx].cpu().numpy(), labels[test_idx].cpu().numpy(), num_classes=out_dim)
+        svm_macro_f1_lists.append(svm_macro_f1_list)
+        svm_micro_f1_lists.append(svm_micro_f1_list)
+        nmi_mean_list.append(nmi_mean)
+        nmi_std_list.append(nmi_std)
+        ari_mean_list.append(ari_mean)
+        ari_std_list.append(ari_std)
 
     # print out a summary of the evaluations
-    """svm_macro_f1_lists = np.transpose(np.array(svm_macro_f1_lists), (1, 0, 2))
+    svm_macro_f1_lists = np.transpose(np.array(svm_macro_f1_lists), (1, 0, 2))
     svm_micro_f1_lists = np.transpose(np.array(svm_micro_f1_lists), (1, 0, 2))
     nmi_mean_list = np.array(nmi_mean_list)
     nmi_std_list = np.array(nmi_std_list)
@@ -163,7 +155,7 @@ def run_model_IMDB(feats_type, num_layers, hidden_dim, num_heads, attn_vec_dim, 
     print('K-means tests summary')
     print('NMI: {:.6f}~{:.6f}'.format(nmi_mean_list.mean(), nmi_std_list.mean()))
     print('ARI: {:.6f}~{:.6f}'.format(ari_mean_list.mean(), ari_std_list.mean()))
-"""
+
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='MRGNN testing for the IMDB dataset')
