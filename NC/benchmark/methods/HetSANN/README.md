@@ -1,5 +1,5 @@
 # HetSANN code
-Adapted from ![didi/hetsann](https://github.com/didi/hetsann)
+Adapted from [didi/hetsann](https://github.com/didi/hetsann)
 We produced the result of HetSANN.M.R.V on our DBLP, ACM, IMDB dataset.
 
 ## running environment
