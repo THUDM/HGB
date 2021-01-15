@@ -139,8 +139,6 @@ def get_loss_acc(logits, labels, msk, is_multilabel=False):
         acc_name = ['if1', 'af1']
         acc_full_name = ['micro f1', 'macro f1']
 
-    # pdb.set_trace()
-
     return loss, accuracy, acc_name, acc_full_name
 
 
@@ -159,7 +157,6 @@ def print_eachclass_info(train_loss_each, train_acc_each, val_loss_each, val_acc
             line += '%s = %.5f, ' % (acc_name[i*metric_num+j], va_average[i*metric_num+j])
         print(line)
 
-#pdb.set_trace()
 path = '../../../data/' + dataset
 loader = data_loader(path)
 result_list = []
@@ -281,7 +278,6 @@ for repeat_i in range(repeat):
                     train_loss_each.append(np.array(loss_list_tr))
                     train_acc_each.append(np.array(acc_list_tr))
                     train_loss_avg += np.sum(np.array(loss_list_tr))
-                    # pdb.set_trace()
                     train_acc_avg += np.sum(np.array(acc_list_tr))
                     tr_step += 1
     
@@ -372,7 +368,6 @@ for repeat_i in range(repeat):
                 test_loss_each.append(np.array(loss_list_ts))
                 test_acc_each.append(np.array(acc_list_ts))
                 ts_step += 1
-                #pdb.set_trace()
                 if is_multilabel[0]:
                     print('is multilabel')
                 else:
@@ -382,7 +377,6 @@ for repeat_i in range(repeat):
                     print("micro_f1 and macro_f1:")
                     print(result)
                     result_list.append(result)
-                #pdb.set_trace()
 
             test_loss_each = np.mean(np.array(test_loss_each), axis=0)
             test_acc_each = np.mean(np.array(test_acc_each), axis=0)
@@ -401,4 +395,3 @@ for repeat_i in range(repeat):
 print('Validation:', total_vl_acc/repeat, 'Test:', total_ts_acc/repeat)
 print('all results:')
 print(result_list)
-pdb.set_trace()
