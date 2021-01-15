@@ -1,3 +1,21 @@
+# HetSANN code
+Adapted from ![didi/hetsann](https://github.com/didi/hetsann)
+We produced the result of HetSANN.M.R.V on our DBLP, ACM, IMDB dataset.
+
+## running environment
+- python 3.6.12
+- nvidia-tensorflow 1.15.4+nv20.11
+
+## run
+- download dataset
+- run execute_sparse.py
+```shell
+cd HetSANN_MRV
+python -u execute_sparse.py --dataset ACM --train_rate 0.8 --lr 0.001 --l2_coef 0.0001 --hid 64 --heads 8 8 1 --epochs 10000 --patience 100 --target_node 0 --target_is_multilabels 0 --layers 3 --inv_coef 1e-3 --feats-type 2
+```
+
+The following contnet is from initial `didi/hetsann` repo
+
 # HetSANN: Heterogeneous Graph Structural Attention Neural Network
 ---------------
 
