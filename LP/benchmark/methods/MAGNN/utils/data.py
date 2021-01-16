@@ -49,22 +49,22 @@ def get_adjlist_pkl(dl, meta, type_id=0, return_dic=True, symmetric=False):
 def load_IMDB_data_new():
     from scripts.data_loader import data_loader
     dl = data_loader('../../data/IMDB')
-    adjlist00, idx00 = get_adjlist_pkl(dl, [(0,1), (1,0)], 0, False, True)
+    adjlist00, idx00 = get_adjlist_pkl(dl, [(0,1), (1,0)], 0, False)
     G00 = nx.readwrite.adjlist.parse_adjlist(adjlist00, create_using=nx.MultiDiGraph)
     print('meta path 1 done')
-    adjlist01, idx01 = get_adjlist_pkl(dl, [(0,2), (2,0)], 0, False, True)
+    adjlist01, idx01 = get_adjlist_pkl(dl, [(0,2), (2,0)], 0, False)
     G01 = nx.readwrite.adjlist.parse_adjlist(adjlist01, create_using=nx.MultiDiGraph)
     print('meta path 2 done')
-    adjlist10, idx10 = get_adjlist_pkl(dl, [(1,0), (0,1)], 1, False, True)
+    adjlist10, idx10 = get_adjlist_pkl(dl, [(1,0), (0,1)], 1, False)
     G10 = nx.readwrite.adjlist.parse_adjlist(adjlist10, create_using=nx.MultiDiGraph)
     print('meta path 3 done')
-    adjlist11, idx11 = get_adjlist_pkl(dl, [(1,0), (0,2), (2,0), (0, 1)], 1, False, True)
+    adjlist11, idx11 = get_adjlist_pkl(dl, [(1,0), (0,2), (2,0), (0, 1)], 1, False)
     G11 = nx.readwrite.adjlist.parse_adjlist(adjlist11, create_using=nx.MultiDiGraph)
     print('meta path 4 done')
-    adjlist20, idx20 = get_adjlist_pkl(dl, [(2,0), (0,2)], 2, False, True)
+    adjlist20, idx20 = get_adjlist_pkl(dl, [(2,0), (0,2)], 2, False)
     G20 = nx.readwrite.adjlist.parse_adjlist(adjlist20, create_using=nx.MultiDiGraph)
     print('meta path 5 done')
-    adjlist21, idx21 = get_adjlist_pkl(dl, [(2,0), (0,1), (1,0), (0,2)], 2, False, True)
+    adjlist21, idx21 = get_adjlist_pkl(dl, [(2,0), (0,1), (1,0), (0,2)], 2, False)
     G21 = nx.readwrite.adjlist.parse_adjlist(adjlist21, create_using=nx.MultiDiGraph)
     print('meta path 6 done')
     features = []
@@ -115,12 +115,12 @@ def load_Freebase_data():
     import json
     adjlists, idxs = [], []
     for fn in ['meta1.json', 'meta2.json']:
-      with open(fn, 'r', encoding='utf-8') as f:
+      with open('meta1.json', 'r', encoding='utf-8') as f:
         meta = json.loads(''.join(f.readlines()))
-      for i, x in enumerate(meta['node_0'][:2]):
+      for i, x in enumerate(meta['node_0'][:5]):
         path = list(map(int, x['path'].split(',')))
         path = path + [-x-1 for x in reversed(path)]
-        th_adj, th_idx = get_adjlist_pkl(dl, path, symmetric=True)
+        th_adj, th_idx = get_adjlist_pkl(dl, path)
         adjlists.append(th_adj)
         idxs.append(th_idx)
         print('meta path {}-{} done'.format(fn, i))
@@ -177,9 +177,9 @@ def load_ACM_data():
             dl.links['data'][0][i,i] = 1
         if dl.links['data'][1][i].sum() == 0:
             dl.links['data'][1][i,i] = 1
-    adjlist00, idx00 = get_adjlist_pkl(dl, [(0,1), (1,0)], symmetric=True)
+    adjlist00, idx00 = get_adjlist_pkl(dl, [(0,1), (1,0)])
     print('meta path 1 done')
-    adjlist01, idx01 = get_adjlist_pkl(dl, [(0,2), (2,0)], symmetric=True)
+    adjlist01, idx01 = get_adjlist_pkl(dl, [(0,2), (2,0)])
     print('meta path 2 done')
     adjlist02, idx02 = get_adjlist_pkl(dl, [0, (0,1), (1,0)])
     print('meta path 3 done')
@@ -234,11 +234,11 @@ def load_ACM_data():
 def load_DBLP_data():
     from scripts.data_loader import data_loader
     dl = data_loader('../../data/DBLP')
-    adjlist00, idx00 = get_adjlist_pkl(dl, [(0,1), (1,0)], symmetric=True)
+    adjlist00, idx00 = get_adjlist_pkl(dl, [(0,1), (1,0)])
     print('meta path 1 done')
-    adjlist01, idx01 = get_adjlist_pkl(dl, [(0,1), (1,2), (2,1), (1,0)], symmetric=True)
+    adjlist01, idx01 = get_adjlist_pkl(dl, [(0,1), (1,2), (2,1), (1,0)])
     print('meta path 2 done')
-    adjlist02, idx02 = get_adjlist_pkl(dl, [(0,1), (1,3), (3,1), (1,0)], symmetric=True)
+    adjlist02, idx02 = get_adjlist_pkl(dl, [(0,1), (1,3), (3,1), (1,0)])
     print('meta path 3 done')
     features = []
     for i in range(4):
@@ -316,7 +316,36 @@ def load_DBLP_data():
             dl
 
 
-def load_LastFM_data(prefix='data/preprocessed/LastFM_processed'):
+def load_LastFM_data():
+    from scripts.data_loader import data_loader
+    dl = data_loader('../../data/LastFM')
+    import time
+    last = time.time()
+    adjlist00, idx00 = get_adjlist_pkl(dl, [(0,1), (1,0)], symmetric=True)
+    pay = time.time() - last
+    last = time.time()
+    print('meta paht 1 done', pay)
+    adjlist01, idx01 = get_adjlist_pkl(dl, [(0,1), (1,2), (2,1), (1,0)], symmetric=True)
+    pay = time.time() - last
+    last = time.time()
+    print('meta paht 2 done', pay)
+    adjlist02, idx02 = get_adjlist_pkl(dl, [(0,0)])
+    pay = time.time() - last
+    last = time.time()
+    print('meta paht 3 done', pay)
+    adjlist10, idx10 = get_adjlist_pkl(dl, [(1,0), (0,1)], symmetric=True)
+    pay = time.time() - last
+    last = time.time()
+    print('meta paht 4 done', pay)
+    adjlist11, idx11 = get_adjlist_pkl(dl, [(1,2), (2,1)], symmetric=True)
+    pay = time.time() - last
+    last = time.time()
+    print('meta paht 5 done', pay)
+    adjlist12, idx12 = get_adjlist_pkl(dl, [(1,0), (0,0), (0,1)])
+    pay = time.time() - last
+    last = time.time()
+    print('meta paht 6 done', pay)
+    """
     in_file = open(prefix + '/0/0-1-0.adjlist', 'r')
     adjlist00 = [line.strip() for line in in_file]
     adjlist00 = adjlist00
@@ -359,16 +388,19 @@ def load_LastFM_data(prefix='data/preprocessed/LastFM_processed'):
     in_file.close()
     in_file = open(prefix + '/1/1-0-0-1_idx.pickle', 'rb')
     idx12 = pickle.load(in_file)
-    in_file.close()
+    in_file.close()"""
 
-    adjM = scipy.sparse.load_npz(prefix + '/adjM.npz')
-    type_mask = np.load(prefix + '/node_types.npy')
-    train_val_test_pos_user_artist = np.load(prefix + '/train_val_test_pos_user_artist.npz')
-    train_val_test_neg_user_artist = np.load(prefix + '/train_val_test_neg_user_artist.npz')
+    adjM = sum(dl.links['data'].values())
+    adjM = adjM + adjM.T
+    type_mask = np.zeros(dl.nodes['total'], dtype=np.int32)
+    for i in range(len(dl.nodes['count'])):
+        type_mask[dl.nodes['shift'][i]:dl.nodes['shift'][i]+dl.nodes['count'][i]] = i
+    #train_val_test_pos_user_artist = np.load(prefix + '/train_val_test_pos_user_artist.npz')
+    #train_val_test_neg_user_artist = np.load(prefix + '/train_val_test_neg_user_artist.npz')
 
     return [[adjlist00, adjlist01, adjlist02],[adjlist10, adjlist11, adjlist12]],\
            [[idx00, idx01, idx02], [idx10, idx11, idx12]],\
-           adjM, type_mask, train_val_test_pos_user_artist, train_val_test_neg_user_artist
+           adjM, type_mask, dl #, train_val_test_pos_user_artist, train_val_test_neg_user_artist
 
 
 # load skipgram-format embeddings, treat missing node embeddings as zero vectors

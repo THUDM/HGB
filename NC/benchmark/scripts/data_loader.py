@@ -86,19 +86,19 @@ class data_loader:
         ini = sp.eye(self.nodes['total'])
         meta = [self.get_edge_type(x) for x in meta]
         for x in meta:
-            ini = ini.dot(self.links['data'][x])
+            ini = ini.dot(self.links['data'][x]) if x >= 0 else ini.dot(self.links['data'][-x - 1].T)
         return ini
 
     def dfs(self, now, meta, meta_dict):
         if len(meta) == 0:
             meta_dict[now[0]].append(now)
             return
-        th_mat = self.links['data'][meta[0]]
+        th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data'][-meta[0] - 1].T
         th_node = now[-1]
         for col in th_mat[th_node].nonzero()[1]:
             self.dfs(now+[col], meta[1:], meta_dict)
 
-    def get_full_meta_path(self, meta=[]):
+    def get_full_meta_path(self, meta=[], symmetric=False):
         """
         Get full meta path for each node
             meta is a list of edge types (also can be denoted by a pair of node types)
@@ -107,7 +107,8 @@ class data_loader:
         meta = [self.get_edge_type(x) for x in meta]
         if len(meta) == 1:
             meta_dict = {}
-            for i in range(self.nodes['total']):
+            start_node_type = self.links['meta'][meta[0]][0] if meta[0]>=0 else self.links['meta'][-meta[0]-1][1]
+            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
                 meta_dict[i] = []
                 self.dfs([i], meta, meta_dict)
         else:
@@ -116,18 +117,28 @@ class data_loader:
             mid = len(meta) // 2
             meta1 = meta[:mid]
             meta2 = meta[mid:]
-            for i in range(self.nodes['total']):
+            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0]>=0 else self.links['meta'][-meta1[0]-1][1]
+            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
                 meta_dict1[i] = []
                 self.dfs([i], meta1, meta_dict1)
-            for i in range(self.nodes['total']):
+            start_node_type = self.links['meta'][meta2[0]][0] if meta2[0]>=0 else self.links['meta'][-meta2[0]-1][1]
+            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
                 meta_dict2[i] = []
-                self.dfs([i], meta2, meta_dict2)
+            if symmetric:
+                for k in meta_dict1:
+                    paths = meta_dict1[k]
+                    for x in paths:
+                        meta_dict2[x[-1]].append(list(reversed(x)))
+            else:
+                for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
+                    self.dfs([i], meta2, meta_dict2)
             meta_dict = {}
-            for i in range(self.nodes['total']):
+            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0]>=0 else self.links['meta'][-meta1[0]-1][1]
+            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
                 meta_dict[i] = []
                 for beg in meta_dict1[i]:
                     for end in meta_dict2[beg[-1]]:
-                        meta_dict[i].append(beg+end[1:])
+                        meta_dict[i].append(beg + end[1:])
         return meta_dict
 
     def evaluate(self, pred):
@@ -184,6 +195,10 @@ class data_loader:
         for i in range(len(self.links['meta'])):
             if self.links['meta'][i] == info:
                 return i
+        info = (info[1], info[0])
+        for i in range(len(self.links['meta'])):
+            if self.links['meta'][i] == info:
+                return -i - 1
         raise Exception('No available edge type')
 
     def get_edge_info(self, edge_id):

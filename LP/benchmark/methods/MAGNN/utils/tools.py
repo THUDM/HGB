@@ -119,7 +119,7 @@ def parse_minibatch(adjlists, edge_metapath_indices_list, idx_batch, device, sam
             result_indices = torch.LongTensor(result_indices).to(device)
         #g.add_edges(*list(zip(*[(dst, src) for src, dst in sorted(edges)])))
         #result_indices = torch.LongTensor(result_indices).to(device)
-        g_list.append(g.to(device))
+        g_list.append(g)
         result_indices_list.append(result_indices)
         idx_batch_mapped_list.append(np.array([mapping[idx] for idx in idx_batch]))
 
@@ -202,7 +202,7 @@ def parse_minibatch_LastFM(adjlists_ua, edge_metapath_indices_list_ua, user_arti
                 result_indices = torch.LongTensor(result_indices[sorted_index]).to(device)
             else:
                 result_indices = torch.LongTensor(result_indices).to(device)
-            g_lists[mode].append(g)
+            g_lists[mode].append(g.to('cuda'))
             result_indices_lists[mode].append(result_indices)
             idx_batch_mapped_lists[mode].append(np.array([mapping[row[mode]] for row in user_artist_batch]))
 
