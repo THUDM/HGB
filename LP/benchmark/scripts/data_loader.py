@@ -18,6 +18,7 @@ class data_loader:
         self.train_pos, self.valid_pos = self.get_train_valid_pos()
         self.train_neg, self.valid_neg = self.get_train_neg(), self.get_valid_neg()
         self.gen_transpose_links()
+        self.nonzero = False
 
     def get_train_valid_pos(self, edge_types=[], train_ratio=0.9):
         if self.splited:
@@ -127,25 +128,43 @@ class data_loader:
             ini = ini.dot(self.links['data'][x]) if x >= 0 else ini.dot(self.links['data_trans'][-x - 1])
         return ini
 
+    def get_nonzero(self):
+        self.nonzero = True
+        self.re_cache = defaultdict(dict)
+        for k in self.links['data']:
+            th_mat = self.links['data'][k]
+            for i in range(th_mat.shape[0]):
+                th = th_mat[i].nonzero()[1]
+                self.re_cache[k][i] = th
+        for k in self.links['data_trans']:
+            th_mat = self.links['data_trans'][k]
+            for i in range(th_mat.shape[0]):
+                th = th_mat[i].nonzero()[1]
+                self.re_cache[-k-1][i] = th
+
     def dfs(self, now, meta, meta_dict):
         if len(meta) == 0:
             meta_dict[now[0]].append(now)
             return
-        th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data_trans'][-meta[0] - 1]
+        #th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data_trans'][-meta[0] - 1]
         th_node = now[-1]
-        for col in th_mat[th_node].nonzero()[1]:
+        for col in self.re_cache[meta[0]][th_node]:#th_mat[th_node].nonzero()[1]:
             self.dfs(now + [col], meta[1:], meta_dict)
 
-    def get_full_meta_path(self, meta=[]):
+    def get_full_meta_path(self, meta=[], symmetric=False):
         """
         Get full meta path for each node
             meta is a list of edge types (also can be denoted by a pair of node types)
             return a dict of list[list] (key is node_id)
         """
+        if not self.nonzero:
+            self.get_nonzero()
         meta = [self.get_edge_type(x) for x in meta]
         if len(meta) == 1:
             meta_dict = {}
-            for i in range(self.nodes['total']):
+            start_node_type = self.links['meta'][meta[0]][0] if meta[0]>=0 else self.links['meta'][-meta[0]-1][1]
+            trav = range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type])
+            for i in trav:
                 meta_dict[i] = []
                 self.dfs([i], meta, meta_dict)
         else:
@@ -154,14 +173,26 @@ class data_loader:
             mid = len(meta) // 2
             meta1 = meta[:mid]
             meta2 = meta[mid:]
-            for i in range(self.nodes['total']):
+            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0]>=0 else self.links['meta'][-meta1[0]-1][1]
+            trav = range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type])
+            for i in trav:
                 meta_dict1[i] = []
                 self.dfs([i], meta1, meta_dict1)
-            for i in range(self.nodes['total']):
+            start_node_type = self.links['meta'][meta2[0]][0] if meta2[0]>=0 else self.links['meta'][-meta2[0]-1][1]
+            trav = range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type])
+            for i in trav:
                 meta_dict2[i] = []
-                self.dfs([i], meta2, meta_dict2)
+            if symmetric:
+                for k in meta_dict1:
+                    paths = meta_dict1[k]
+                    for x in paths:
+                        meta_dict2[x[-1]].append(list(reversed(x)))
+            else:
+                for i in trav:
+                    self.dfs([i], meta2, meta_dict2)
             meta_dict = {}
-            for i in range(self.nodes['total']):
+            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0]>=0 else self.links['meta'][-meta1[0]-1][1]
+            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
                 meta_dict[i] = []
                 for beg in meta_dict1[i]:
                     for end in meta_dict2[beg[-1]]:
