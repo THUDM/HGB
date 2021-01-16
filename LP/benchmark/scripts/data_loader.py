@@ -7,7 +7,8 @@ import random
 
 
 class data_loader:
-    def __init__(self, path):
+    def __init__(self, path, edge_types=[]):
+        self.edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
         self.path = path
         self.splited = False
         self.nodes = self.load_nodes()
@@ -22,7 +23,7 @@ class data_loader:
         if self.splited:
             return self.train_pos, self.valid_pos
         else:
-            edge_types = self.links['data'].keys() if edge_types == [] else edge_types
+            edge_types = self.edge_types if edge_types == [] else edge_types
             train_pos, valid_pos = dict(), dict()
             for r_id in edge_types:
                 train_pos[r_id] = [[], []]
@@ -43,6 +44,8 @@ class data_loader:
                             valid_pos[r_id][0].append(h_id)
                             valid_pos[r_id][1].append(t_id)
                             self.links['data'][r_id][h_id, t_id] = 0
+                            self.links['count'][r_id] -= 1
+                            self.links['total'] -= 1
                 self.links['data'][r_id].eliminate_zeros()
             self.splited = True
             return train_pos, valid_pos
@@ -165,7 +168,7 @@ class data_loader:
                         meta_dict[i].append(beg + end[1:])
         return meta_dict
 
-    def evaluate(self, edge_list, confidence, labels, threshold=0.5):
+    def evaluate(self, edge_list, confidence, labels, threshold=0.5, eval_mrr=True):
         """
         :param edge_list: shape(2, edge_num)
         :param confidence: shape(edge_num,)
@@ -181,22 +184,27 @@ class data_loader:
         auc_socre = auc(rs, ps)
         roc_auc = roc_auc_score(labels, confidence)
         f1 = f1_score(labels, labels_pred)
-
-        mrr_list, cur_mrr = [], 0
-        t_dict, labels_dict, conf_dict = defaultdict(list), defaultdict(list), defaultdict(list)
-        for i, h_id in enumerate(edge_list[0]):
-            t_dict[h_id].append(edge_list[1][i])
-            labels_dict[h_id].append(labels[i])
-            conf_dict[h_id].append(confidence[i])
-        for h_id in t_dict.keys():
-            conf_array = np.array(conf_dict[h_id])
-            rank = np.argsort(-conf_array)
-            sorted_label_array = np.array(labels_dict[h_id])[rank]
-            pos_index = np.where(sorted_label_array == 1)[0]
-            pos_min_rank = np.min(pos_index)
-            cur_mrr = 1 / (1 + pos_min_rank)
-            mrr_list.append(cur_mrr)
-        return {'auc_score': auc_socre, 'roc_auc': roc_auc, 'F1': f1, 'MRR': np.mean(mrr_list)}
+        if eval_mrr:
+            mrr_list, cur_mrr = [], 0
+            t_dict, labels_dict, conf_dict = defaultdict(list), defaultdict(list), defaultdict(list)
+            for i, h_id in enumerate(edge_list[0]):
+                t_dict[h_id].append(edge_list[1][i])
+                labels_dict[h_id].append(labels[i])
+                conf_dict[h_id].append(confidence[i])
+            for h_id in t_dict.keys():
+                conf_array = np.array(conf_dict[h_id])
+                rank = np.argsort(-conf_array)
+                sorted_label_array = np.array(labels_dict[h_id])[rank]
+                pos_index = np.where(sorted_label_array == 1)[0]
+                if len(pos_index) == 0:
+                    continue
+                pos_min_rank = np.min(pos_index)
+                cur_mrr = 1 / (1 + pos_min_rank)
+                mrr_list.append(cur_mrr)
+            mrr = np.mean(mrr_list)
+        else:
+            mrr = 0
+        return {'auc_score': auc_socre, 'roc_auc': roc_auc, 'F1': f1, 'MRR': mrr}
 
     def get_node_type(self, node_id):
         for i in range(len(self.nodes['shift'])):
@@ -243,7 +251,7 @@ class data_loader:
         return types
 
     def get_train_neg(self, edge_types=[]):
-        edge_types = self.links['data'].keys() if edge_types == [] else edge_types
+        edge_types = self.edge_types if edge_types == [] else edge_types
         train_neg = dict()
         for r_id in edge_types:
             h_type, t_type = self.links['meta'][r_id]
@@ -257,7 +265,7 @@ class data_loader:
         return train_neg
 
     def get_valid_neg(self, edge_types=[]):
-        edge_types = self.links['data'].keys() if edge_types == [] else edge_types
+        edge_types = self.edge_types if edge_types == [] else edge_types
         valid_neg = dict()
         for r_id in edge_types:
             h_type, t_type = self.links['meta'][r_id]
@@ -272,7 +280,7 @@ class data_loader:
 
     def get_test_neigh(self, edge_types=[]):
         neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
-        edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
+        edge_types = self.edge_types if edge_types == [] else edge_types
         '''get sec_neigh'''
         pos_links = 0
         for r_id in self.links['data'].keys():
@@ -323,7 +331,7 @@ class data_loader:
                 test_neigh[r_id][1].extend(pos_list[1])
                 test_label[r_id].extend([1] * len(pos_neigh[r_id][h_id]))
                 random.seed(1)
-                neg_list = random.choices(neg_neigh[r_id][h_id], k=len(pos_list))
+                neg_list = random.choices(neg_neigh[r_id][h_id], k=len(pos_list[0]))
                 test_neigh[r_id][0].extend([h_id] * len(neg_list))
                 test_neigh[r_id][1].extend(neg_list)
                 test_label[r_id].extend([0] * len(neg_list))
@@ -331,7 +339,7 @@ class data_loader:
 
     def get_test_neigh_w_random(self, edge_types=[]):
         neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
-        edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
+        edge_types = self.edge_types if edge_types == [] else edge_types
         for r_id in edge_types:
             h_type, t_type = self.links_test['meta'][r_id]
             t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
@@ -340,7 +348,6 @@ class data_loader:
             (row, col), data = self.links_test['data'][r_id].nonzero(), self.links_test['data'][r_id].data
             for h_id, t_id in zip(row, col):
                 pos_neigh[r_id][h_id].append(t_id)
-                random.seed(1)
                 neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 neg_neigh[r_id][h_id].append(neg_t)
 
@@ -360,6 +367,27 @@ class data_loader:
                 test_neigh[r_id][0].extend(neg_list[0])
                 test_neigh[r_id][1].extend(neg_list[1])
                 test_label[r_id].extend([0] * len(neg_neigh[r_id][h_id]))
+        return test_neigh, test_label
+
+    def get_test_neigh_full_random(self, edge_types=[]):
+        edge_types = self.edge_types if edge_types == [] else edge_types
+        test_neigh, test_label = dict(), dict()
+        for r_id in edge_types:
+            test_neigh[r_id] = [[], []]
+            test_label[r_id] = []
+            h_type, t_type = self.links_test['meta'][r_id]
+            h_range = (self.nodes['shift'][h_type], self.nodes['shift'][h_type] + self.nodes['count'][h_type])
+            t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
+            (row, col), data = self.links_test['data'][r_id].nonzero(), self.links_test['data'][r_id].data
+            for h_id, t_id in zip(row, col):
+                test_neigh[r_id][0].append(h_id)
+                test_neigh[r_id][1].append(t_id)
+                test_label[r_id].append(1)
+                neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
+                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                test_neigh[r_id][0].append(neg_h)
+                test_neigh[r_id][1].append(neg_t)
+                test_label[r_id].append(0)
         return test_neigh, test_label
 
     def gen_transpose_links(self):
