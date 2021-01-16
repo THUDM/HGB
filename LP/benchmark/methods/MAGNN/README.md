@@ -1,3 +1,11 @@
+## MAGNN code for benchmark
+
+We have tried our best to fit MAGNN into benchmark data\_loader, but failed...
+
+The MAGNN code is toooooooo hard-coded and has many bugs. For example, we need to guarentee every node has at least one neighbour for every meta-path. Moreover, the meta-path generating is soooooo time-consuming.
+
+We have to fit our data format to the initial MAGNN repo. The code is in MAGNN\_ini folder.
+
 ## MAGNN
 
 This repository provides a reference implementation of MAGNN as described in the paper:

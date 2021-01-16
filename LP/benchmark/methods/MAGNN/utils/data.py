@@ -32,18 +32,24 @@ def load_IMDB_data(prefix='data/preprocessed/IMDB_processed'):
            labels,\
            train_val_test_idx
 
-def get_adjlist_pkl(dl, meta, type_id=0, return_dic=True, symmetric=False):
+def get_adjlist_pkl(dl, meta, type_id=0, return_dic=True, symmetric=False, return_tmp=False):
     meta010 = dl.get_meta_path(meta).tocoo()
+    if return_tmp:
+        tmp1 = meta010.copy()
     adjlist00 = [[] for _ in range(dl.nodes['count'][type_id])]
     for i,j,v in zip(meta010.row, meta010.col, meta010.data):
         adjlist00[i-dl.nodes['shift'][type_id]].extend([j-dl.nodes['shift'][type_id]]*int(v))
     adjlist00 = [' '.join(map(str, [i]+sorted(x))) for i,x in enumerate(adjlist00)]
     meta010 = dl.get_full_meta_path(meta, symmetric=symmetric)
+    if return_tmp:
+        tmp2 = meta010.copy()
     idx00 = {}
     for k in meta010:
         idx00[k] = np.array(sorted([tuple(reversed(i)) for i in meta010[k]]), dtype=np.int32).reshape([-1, len(meta)+1])
     if not return_dic:
         idx00 = np.concatenate(list(idx00.values()), axis=0)
+    if return_tmp:
+        return adjlist00, idx00, tmp1, tmp2
     return adjlist00, idx00
 
 def load_IMDB_data_new():
@@ -315,6 +321,34 @@ def load_DBLP_data():
            train_val_test_idx,\
             dl
 
+def get_adjlist_pkl_special(dl, meta, tmp1, tmp2):
+    from collections import defaultdict
+    rel = dl.get_edge_type(meta[-1])
+    meta010 = defaultdict(list)
+    mat010 = np.zeros((dl.nodes['count'][0], dl.nodes['count'][0]))
+    for k in tmp2:
+        for tri in tmp2[k]:
+            li1 = dl.re_cache[rel][tri[0]]
+            li2 = dl.re_cache[rel][tri[-1]]
+            if len(li1) == 0 or len(li2) == 0:
+                continue
+            candidate_u1_list = np.random.choice(len(li1), int(0.2 * len(li1)), replace=False)
+            candidate_u1_list = li1[candidate_u1_list]
+            candidate_u2_list = np.random.choice(len(li2), int(0.2 * len(li2)), replace=False)
+            candidate_u2_list = li2[candidate_u2_list]
+            for u1 in candidate_u1_list:
+                for u2 in candidate_u2_list:
+                    meta010[u1].append((u1, tri[0], tri[1], tri[2], u2))
+                    mat010[u1,u2] += 1
+    mat010 = sp.coo_matrix(mat010)
+    adjlist00 = [[] for _ in range(dl.nodes['count'][0])]
+    for i,j,v in zip(mat010.row, mat010.col, mat010.data):
+        adjlist00[i].extend([j]*int(v))
+    adjlist00 = [' '.join(map(str, [i]+sorted(x))) for i,x in enumerate(adjlist00)]
+    idx00 = {}
+    for k in meta010:
+        idx00[k] = np.array(sorted([tuple(reversed(i)) for i in meta010[k]]), dtype=np.int32).reshape([-1, len(meta)+1])
+    return adjlist00, idx00
 
 def load_LastFM_data():
     from scripts.data_loader import data_loader
@@ -325,7 +359,11 @@ def load_LastFM_data():
     pay = time.time() - last
     last = time.time()
     print('meta paht 1 done', pay)
-    adjlist01, idx01 = get_adjlist_pkl(dl, [(0,1), (1,2), (2,1), (1,0)], symmetric=True)
+    adjlist11, idx11, tmp1, tmp2 = get_adjlist_pkl(dl, [(1,2), (2,1)], type_id=1, symmetric=True, return_tmp=True)
+    pay = time.time() - last
+    last = time.time()
+    print('meta paht 5 done', pay)
+    adjlist01, idx01 = get_adjlist_pkl_special(dl, [(0,1), (1,2), (2,1), (1,0)], tmp1, tmp2)
     pay = time.time() - last
     last = time.time()
     print('meta paht 2 done', pay)
@@ -333,15 +371,11 @@ def load_LastFM_data():
     pay = time.time() - last
     last = time.time()
     print('meta paht 3 done', pay)
-    adjlist10, idx10 = get_adjlist_pkl(dl, [(1,0), (0,1)], symmetric=True)
+    adjlist10, idx10 = get_adjlist_pkl(dl, [(1,0), (0,1)], type_id=1, symmetric=True)
     pay = time.time() - last
     last = time.time()
     print('meta paht 4 done', pay)
-    adjlist11, idx11 = get_adjlist_pkl(dl, [(1,2), (2,1)], symmetric=True)
-    pay = time.time() - last
-    last = time.time()
-    print('meta paht 5 done', pay)
-    adjlist12, idx12 = get_adjlist_pkl(dl, [(1,0), (0,0), (0,1)])
+    adjlist12, idx12 = get_adjlist_pkl(dl, [(1,0), (0,0), (0,1)], type_id=1)
     pay = time.time() - last
     last = time.time()
     print('meta paht 6 done', pay)
@@ -398,8 +432,8 @@ def load_LastFM_data():
     #train_val_test_pos_user_artist = np.load(prefix + '/train_val_test_pos_user_artist.npz')
     #train_val_test_neg_user_artist = np.load(prefix + '/train_val_test_neg_user_artist.npz')
 
-    return [[adjlist00, adjlist01, adjlist02],[adjlist10, adjlist11, adjlist12]],\
-           [[idx00, idx01, idx02], [idx10, idx11, idx12]],\
+    return [[adjlist00, adjlist02],[adjlist10, adjlist11, adjlist12]],\
+           [[idx00, idx02], [idx10, idx11, idx12]],\
            adjM, type_mask, dl #, train_val_test_pos_user_artist, train_val_test_neg_user_artist
 
 

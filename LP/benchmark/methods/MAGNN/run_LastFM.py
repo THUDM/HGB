@@ -18,15 +18,15 @@ num_ntype = 3
 dropout_rate = 0.5
 lr = 0.005
 weight_decay = 0.001
-etypes_lists = [[[0, 1], [0, 2, 3, 1], [None]],
+etypes_lists = [[[0, 1], [None]], #, [0, 2, 3, 1], [None]],
                 [[1, 0], [2, 3], [1, None, 0]]]
-use_masks = [[True, True, False],
+use_masks = [[True, True],#, False],
              [True, False, True]]
-no_masks = [[False] * 3, [False] * 3]
+no_masks = [[False] * 2, [False] * 3]
 num_user = 1892
 num_artist = 17632
 expected_metapaths = [
-    [(0, 1, 0), (0, 1, 2, 1, 0), (0, 0)],
+    [(0, 1, 0), (0,0)],#(0, 1, 2, 1, 0), (0, 0)],
     [(1, 0, 1), (1, 2, 1), (1, 0, 0, 1)]
 ]
 
@@ -57,7 +57,7 @@ def run_model_LastFM(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
     train_pos = train_pos[test_edge_type]
     valid_pos = valid_pos[test_edge_type]
     train_pos_user_artist = np.array([train_pos[0], train_pos[1]]).T
-    valid_pos_user_artist = np.array([valid_pos[0], valid_pos[1]]).T
+    val_pos_user_artist = np.array([valid_pos[0], valid_pos[1]]).T
     """test_pos_user_artist = train_val_test_pos_user_artist['test_pos_user_artist']
     test_neg_user_artist = train_val_test_neg_user_artist['test_neg_user_artist']
     y_true_test = np.array([1] * len(test_pos_user_artist) + [0] * len(test_neg_user_artist))"""
@@ -66,7 +66,7 @@ def run_model_LastFM(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
     ap_list = []
     for _ in range(repeat):
         net = MAGNN_lp(
-            [3, 3], 4, etypes_lists, in_dims, hidden_dim, hidden_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
+            [2, 3], 4, etypes_lists, in_dims, hidden_dim, hidden_dim, num_heads, attn_vec_dim, rnn_type, dropout_rate)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=lr, weight_decay=weight_decay)
 
