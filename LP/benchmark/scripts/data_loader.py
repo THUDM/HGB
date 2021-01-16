@@ -8,12 +8,12 @@ import random
 
 class data_loader:
     def __init__(self, path, edge_types=[]):
-        self.edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
         self.path = path
         self.splited = False
         self.nodes = self.load_nodes()
         self.links = self.load_links('link.dat')
         self.links_test = self.load_links('link.dat.test')
+        self.edge_types = self.links_test['data'].keys() if edge_types == [] else edge_types
         self.types = self.load_types('node.dat')
         self.train_pos, self.valid_pos = self.get_train_valid_pos()
         self.train_neg, self.valid_neg = self.get_train_neg(), self.get_valid_neg()
