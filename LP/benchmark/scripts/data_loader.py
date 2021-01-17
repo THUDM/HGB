@@ -379,6 +379,7 @@ class data_loader:
 
     def get_test_neigh_w_random(self, edge_types=[]):
         random.seed(1)
+        all_had_neigh = defaultdict(list)
         neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
         edge_types = self.test_types if edge_types == [] else edge_types
         '''get pos_links of train and test data'''
@@ -387,6 +388,11 @@ class data_loader:
             pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
         for r_id in self.links_test['data'].keys():
             pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
+        row,col = pos_links.nonzero()
+        for h_id,t_id in zip(row, col):
+            all_had_neigh[h_id].append(t_id)
+        for h_id in all_had_neigh.keys():
+            all_had_neigh[h_id] = set(all_had_neigh[h_id])
         for r_id in edge_types:
             h_type, t_type = self.links_test['meta'][r_id]
             t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
@@ -396,10 +402,9 @@ class data_loader:
             for h_id, t_id in zip(row, col):
                 pos_neigh[r_id][h_id].append(t_id)
                 neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
-                while (pos_links[h_id, neg_t] != 0) or (neg_t in neg_neigh[r_id][h_id]):
+                while neg_t in all_had_neigh[h_id]:
                     neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 neg_neigh[r_id][h_id].append(neg_t)
-
             '''get the test_neigh'''
             test_neigh[r_id] = [[], []]
             pos_list = [[], []]
@@ -421,15 +426,20 @@ class data_loader:
     def get_test_neigh_full_random(self, edge_types=[]):
         random.seed(1)
         '''get pos_links of train and test data'''
+        all_had_neigh = defaultdict(list)
         pos_links = 0
         for r_id in self.links['data'].keys():
             pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
         for r_id in self.links_test['data'].keys():
             pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
+        row, col = pos_links.nonzero()
+        for h_id, t_id in zip(row, col):
+            all_had_neigh[h_id].append(t_id)
+        for h_id in all_had_neigh.keys():
+            all_had_neigh[h_id] = set(all_had_neigh[h_id])
         edge_types = self.test_types if edge_types == [] else edge_types
-        neg_neigh,test_neigh, test_label = dict(), dict(), dict()
+        test_neigh, test_label = dict(), dict()
         for r_id in edge_types:
-            neg_neigh[r_id] = defaultdict(list)
             test_neigh[r_id] = [[], []]
             test_label[r_id] = []
             h_type, t_type = self.links_test['meta'][r_id]
@@ -442,13 +452,13 @@ class data_loader:
                 test_label[r_id].append(1)
                 neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
                 neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
-                while (pos_links[neg_h, neg_t] != 0) or (neg_t  in neg_neigh[r_id][h_id]):
+                while neg_t in all_had_neigh[neg_h]:
                     neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
                     neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
-                neg_neigh[r_id][neg_h].append(neg_t)
                 test_neigh[r_id][0].append(neg_h)
                 test_neigh[r_id][1].append(neg_t)
                 test_label[r_id].append(0)
+                all_had_neigh[neg_h].append(neg_t)
         return test_neigh, test_label
 
     def gen_transpose_links(self):
