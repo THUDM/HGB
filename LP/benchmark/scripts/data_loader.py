@@ -140,15 +140,15 @@ class data_loader:
             th_mat = self.links['data_trans'][k]
             for i in range(th_mat.shape[0]):
                 th = th_mat[i].nonzero()[1]
-                self.re_cache[-k-1][i] = th
+                self.re_cache[-k - 1][i] = th
 
     def dfs(self, now, meta, meta_dict):
         if len(meta) == 0:
             meta_dict[now[0]].append(now)
             return
-        #th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data_trans'][-meta[0] - 1]
+        # th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data_trans'][-meta[0] - 1]
         th_node = now[-1]
-        for col in self.re_cache[meta[0]][th_node]:#th_mat[th_node].nonzero()[1]:
+        for col in self.re_cache[meta[0]][th_node]:  # th_mat[th_node].nonzero()[1]:
             self.dfs(now + [col], meta[1:], meta_dict)
 
     def get_full_meta_path(self, meta=[], symmetric=False):
@@ -162,8 +162,9 @@ class data_loader:
         meta = [self.get_edge_type(x) for x in meta]
         if len(meta) == 1:
             meta_dict = {}
-            start_node_type = self.links['meta'][meta[0]][0] if meta[0]>=0 else self.links['meta'][-meta[0]-1][1]
-            trav = range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type])
+            start_node_type = self.links['meta'][meta[0]][0] if meta[0] >= 0 else self.links['meta'][-meta[0] - 1][1]
+            trav = range(self.nodes['shift'][start_node_type],
+                         self.nodes['shift'][start_node_type] + self.nodes['count'][start_node_type])
             for i in trav:
                 meta_dict[i] = []
                 self.dfs([i], meta, meta_dict)
@@ -173,13 +174,15 @@ class data_loader:
             mid = len(meta) // 2
             meta1 = meta[:mid]
             meta2 = meta[mid:]
-            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0]>=0 else self.links['meta'][-meta1[0]-1][1]
-            trav = range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type])
+            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0] >= 0 else self.links['meta'][-meta1[0] - 1][1]
+            trav = range(self.nodes['shift'][start_node_type],
+                         self.nodes['shift'][start_node_type] + self.nodes['count'][start_node_type])
             for i in trav:
                 meta_dict1[i] = []
                 self.dfs([i], meta1, meta_dict1)
-            start_node_type = self.links['meta'][meta2[0]][0] if meta2[0]>=0 else self.links['meta'][-meta2[0]-1][1]
-            trav = range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type])
+            start_node_type = self.links['meta'][meta2[0]][0] if meta2[0] >= 0 else self.links['meta'][-meta2[0] - 1][1]
+            trav = range(self.nodes['shift'][start_node_type],
+                         self.nodes['shift'][start_node_type] + self.nodes['count'][start_node_type])
             for i in trav:
                 meta_dict2[i] = []
             if symmetric:
@@ -191,8 +194,9 @@ class data_loader:
                 for i in trav:
                     self.dfs([i], meta2, meta_dict2)
             meta_dict = {}
-            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0]>=0 else self.links['meta'][-meta1[0]-1][1]
-            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
+            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0] >= 0 else self.links['meta'][-meta1[0] - 1][1]
+            for i in range(self.nodes['shift'][start_node_type],
+                           self.nodes['shift'][start_node_type] + self.nodes['count'][start_node_type]):
                 meta_dict[i] = []
                 for beg in meta_dict1[i]:
                     for end in meta_dict2[beg[-1]]:
@@ -326,6 +330,11 @@ class data_loader:
             sp.coo_matrix((data, r_double_neighs.nonzero()), shape=np.shape(pos_links), dtype=int) \
             - sp.coo_matrix(pos_links, dtype=int) \
             - sp.lil_matrix(np.eye(np.shape(pos_links)[0], dtype=int))
+        data = r_double_neighs.data
+        pos_count_index = np.where(data > 0)
+        row, col = r_double_neighs.nonzero()
+        r_double_neighs = sp.coo_matrix((data[pos_count_index], (row[pos_count_index], col[pos_count_index])),
+                                        shape=np.shape(pos_links))
 
         row, col = r_double_neighs.nonzero()
         data = r_double_neighs.data
@@ -372,6 +381,12 @@ class data_loader:
         random.seed(1)
         neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
         edge_types = self.test_types if edge_types == [] else edge_types
+        '''get pos_links of train and test data'''
+        pos_links = 0
+        for r_id in self.links['data'].keys():
+            pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
+        for r_id in self.links_test['data'].keys():
+            pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
         for r_id in edge_types:
             h_type, t_type = self.links_test['meta'][r_id]
             t_range = (self.nodes['shift'][t_type], self.nodes['shift'][t_type] + self.nodes['count'][t_type])
@@ -381,6 +396,8 @@ class data_loader:
             for h_id, t_id in zip(row, col):
                 pos_neigh[r_id][h_id].append(t_id)
                 neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                while (pos_links[h_id, neg_t] != 0) or (neg_t in neg_neigh[r_id][h_id]):
+                    neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 neg_neigh[r_id][h_id].append(neg_t)
 
             '''get the test_neigh'''
@@ -403,9 +420,16 @@ class data_loader:
 
     def get_test_neigh_full_random(self, edge_types=[]):
         random.seed(1)
+        '''get pos_links of train and test data'''
+        pos_links = 0
+        for r_id in self.links['data'].keys():
+            pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
+        for r_id in self.links_test['data'].keys():
+            pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
         edge_types = self.test_types if edge_types == [] else edge_types
-        test_neigh, test_label = dict(), dict()
+        neg_neigh,test_neigh, test_label = dict(), dict(), dict()
         for r_id in edge_types:
+            neg_neigh[r_id] = defaultdict(list)
             test_neigh[r_id] = [[], []]
             test_label[r_id] = []
             h_type, t_type = self.links_test['meta'][r_id]
@@ -418,6 +442,10 @@ class data_loader:
                 test_label[r_id].append(1)
                 neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
                 neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                while (pos_links[neg_h, neg_t] != 0) or (neg_t  in neg_neigh[r_id][h_id]):
+                    neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
+                    neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                neg_neigh[r_id][neg_h].append(neg_t)
                 test_neigh[r_id][0].append(neg_h)
                 test_neigh[r_id][1].append(neg_t)
                 test_label[r_id].append(0)
