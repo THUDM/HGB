@@ -97,7 +97,7 @@ def run_model_DBLP(args):
         train_pos, valid_pos = dl.get_train_valid_pos()#edge_types=[test_edge_type])
         num_classes = args.hidden_dim
         heads = [args.num_heads] * args.num_layers + [args.num_heads]
-        net = myGAT(g, args.edge_feats, len(dl.links['count'])*2+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, False, 0.01, decode=args.decoder)
+        net = myGAT(g, args.edge_feats, len(dl.links['count'])*2+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, False, 0., decode=args.decoder)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
