@@ -122,7 +122,7 @@ class HAN_freebase(nn.Module,):
 
     def forward(self, g, h):
         h = self.fc(h)
-        h = torch.FloatTensor(h.cpu())
+        h = torch.FloatTensor(h.cpu()).to(g.device)
         for gnn in self.layers:
             h = gnn(g, h)
 

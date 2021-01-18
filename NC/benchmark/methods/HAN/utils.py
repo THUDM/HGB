@@ -111,9 +111,6 @@ sampling_configure = {
 def setup(args):
     args.update(default_configure)
     set_random_seed(args['seed'])
-
-    args['device'] = 'cuda:0' if torch.cuda.is_available() else 'cpu'
-    args['device'] = 'cpu'
     args['log_dir'] = setup_log_dir(args)
     return args
 
@@ -372,6 +369,7 @@ def load_data(dataset, feat_type=0):
     if dataset == 'ACM':
         load_fun = load_acm
     elif dataset == 'freebase':
+        feat_type = 1
         load_fun = load_freebase
     elif dataset == 'DBLP':
         load_fun = load_dblp

@@ -55,13 +55,6 @@ def main(args):
             early_stop = stopper.step(val_loss.data.item(), 1, model)
             print('Epoch {:d} | Train Loss {:.4f} | Val Loss {:.4f} |'.format(
                 epoch + 1, loss.item(), val_loss.item()))
-            """Just for debug"""
-            logits = model(g, features)
-            test_loss = loss_fcn(logits[test_mask], labels[test_mask])
-            test_pred = (logits[test_mask].cpu().numpy() > 0).astype(int)
-            test_score = dl.evaluate(test_pred)
-            print('Test loss {:.4f} | Test Score {} '.format(
-                test_loss.item(), test_score))
         if early_stop:
             break
 

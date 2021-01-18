@@ -105,12 +105,12 @@ if __name__ == '__main__':
                         help='Dir for saving training results')
     parser.add_argument('--hetero', action='store_true',
                         help='Use metapath coalescing with DGL\'s own dataset')
-    parser.add_argument('--model', type=str)
     parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--dataset', type=str, default='DBLP',
-                        choices=['DBLP', 'IMDB', 'ACM', 'freebase'])
+                        choices=['DBLP', 'ACM', 'freebase'])
+    parser.add_argument('--device', type=str, default='cuda:0')
     args = parser.parse_args().__dict__
 
     args = setup(args)
-
+    print(args)
     main(args)
