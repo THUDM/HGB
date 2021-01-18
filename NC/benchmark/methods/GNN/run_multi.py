@@ -82,7 +82,6 @@ def run_model_DBLP(args):
     for _ in range(args.repeat):
         loss = nn.BCELoss()
         num_classes = dl.labels_train['num_classes']
-        heads = [args.num_heads] * args.num_layers + [1]
         if args.model_type == 'gat':
             heads = [args.num_heads] * args.num_layers + [1]
             net = GAT(g, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, False)

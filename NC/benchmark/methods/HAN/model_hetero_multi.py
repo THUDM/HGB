@@ -26,7 +26,7 @@ class SemanticAttention(nn.Module):
 
     def forward(self, z):
         w = self.project(z).mean(0)  # (M, 1)
-        beta = torch.softmax(w, dim=0)  # (M, 1)
+        beta = F.sigmoid(w)  # (M, 1)
         beta = beta.expand((z.shape[0],) + beta.shape)  # (N, M, 1)
 
         return (beta * z).sum(1)  # (N, D * K)
