@@ -15,8 +15,10 @@ from scipy import sparse
 from scipy import io as sio
 
 import sys
+
 sys.path.append('../../')
 from scripts.data_loader import data_loader
+
 
 def set_random_seed(seed=0):
     """Set random seed.
@@ -30,6 +32,7 @@ def set_random_seed(seed=0):
     torch.manual_seed(seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed(seed)
+
 
 def mkdir_p(path, log=True):
     """Create a directory for the specified path.
@@ -50,6 +53,7 @@ def mkdir_p(path, log=True):
         else:
             raise
 
+
 def get_date_postfix():
     """Get a date based postfix for directory name.
     Returns
@@ -61,6 +65,7 @@ def get_date_postfix():
         dt.date(), dt.hour, dt.minute, dt.second)
 
     return post_fix
+
 
 def setup_log_dir(args, sampling=False):
     """Name and create directory for logging.
@@ -86,28 +91,29 @@ def setup_log_dir(args, sampling=False):
     mkdir_p(log_dir)
     return log_dir
 
+
 # The configuration below is from the paper.
 default_configure = {
-    'lr': 0.005,             # Learning rate
-    'num_heads': [8],        # Number of attention heads for node-level attention
+    'lr': 0.005,  # Learning rate
+    'num_heads': [8],  # Number of attention heads for node-level attention
     'hidden_units': 8,
     'dropout': 0.6,
     'weight_decay': 0.001,
     'num_epochs': 200,
-    'patience': 100
+    'patience': 20
 }
 
 sampling_configure = {
     'batch_size': 20
 }
 
+
 def setup(args):
     args.update(default_configure)
     set_random_seed(args['seed'])
-
-    args['device'] = 'cuda:0' if torch.cuda.is_available() else 'cpu'
     args['log_dir'] = setup_log_dir(args)
     return args
+
 
 def setup_for_sampling(args):
     args.update(default_configure)
@@ -117,125 +123,159 @@ def setup_for_sampling(args):
     args['log_dir'] = setup_log_dir(args, sampling=True)
     return args
 
+
 def get_binary_mask(total_size, indices):
     mask = torch.zeros(total_size)
     mask[indices] = 1
     return mask.byte()
 
-def load_acm(remove_self_loop):
-    url = 'dataset/ACM3025.pkl'
-    data_path = get_download_dir() + '/ACM3025.pkl'
-    download(_get_dgl_url(url), path=data_path)
 
-    with open(data_path, 'rb') as f:
-        data = pickle.load(f)
+def load_acm(feat_type=0):
+    dl = data_loader('../../data/ACM')
+    link_type_dic = {0: 'pp', 1: 'pp', 2: 'pa', 3: 'ap', 4: 'ps', 5: 'sp', 6: 'pt', 7: 'tp'}
+    paper_num = dl.nodes['count'][0]
+    data_dic = {}
+    for link_type in dl.links['data'].keys():
+        src_type = str(dl.links['meta'][link_type][0])
+        dst_type = str(dl.links['meta'][link_type][1])
+        data_dic[(src_type, link_type_dic[link_type], dst_type)] = dl.links['data'][link_type].nonzero()
+    hg = dgl.heterograph(data_dic)
 
-    labels, features = torch.from_numpy(data['label'].todense()).long(), \
-                       torch.from_numpy(data['feature'].todense()).float()
-    num_classes = labels.shape[1]
-    labels = labels.nonzero()[:, 1]
+    # paper feature
+    if feat_type == 0:
+        '''preprocessed feature'''
+        features = th.FloatTensor(dl.nodes['attr'][0])
+    else:
+        '''one-hot'''
+        features = th.FloatTensor(np.eye(paper_num))
 
-    if remove_self_loop:
-        num_nodes = data['label'].shape[0]
-        data['PAP'] = sparse.csr_matrix(data['PAP'] - np.eye(num_nodes))
-        data['PLP'] = sparse.csr_matrix(data['PLP'] - np.eye(num_nodes))
+    # author labels
 
-    # Adjacency matrices for meta path based neighbors
-    # (Mufei): I verified both of them are binary adjacency matrices with self loops
-    author_g = dgl.from_scipy(data['PAP'])
-    subject_g = dgl.from_scipy(data['PLP'])
-    gs = [author_g, subject_g]
-
-    train_idx = torch.from_numpy(data['train_idx']).long().squeeze(0)
-    val_idx = torch.from_numpy(data['val_idx']).long().squeeze(0)
-    test_idx = torch.from_numpy(data['test_idx']).long().squeeze(0)
-
-    num_nodes = author_g.number_of_nodes()
-    train_mask = get_binary_mask(num_nodes, train_idx)
-    val_mask = get_binary_mask(num_nodes, val_idx)
-    test_mask = get_binary_mask(num_nodes, test_idx)
-
-    print('dataset loaded')
-    pprint({
-        'dataset': 'ACM',
-        'train': train_mask.sum().item() / num_nodes,
-        'val': val_mask.sum().item() / num_nodes,
-        'test': test_mask.sum().item() / num_nodes
-    })
-
-    return gs, features, labels, num_classes, train_idx, val_idx, test_idx, \
-           train_mask, val_mask, test_mask
-
-def load_acm_raw(remove_self_loop):
-    assert not remove_self_loop
-    # url = 'dataset/ACM.mat'
-    # data_path = get_download_dir() + '/ACM.mat'
-    # download(_get_dgl_url(url), path=data_path)
-    data_path = './ACM.mat'
-
-    data = sio.loadmat(data_path)
-    p_vs_l = data['PvsL']       # paper-field?
-    p_vs_a = data['PvsA']       # paper-author
-    p_vs_t = data['PvsT']       # paper-term, bag of words
-    p_vs_c = data['PvsC']       # paper-conference, labels come from that
-
-    # We assign
-    # (1) KDD papers as class 0 (data mining),
-    # (2) SIGMOD and VLDB papers as class 1 (database),
-    # (3) SIGCOMM and MOBICOMM papers as class 2 (communication)
-    conf_ids = [0, 1, 9, 10, 13]
-    label_ids = [0, 1, 2, 2, 1]
-
-    p_vs_c_filter = p_vs_c[:, conf_ids]
-    p_selected = (p_vs_c_filter.sum(1) != 0).A1.nonzero()[0]
-    p_vs_l = p_vs_l[p_selected]
-    p_vs_a = p_vs_a[p_selected]
-    p_vs_t = p_vs_t[p_selected]
-    p_vs_c = p_vs_c[p_selected]
-
-    hg = dgl.heterograph({
-        ('paper', 'pa', 'author'): p_vs_a.nonzero(),
-        ('author', 'ap', 'paper'): p_vs_a.transpose().nonzero(),
-        ('paper', 'pf', 'field'): p_vs_l.nonzero(),
-        ('field', 'fp', 'paper'): p_vs_l.transpose().nonzero()
-    })
-
-    features = torch.FloatTensor(p_vs_t.toarray())
-
-    pc_p, pc_c = p_vs_c.nonzero()
-    labels = np.zeros(len(p_selected), dtype=np.int64)
-    for conf_id, label_id in zip(conf_ids, label_ids):
-        labels[pc_p[pc_c == conf_id]] = label_id
-    labels = torch.LongTensor(labels)
+    labels = dl.labels_test['data'][:paper_num] + dl.labels_train['data'][:paper_num]
+    labels = [np.argmax(l) for l in labels]  # one-hot to value
+    labels = th.LongTensor(labels)
 
     num_classes = 3
 
-    float_mask = np.zeros(len(pc_p))
-    for conf_id in conf_ids:
-        pc_c_mask = (pc_c == conf_id)
-        float_mask[pc_c_mask] = np.random.permutation(np.linspace(0, 1, pc_c_mask.sum()))
-    train_idx = np.where(float_mask <= 0.2)[0]
-    val_idx = np.where((float_mask > 0.2) & (float_mask <= 0.3))[0]
-    test_idx = np.where(float_mask > 0.3)[0]
+    train_valid_mask = dl.labels_train['mask'][:paper_num]
+    test_mask = dl.labels_test['mask'][:paper_num]
+    train_valid_indices = np.where(train_valid_mask == True)[0]
+    split_index = int(0.7 * np.shape(train_valid_indices)[0])
+    train_indices = train_valid_indices[:split_index]
+    valid_indices = train_valid_indices[split_index:]
+    train_mask = copy.copy(train_valid_mask)
+    valid_mask = copy.copy(train_valid_mask)
+    train_mask[valid_indices] = False
+    valid_mask[train_indices] = False
+    test_indices = np.where(test_mask == True)[0]
 
-    num_nodes = hg.number_of_nodes('paper')
-    train_mask = get_binary_mask(num_nodes, train_idx)
-    val_mask = get_binary_mask(num_nodes, val_idx)
-    test_mask = get_binary_mask(num_nodes, test_idx)
+    meta_paths = [['pp', 'pp'], ['pa', 'ap'], ['ps', 'sp'], ['pt', 'tp']]
+    return hg, features, labels, num_classes, train_indices, valid_indices, test_indices, \
+           th.BoolTensor(train_mask), th.BoolTensor(valid_mask), th.BoolTensor(test_mask), meta_paths
 
-    meta_paths = [['pa', 'ap'], ['ps', 'sp']]
-    return hg, features, labels, num_classes, train_idx, val_idx, test_idx, \
-            train_mask, val_mask, test_mask, meta_paths
 
-def load_dblp(remove_self_loop, feat_type=0):
-    prefix='../../data/DBLP'
-    dl = data_loader(prefix)
-    link_type_dic = {0:'ap', 1:'pc', 2:'pt', 3:'pa', 4:'cp', 5:'tp'}
-    author_num = dl.nodes['count'][0]
-    data_dic={}
+def load_freebase(feat_type=1):
+    dl = data_loader('../../data/freebase')
+    link_type_dic = {0: '00', 1: '01', 2: '03', 3: '05', 4: '06',
+                     5: '11',
+                     6: '20', 7: '21', 8: '22', 9: '23', 10: '25',
+                     11: '31', 12: '33', 13: '35',
+                     14: '40', 15: '41', 16: '42', 17: '43', 18: '44', 19: '45', 20: '46', 21: '47',
+                     22: '51', 23: '55',
+                     24: '61', 25: '62', 26: '63', 27: '65', 28: '66', 29: '67',
+                     30: '70', 31: '71', 32: '72', 33: '73', 34: '75', 35: '77',
+                     36: '00',
+                     37: '10',
+                     38: '30',
+                     39: '50',
+                     40: '60',
+                     41: '11',
+                     42: '02',
+                     43: '12',
+                     44: '22',
+                     45: '32',
+                     46: '52',
+                     47: '13',
+                     48: '33',
+                     49: '53',
+                     50: '04',
+                     51: '14',
+                     52: '24',
+                     53: '34',
+                     54: '44',
+                     55: '54',
+                     56: '64',
+                     57: '74',
+                     58: '15',
+                     59: '55',
+                     60: '16',
+                     61: '26',
+                     62: '36',
+                     63: '56',
+                     64: '66',
+                     65: '76',
+                     66: '07',
+                     67: '17',
+                     68: '27',
+                     69: '37',
+                     70: '57',
+                     71: '77',
+                     }
+    book_num = dl.nodes['count'][0]
+    data_dic = {}
     for link_type in dl.links['data'].keys():
-        src_type = str( dl.links['meta'][link_type][0])
-        dst_type = str( dl.links['meta'][link_type][1])
+        src_type = str(dl.links['meta'][link_type][0])
+        dst_type = str(dl.links['meta'][link_type][1])
+        data_dic[(src_type, link_type_dic[link_type], dst_type)] = dl.links['data'][link_type].nonzero()
+        # reverse
+        data_dic[(dst_type, link_type_dic[link_type + 36], src_type)] = dl.links['data'][link_type].T.nonzero()
+    hg = dgl.heterograph(data_dic)
+
+    if feat_type == 0:
+        '''preprocessed feature'''
+        features = th.FloatTensor(dl.nodes['attr'][0])
+    else:
+        '''one-hot'''
+        indices = np.vstack((np.arange(book_num), np.arange(book_num)))
+        indices = th.LongTensor(indices)
+        values = th.FloatTensor(np.ones(book_num))
+        features = th.sparse.FloatTensor(indices, values, th.Size([book_num, book_num]))
+    # author labels
+
+    labels = dl.labels_test['data'][:book_num] + dl.labels_train['data'][:book_num]
+    labels = [np.argmax(l) for l in labels]  # one-hot to value
+    labels = th.LongTensor(labels)
+
+    num_classes = 7
+
+    train_valid_mask = dl.labels_train['mask'][:book_num]
+    test_mask = dl.labels_test['mask'][:book_num]
+    train_valid_indices = np.where(train_valid_mask == True)[0]
+    split_index = int(0.7 * np.shape(train_valid_indices)[0])
+    train_indices = train_valid_indices[:split_index]
+    valid_indices = train_valid_indices[split_index:]
+    train_mask = copy.copy(train_valid_mask)
+    valid_mask = copy.copy(train_valid_mask)
+    train_mask[valid_indices] = False
+    valid_mask[train_indices] = False
+    test_indices = np.where(test_mask == True)[0]
+
+    # meta_paths = [['01', '10']]
+    meta_paths = [['00', '00'], ['01', '10'], ['05', '52', '20'], ['04', '40'], ['04', '43', '30'], ['06', '61', '10'],
+                  ['07', '70'], ]
+    return hg, features, labels, num_classes, train_indices, valid_indices, test_indices, \
+           th.BoolTensor(train_mask), th.BoolTensor(valid_mask), th.BoolTensor(test_mask), meta_paths
+
+
+def load_dblp(feat_type=0):
+    prefix = '../../data/DBLP'
+    dl = data_loader(prefix)
+    link_type_dic = {0: 'ap', 1: 'pc', 2: 'pt', 3: 'pa', 4: 'cp', 5: 'tp'}
+    author_num = dl.nodes['count'][0]
+    data_dic = {}
+    for link_type in dl.links['data'].keys():
+        src_type = str(dl.links['meta'][link_type][0])
+        dst_type = str(dl.links['meta'][link_type][1])
         data_dic[(src_type, link_type_dic[link_type], dst_type)] = dl.links['data'][link_type].nonzero()
     hg = dgl.heterograph(data_dic)
 
@@ -254,7 +294,7 @@ def load_dblp(remove_self_loop, feat_type=0):
     # author labels
 
     labels = dl.labels_test['data'][:author_num] + dl.labels_train['data'][:author_num]
-    labels = [np.argmax(l)for l in labels] # one-hot to value
+    labels = [np.argmax(l) for l in labels]  # one-hot to value
     labels = th.LongTensor(labels)
 
     num_classes = 4
@@ -268,22 +308,75 @@ def load_dblp(remove_self_loop, feat_type=0):
     train_mask = copy.copy(train_valid_mask)
     valid_mask = copy.copy(train_valid_mask)
     train_mask[valid_indices] = False
-    valid_mask[train_indices]= False
+    valid_mask[train_indices] = False
     test_indices = np.where(test_mask == True)[0]
 
     meta_paths = [['ap', 'pa'], ['ap', 'pt', 'tp', 'pa'], ['ap', 'pc', 'cp', 'pa']]
     return hg, features, labels, num_classes, train_indices, valid_indices, test_indices, \
            th.BoolTensor(train_mask), th.BoolTensor(valid_mask), th.BoolTensor(test_mask), meta_paths
 
-def load_data(dataset, remove_self_loop=False, feat_type=0):
-    if dataset == 'ACM':
-        return load_acm(remove_self_loop)
-    elif dataset == 'ACMRaw':
-        return load_acm_raw(remove_self_loop)
-    elif dataset == 'DBLP':
-        return load_dblp(remove_self_loop, feat_type=feat_type)
+
+def load_imdb(feat_type=0):
+    prefix = '../../data/IMDB'
+    dl = data_loader(prefix)
+    link_type_dic = {0: 'md', 1: 'dm', 2: 'ma', 3: 'am', 4: 'mk', 5: 'km'}
+    movie_num = dl.nodes['count'][0]
+    data_dic = {}
+    for link_type in dl.links['data'].keys():
+        src_type = str(dl.links['meta'][link_type][0])
+        dst_type = str(dl.links['meta'][link_type][1])
+        data_dic[(src_type, link_type_dic[link_type], dst_type)] = dl.links['data'][link_type].nonzero()
+    hg = dgl.heterograph(data_dic)
+
+    # author feature
+    if feat_type == 0:
+        '''preprocessed feature'''
+        features = th.FloatTensor(dl.nodes['attr'][0])
     else:
-        return NotImplementedError('Unsupported dataset {}'.format(dataset))
+        '''one-hot'''
+        # indices = np.vstack((np.arange(author_num), np.arange(author_num)))
+        # indices = th.LongTensor(indices)
+        # values = th.FloatTensor(np.ones(author_num))
+        # features = th.sparse.FloatTensor(indices, values, th.Size([author_num,author_num]))
+        features = th.FloatTensor(np.eye(movie_num))
+
+    # author labels
+
+    labels = dl.labels_test['data'][:movie_num] + dl.labels_train['data'][:movie_num]
+    labels = th.FloatTensor(labels)
+
+    num_classes = 5
+
+    train_valid_mask = dl.labels_train['mask'][:movie_num]
+    test_mask = dl.labels_test['mask'][:movie_num]
+    train_valid_indices = np.where(train_valid_mask == True)[0]
+    split_index = int(0.7 * np.shape(train_valid_indices)[0])
+    train_indices = train_valid_indices[:split_index]
+    valid_indices = train_valid_indices[split_index:]
+    train_mask = copy.copy(train_valid_mask)
+    valid_mask = copy.copy(train_valid_mask)
+    train_mask[valid_indices] = False
+    valid_mask[train_indices] = False
+    test_indices = np.where(test_mask == True)[0]
+
+    meta_paths = [['md', 'dm'], ['ma', 'am'], ['mk', 'km']]
+    return hg, features, labels, num_classes, train_indices, valid_indices, test_indices, \
+           th.BoolTensor(train_mask), th.BoolTensor(valid_mask), th.BoolTensor(test_mask), meta_paths, dl
+
+
+def load_data(dataset, feat_type=0):
+    load_fun = None
+    if dataset == 'ACM':
+        load_fun = load_acm
+    elif dataset == 'freebase':
+        feat_type = 1
+        load_fun = load_freebase
+    elif dataset == 'DBLP':
+        load_fun = load_dblp
+    elif dataset == 'IMDB':
+        load_fun = load_imdb
+    return load_fun(feat_type=feat_type)
+
 
 class EarlyStopping(object):
     def __init__(self, patience=10):
@@ -301,7 +394,7 @@ class EarlyStopping(object):
             self.best_acc = acc
             self.best_loss = loss
             self.save_checkpoint(model)
-        elif (loss > self.best_loss) and (acc < self.best_acc):
+        elif (loss > self.best_loss) and (acc <= self.best_acc):
             self.counter += 1
             print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:

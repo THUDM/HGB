@@ -2,7 +2,7 @@
 
 Adapted from [dgl/han](https://github.com/dmlc/dgl/tree/master/examples/pytorch/han).
 
-We add GCN and GAT comparison under --hetero setting.
+We add benchmark support.
 
 ## running environment
 
@@ -10,26 +10,13 @@ We add GCN and GAT comparison under --hetero setting.
 * torch 1.4.0 cuda 10.1
 * dgl 0.5.2 cuda 10.1
 
-## running procedure
-
-* Download ACM.mat from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/0e784c52a6084b59bdee/files/?p=%2FDGL%E4%BB%A3%E7%A0%81%E7%89%88%E6%9C%AC%2FACM.mat)
-* Move ACM.dat to the current directory
-* run main.py
 
 ```bash
-python main.py --hetero --model gcn
-python main.py --hetero --model gat
-python main.py --hetero --model han
+python main.py --dataset DBLP
+python main.py --dataset ACM
+python main.py --dataset freebase
+python main_multi.py --dataset IMDB
 ```
-
-## performance report
-
-|                    | micro f1 score | macro f1 score |
-|--------------------|----------------|----------------|
-| Softmax regression | 89.66          | 89.62          |
-| HAN                | 91.90          | 91.95          |
-| GCN                | 92.79          | **92.87**      |
-| GAT                | **92.83**      | 92.86          |
 
 ***The following content is from the initial dgl/han repo.***
 

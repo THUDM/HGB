@@ -26,7 +26,7 @@ class SemanticAttention(nn.Module):
 
     def forward(self, z):
         w = self.project(z).mean(0)  # (M, 1)
-        beta = torch.softmax(w, dim=0)  # (M, 1)
+        beta = F.sigmoid(w)  # (M, 1)
         beta = beta.expand((z.shape[0],) + beta.shape)  # (N, M, 1)
 
         return (beta * z).sum(1)  # (N, D * K)
@@ -122,7 +122,7 @@ class HAN_freebase(nn.Module,):
 
     def forward(self, g, h):
         h = self.fc(h)
-        h = torch.FloatTensor(h.cpu()).to(g.device)
+        h = torch.FloatTensor(h.cpu())
         for gnn in self.layers:
             h = gnn(g, h)
 

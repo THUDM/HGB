@@ -1,5 +1,3 @@
-import sys
-sys.path.append('../../')
 import time
 import argparse
 
@@ -33,8 +31,7 @@ expected_metapaths = [
 
 def run_model_LastFM(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
                      num_epochs, patience, batch_size, neighbor_samples, repeat, save_postfix):
-    adjlists_ua, edge_metapath_indices_list_ua, _, type_mask, dl = load_LastFM_data(save_postfix)
-    # train_val_test_pos_user_artist, train_val_test<neg_user_artist
+    adjlists_ua, edge_metapath_indices_list_ua, _, type_mask, train_val_test_pos_user_artist, train_val_test_neg_user_artist = load_LastFM_data(prefix='data/preprocessed/'+save_postfix+'_processed')
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     features_list = []
     in_dims = []
@@ -52,15 +49,13 @@ def run_model_LastFM(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
             num_nodes = (type_mask == i).sum()
             in_dims.append(dim)
             features_list.append(torch.zeros((num_nodes, 10)).to(device))
-    test_edge_type = 0
-    train_pos, valid_pos = dl.get_train_valid_pos()#edge_types=[test_edge_type])
-    train_pos = train_pos[test_edge_type]
-    valid_pos = valid_pos[test_edge_type]
-    train_pos_user_artist = np.array([train_pos[0], train_pos[1]]).T
-    val_pos_user_artist = np.array([valid_pos[0], valid_pos[1]]).T
-    """test_pos_user_artist = train_val_test_pos_user_artist['test_pos_user_artist']
+    train_pos_user_artist = train_val_test_pos_user_artist['train_pos_user_artist']
+    val_pos_user_artist = train_val_test_pos_user_artist['val_pos_user_artist']
+    test_pos_user_artist = train_val_test_pos_user_artist['test_pos_user_artist']
+    train_neg_user_artist = train_val_test_neg_user_artist['train_neg_user_artist']
+    val_neg_user_artist = train_val_test_neg_user_artist['val_neg_user_artist']
     test_neg_user_artist = train_val_test_neg_user_artist['test_neg_user_artist']
-    y_true_test = np.array([1] * len(test_pos_user_artist) + [0] * len(test_neg_user_artist))"""
+    y_true_test = np.array([1] * len(test_pos_user_artist) + [0] * len(test_neg_user_artist))
 
     auc_list = []
     ap_list = []
@@ -79,10 +74,6 @@ def run_model_LastFM(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
         train_pos_idx_generator = index_generator(batch_size=batch_size, num_data=len(train_pos_user_artist))
         val_idx_generator = index_generator(batch_size=batch_size, num_data=len(val_pos_user_artist), shuffle=False)
         for epoch in range(num_epochs):
-            train_neg = dl.get_train_neg()[test_edge_type]#edge_types=[test_edge_type])[test_edge_type]
-            train_neg_user_artist = np.array([train_neg[0], train_neg[1]]).T
-            valid_neg = dl.get_valid_neg()[test_edge_type]#edge_types=[test_edge_type])[test_edge_type]
-            valid_neg_user_artist = np.array([valid_neg[0], valid_neg[1]]).T
             t_start = time.time()
             # training
             net.train()
@@ -170,43 +161,38 @@ def run_model_LastFM(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
                 print('Early stopping!')
                 break
 
-        test_neigh, test_label = dl.get_test_neigh_w_random()#edge_types=[test_edge_type])
-        test_neigh = test_neigh[test_edge_type]
-        test_label = test_label[test_edge_type]
-        test_user_artist = np.array([test_neigh[0], test_neigh[1]]).T
-        test_idx_generator = index_generator(batch_size=batch_size, num_data=len(test_neigh), shuffle=False)
+        test_idx_generator = index_generator(batch_size=batch_size, num_data=len(test_pos_user_artist), shuffle=False)
         net.load_state_dict(torch.load('checkpoint/checkpoint_{}.pt'.format(save_postfix)))
         net.eval()
-        #pos_proba_list = []
-        #neg_proba_list = []
+        pos_proba_list = []
+        neg_proba_list = []
         with torch.no_grad():
             for iteration in range(test_idx_generator.num_iterations()):
                 # forward
                 test_idx_batch = test_idx_generator.next()
-                test_user_artist_batch = test_user_artist[test_idx_batch].tolist()
-                #test_neg_user_artist_batch = test_neg_user_artist[test_idx_batch].tolist()
-                test_g_lists, test_indices_lists, test_idx_batch_mapped_lists = parse_minibatch_LastFM(
-                    adjlists_ua, edge_metapath_indices_list_ua, test_user_artist_batch, device, neighbor_samples, no_masks, num_user)
-                #test_neg_g_lists, test_neg_indices_lists, test_neg_idx_batch_mapped_lists = parse_minibatch_LastFM(
-                #    adjlists_ua, edge_metapath_indices_list_ua, test_neg_user_artist_batch, device, neighbor_samples, no_masks, num_user)
+                test_pos_user_artist_batch = test_pos_user_artist[test_idx_batch].tolist()
+                test_neg_user_artist_batch = test_neg_user_artist[test_idx_batch].tolist()
+                test_pos_g_lists, test_pos_indices_lists, test_pos_idx_batch_mapped_lists = parse_minibatch_LastFM(
+                    adjlists_ua, edge_metapath_indices_list_ua, test_pos_user_artist_batch, device, neighbor_samples, no_masks, num_user)
+                test_neg_g_lists, test_neg_indices_lists, test_neg_idx_batch_mapped_lists = parse_minibatch_LastFM(
+                    adjlists_ua, edge_metapath_indices_list_ua, test_neg_user_artist_batch, device, neighbor_samples, no_masks, num_user)
 
-                [embedding_user, embedding_artist], _ = net(
-                    (test_g_lists, features_list, type_mask, test_indices_lists, test_idx_batch_mapped_lists))
-                #[neg_embedding_user, neg_embedding_artist], _ = net(
-                #    (test_neg_g_lists, features_list, type_mask, test_neg_indices_lists, test_neg_idx_batch_mapped_lists))
-                embedding_user = embedding_user.view(-1, 1, embedding_user.shape[1])
-                embedding_artist = embedding_artist.view(-1, embedding_artist.shape[1], 1)
-                #neg_embedding_user = neg_embedding_user.view(-1, 1, neg_embedding_user.shape[1])
-                #neg_embedding_artist = neg_embedding_artist.view(-1, neg_embedding_artist.shape[1], 1)
+                [pos_embedding_user, pos_embedding_artist], _ = net(
+                    (test_pos_g_lists, features_list, type_mask, test_pos_indices_lists, test_pos_idx_batch_mapped_lists))
+                [neg_embedding_user, neg_embedding_artist], _ = net(
+                    (test_neg_g_lists, features_list, type_mask, test_neg_indices_lists, test_neg_idx_batch_mapped_lists))
+                pos_embedding_user = pos_embedding_user.view(-1, 1, pos_embedding_user.shape[1])
+                pos_embedding_artist = pos_embedding_artist.view(-1, pos_embedding_artist.shape[1], 1)
+                neg_embedding_user = neg_embedding_user.view(-1, 1, neg_embedding_user.shape[1])
+                neg_embedding_artist = neg_embedding_artist.view(-1, neg_embedding_artist.shape[1], 1)
 
-                out = torch.bmm(embedding_user, embedding_artist).flatten()
-                #neg_out = torch.bmm(neg_embedding_user, neg_embedding_artist).flatten()
-                proba_list.append(torch.sigmoid(out))
-                #neg_proba_list.append(torch.sigmoid(neg_out))
-            y_proba_test = torch.cat(proba_list)
+                pos_out = torch.bmm(pos_embedding_user, pos_embedding_artist).flatten()
+                neg_out = torch.bmm(neg_embedding_user, neg_embedding_artist).flatten()
+                pos_proba_list.append(torch.sigmoid(pos_out))
+                neg_proba_list.append(torch.sigmoid(neg_out))
+            y_proba_test = torch.cat(pos_proba_list + neg_proba_list)
             y_proba_test = y_proba_test.cpu().numpy()
-        print(dl.evaluate(test_user_artist.T, y_proba_test, test_label))
-        """auc = roc_auc_score(y_true_test, y_proba_test)
+        auc = roc_auc_score(y_true_test, y_proba_test)
         ap = average_precision_score(y_true_test, y_proba_test)
         print('Link Prediction Test')
         print('AUC = {}'.format(auc))
@@ -217,7 +203,7 @@ def run_model_LastFM(feats_type, hidden_dim, num_heads, attn_vec_dim, rnn_type,
     print('----------------------------------------------------------------')
     print('Link Prediction Tests Summary')
     print('AUC_mean = {}, AUC_std = {}'.format(np.mean(auc_list), np.std(auc_list)))
-    print('AP_mean = {}, AP_std = {}'.format(np.mean(ap_list), np.std(ap_list)))"""
+    print('AP_mean = {}, AP_std = {}'.format(np.mean(ap_list), np.std(ap_list)))
 
 
 if __name__ == '__main__':
@@ -235,8 +221,8 @@ if __name__ == '__main__':
     ap.add_argument('--batch-size', type=int, default=8, help='Batch size. Default is 8.')
     ap.add_argument('--samples', type=int, default=100, help='Number of neighbors sampled. Default is 100.')
     ap.add_argument('--repeat', type=int, default=1, help='Repeat the training and testing for N times. Default is 1.')
-    ap.add_argument('--dataset', default='LastFM', help='Postfix for the saved model and result. Default is LastFM.')
+    ap.add_argument('--save-postfix', default='LastFM', help='Postfix for the saved model and result. Default is LastFM.')
 
     args = ap.parse_args()
     run_model_LastFM(args.feats_type, args.hidden_dim, args.num_heads, args.attn_vec_dim, args.rnn_type, args.epoch,
-                     args.patience, args.batch_size, args.samples, args.repeat, args.dataset)
+                     args.patience, args.batch_size, args.samples, args.repeat, args.save_postfix)

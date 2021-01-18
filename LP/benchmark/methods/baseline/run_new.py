@@ -3,6 +3,7 @@ sys.path.append('../../')
 import time
 import argparse
 
+from collections import defaultdict
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -88,9 +89,12 @@ def run_model_DBLP(args):
         v = v.cpu().item()
         e_feat.append(edge2type[(u,v)])
     e_feat = torch.tensor(e_feat, dtype=torch.long).to(device)
+    res_2hop = defaultdict(float)
+    res_random = defaultdict(float)
+    total = len(list(dl.links_test['data'].keys()))
 
     for test_edge_type in dl.links_test['data'].keys():
-        train_pos, valid_pos = dl.get_train_valid_pos(edge_types=[test_edge_type])
+        train_pos, valid_pos = dl.get_train_valid_pos()#edge_types=[test_edge_type])
         train_pos = train_pos[test_edge_type]
         valid_pos = valid_pos[test_edge_type]
         num_classes = args.hidden_dim
@@ -104,17 +108,23 @@ def run_model_DBLP(args):
         early_stopping = EarlyStopping(patience=args.patience, verbose=True, save_path='checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.num_layers))
         loss_func = nn.BCELoss()
         for epoch in range(args.epoch):
-            t_start = time.time()
 
-            train_neg = dl.get_train_neg(edge_types=[test_edge_type])[test_edge_type]
-            train_pos_head = np.array(train_pos[0])
-            train_pos_tail = np.array(train_pos[1])
-            train_neg_head = np.array(train_neg[0])
-            train_neg_tail = np.array(train_neg[1])
-            
+          train_neg = dl.get_train_neg(edge_types=[test_edge_type])[test_edge_type]
+          train_pos_head_full = np.array(train_pos[0])
+          train_pos_tail_full = np.array(train_pos[1])
+          train_neg_head_full = np.array(train_neg[0])
+          train_neg_tail_full = np.array(train_neg[1])
+          train_idx = np.arange(len(train_pos_head_full))
+          np.random.shuffle(train_idx)
+          batch_size = args.batch_size
+          for step, start in enumerate(range(0, len(train_pos_head_full), args.batch_size)):
+            t_start = time.time()
             # training
             net.train()
-
+            train_pos_head = train_pos_head_full[train_idx[start:start+batch_size]]
+            train_neg_head = train_neg_head_full[train_idx[start:start+batch_size]]
+            train_pos_tail = train_pos_tail_full[train_idx[start:start+batch_size]]
+            train_neg_tail = train_neg_tail_full[train_idx[start:start+batch_size]]
             left = np.concatenate([train_pos_head, train_neg_head])
             right = np.concatenate([train_pos_tail, train_neg_tail])
             mid = np.zeros(train_pos_head.shape[0]+train_neg_head.shape[0], dtype=np.int32)
@@ -132,7 +142,7 @@ def run_model_DBLP(args):
             t_end = time.time()
 
             # print training info
-            print('Epoch {:05d} | Train_Loss: {:.4f} | Time: {:.4f}'.format(epoch, train_loss.item(), t_end-t_start))
+            print('Epoch {:05d}, Step{:05d} | Train_Loss: {:.4f} | Time: {:.4f}'.format(epoch, step, train_loss.item(), t_end-t_start))
 
             t_start = time.time()
             # validation
@@ -159,6 +169,9 @@ def run_model_DBLP(args):
             if early_stopping.early_stop:
                 print('Early stopping!')
                 break
+          if early_stopping.early_stop:
+              print('Early stopping!')
+              break
 
         # testing with evaluate_results_nc
         net.load_state_dict(torch.load('checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.num_layers)))
@@ -176,7 +189,10 @@ def run_model_DBLP(args):
             pred = F.sigmoid(logits).cpu().numpy()
             edge_list = np.concatenate([left.reshape((1,-1)), right.reshape((1,-1))], axis=0)
             labels = labels.cpu().numpy()
-            print(dl.evaluate(edge_list, pred, labels))
+            res = dl.evaluate(edge_list, pred, labels)
+            print(res)
+            for k in res:
+                res_2hop[k] += res[k]
         with torch.no_grad():
             test_neigh, test_label = dl.get_test_neigh_w_random(edge_types=[test_edge_type])
             test_neigh = test_neigh[test_edge_type]
@@ -189,8 +205,16 @@ def run_model_DBLP(args):
             pred = F.sigmoid(logits).cpu().numpy()
             edge_list = np.concatenate([left.reshape((1,-1)), right.reshape((1,-1))], axis=0)
             labels = labels.cpu().numpy()
-            print(dl.evaluate(edge_list, pred, labels))
-
+            res = dl.evaluate(edge_list, pred, labels)
+            print(res)
+            for k in res:
+                res_random[k] += res[k]
+    for k in res_2hop:
+        res_2hop[k] /= total
+    for k in res_random:
+        res_random[k] /= total
+    print(res_2hop)
+    print(res_random)
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='MRGNN testing for the DBLP dataset')

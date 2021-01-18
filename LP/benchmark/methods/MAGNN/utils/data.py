@@ -350,9 +350,9 @@ def get_adjlist_pkl_special(dl, meta, tmp1, tmp2):
         idx00[k] = np.array(sorted([tuple(reversed(i)) for i in meta010[k]]), dtype=np.int32).reshape([-1, len(meta)+1])
     return adjlist00, idx00
 
-def load_LastFM_data():
+def load_LastFM_data(dataset='LastFM'):
     from scripts.data_loader import data_loader
-    dl = data_loader('../../data/LastFM')
+    dl = data_loader('../../data/'+dataset)
     import time
     last = time.time()
     adjlist00, idx00 = get_adjlist_pkl(dl, [(0,1), (1,0)], symmetric=True)
@@ -432,8 +432,8 @@ def load_LastFM_data():
     #train_val_test_pos_user_artist = np.load(prefix + '/train_val_test_pos_user_artist.npz')
     #train_val_test_neg_user_artist = np.load(prefix + '/train_val_test_neg_user_artist.npz')
 
-    return [[adjlist00, adjlist02],[adjlist10, adjlist11, adjlist12]],\
-           [[idx00, idx02], [idx10, idx11, idx12]],\
+    return [[adjlist00, adjlist01, adjlist02],[adjlist10, adjlist11, adjlist12]],\
+           [[idx00, idx01, idx02], [idx10, idx11, idx12]],\
            adjM, type_mask, dl #, train_val_test_pos_user_artist, train_val_test_neg_user_artist
 
 
