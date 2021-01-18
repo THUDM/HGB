@@ -1,17 +1,9 @@
 # new baseline for benchmark
 
-For message passing with relation attention version:
 
 ```
-python run_new.py --dataset DBLP
-python run_new.py --dataset ACM --feats-type 2
-python run_multi.py --dataset IMDB --feats-type 0
-```
-
-For relational gat version:
-
-```
-python run.py --dataset DBLP
+python run_new.py --dataset LastFM
+python run_dist.py --dataset amazon
 ```
 
 ## running environment
