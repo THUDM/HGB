@@ -175,7 +175,7 @@ def load_acm(feat_type=0):
 
 
 def load_freebase(feat_type=1):
-    dl = data_loader('../../data/freebase')
+    dl = data_loader('../../data/Freebase')
     link_type_dic = {0: '00', 1: '01', 2: '03', 3: '05', 4: '06',
                      5: '11',
                      6: '20', 7: '21', 8: '22', 9: '23', 10: '25',
@@ -368,7 +368,7 @@ def load_data(dataset, feat_type=0):
     load_fun = None
     if dataset == 'ACM':
         load_fun = load_acm
-    elif dataset == 'freebase':
+    elif dataset == 'Freebase':
         feat_type = 1
         load_fun = load_freebase
     elif dataset == 'DBLP':

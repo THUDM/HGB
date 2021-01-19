@@ -14,7 +14,7 @@ We add benchmark support.
 ```bash
 python main.py --dataset DBLP
 python main.py --dataset ACM
-python main.py --dataset freebase
+python main.py --dataset Freebase
 python main_multi.py --dataset IMDB
 ```
 

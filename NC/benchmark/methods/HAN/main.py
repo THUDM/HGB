@@ -42,7 +42,7 @@ def main(args):
     train_mask = train_mask.to(args['device'])
     val_mask = val_mask.to(args['device'])
     test_mask = test_mask.to(args['device'])
-    if args['dataset'] == 'freebase':
+    if args['dataset'] == 'Freebase':
         # Add a fc layer to calculate sparse
         model = HAN_freebase(
             meta_paths=meta_paths,
@@ -107,7 +107,7 @@ if __name__ == '__main__':
                         help='Use metapath coalescing with DGL\'s own dataset')
     parser.add_argument('--num_layers', type=int, default=2)
     parser.add_argument('--dataset', type=str, default='DBLP',
-                        choices=['DBLP', 'ACM', 'freebase'])
+                        choices=['DBLP', 'ACM', 'Freebase'])
     parser.add_argument('--device', type=str, default='cuda:0')
     args = parser.parse_args().__dict__
 
