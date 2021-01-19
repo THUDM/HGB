@@ -203,43 +203,36 @@ class data_loader:
                         meta_dict[i].append(beg + end[1:])
         return meta_dict
 
-    def evaluate(self, edge_list, confidence, labels, threshold=0.5, eval_mrr=True):
+    @staticmethod
+    def evaluate(edge_list, confidence, labels):
         """
         :param edge_list: shape(2, edge_num)
         :param confidence: shape(edge_num,)
         :param labels: shape(edge_num,)
-        :param threshold: confidence less than threshold is label 0 else label 1
         :return: dict with all scores we need
         """
         confidence = np.array(confidence)
         labels = np.array(labels)
-        labels_pred = np.zeros(np.shape(confidence)[0])
-        labels_pred[np.where(confidence >= threshold)] = 1
-        ps, rs, _ = precision_recall_curve(labels, confidence)
-        auc_socre = auc(rs, ps)
         roc_auc = roc_auc_score(labels, confidence)
-        f1 = f1_score(labels, labels_pred)
-        if eval_mrr:
-            mrr_list, cur_mrr = [], 0
-            t_dict, labels_dict, conf_dict = defaultdict(list), defaultdict(list), defaultdict(list)
-            for i, h_id in enumerate(edge_list[0]):
-                t_dict[h_id].append(edge_list[1][i])
-                labels_dict[h_id].append(labels[i])
-                conf_dict[h_id].append(confidence[i])
-            for h_id in t_dict.keys():
-                conf_array = np.array(conf_dict[h_id])
-                rank = np.argsort(-conf_array)
-                sorted_label_array = np.array(labels_dict[h_id])[rank]
-                pos_index = np.where(sorted_label_array == 1)[0]
-                if len(pos_index) == 0:
-                    continue
-                pos_min_rank = np.min(pos_index)
-                cur_mrr = 1 / (1 + pos_min_rank)
-                mrr_list.append(cur_mrr)
-            mrr = np.mean(mrr_list)
-        else:
-            mrr = 0
-        return {'auc_score': auc_socre, 'roc_auc': roc_auc, 'F1': f1, 'MRR': mrr}
+        mrr_list, cur_mrr = [], 0
+        t_dict, labels_dict, conf_dict = defaultdict(list), defaultdict(list), defaultdict(list)
+        for i, h_id in enumerate(edge_list[0]):
+            t_dict[h_id].append(edge_list[1][i])
+            labels_dict[h_id].append(labels[i])
+            conf_dict[h_id].append(confidence[i])
+        for h_id in t_dict.keys():
+            conf_array = np.array(conf_dict[h_id])
+            rank = np.argsort(-conf_array)
+            sorted_label_array = np.array(labels_dict[h_id])[rank]
+            pos_index = np.where(sorted_label_array == 1)[0]
+            if len(pos_index) == 0:
+                continue
+            pos_min_rank = np.min(pos_index)
+            cur_mrr = 1 / (1 + pos_min_rank)
+            mrr_list.append(cur_mrr)
+        mrr = np.mean(mrr_list)
+
+        return {'roc_auc': roc_auc, 'MRR': mrr}
 
     def get_node_type(self, node_id):
         for i in range(len(self.nodes['shift'])):
@@ -313,6 +306,9 @@ class data_loader:
                 valid_neg[r_id][1].append(neg_t)
         return valid_neg
 
+    def get_test_neigh_2hop(self, edge_types=[]):
+        return self.get_test_neigh(edge_types=edge_types)
+
     def get_test_neigh(self, edge_types=[]):
         random.seed(1)
         neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
@@ -371,7 +367,9 @@ class data_loader:
                 test_neigh[r_id][0].extend(pos_list[0])
                 test_neigh[r_id][1].extend(pos_list[1])
                 test_label[r_id].extend([1] * len(pos_neigh[r_id][h_id]))
-                neg_list = random.choices(neg_neigh[r_id][h_id], k=len(pos_list[0]))
+
+                neg_list = random.choices(neg_neigh[r_id][h_id], k=len(pos_list[0])) if len(
+                    neg_neigh[r_id][h_id]) != 0 else []
                 test_neigh[r_id][0].extend([h_id] * len(neg_list))
                 test_neigh[r_id][1].extend(neg_list)
                 test_label[r_id].extend([0] * len(neg_list))
@@ -388,8 +386,8 @@ class data_loader:
             pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
         for r_id in self.links_test['data'].keys():
             pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
-        row,col = pos_links.nonzero()
-        for h_id,t_id in zip(row, col):
+        row, col = pos_links.nonzero()
+        for h_id, t_id in zip(row, col):
             all_had_neigh[h_id].append(t_id)
         for h_id in all_had_neigh.keys():
             all_had_neigh[h_id] = set(all_had_neigh[h_id])
