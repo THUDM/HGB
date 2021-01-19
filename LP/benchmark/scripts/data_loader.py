@@ -4,6 +4,7 @@ import scipy.sparse as sp
 from collections import Counter, defaultdict, OrderedDict
 from sklearn.metrics import f1_score, auc, roc_auc_score, precision_recall_curve
 import random
+import copy
 
 
 class data_loader:
@@ -306,19 +307,24 @@ class data_loader:
                 valid_neg[r_id][1].append(neg_t)
         return valid_neg
 
-    def get_test_neigh_2hop(self, edge_types=[]):
-        return self.get_test_neigh(edge_types=edge_types)
+    def get_test_neigh_2hop(self):
+        return self.get_test_neigh()
 
-    def get_test_neigh(self, edge_types=[]):
+    def get_test_neigh(self):
         random.seed(1)
         neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
-        edge_types = self.test_types if edge_types == [] else edge_types
+        edge_types = self.test_types
         '''get sec_neigh'''
         pos_links = 0
         for r_id in self.links['data'].keys():
             pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
         for r_id in self.links_test['data'].keys():
             pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
+        for r_id in self.valid_pos.keys():
+            values = [1] * len(self.valid_pos[r_id][0])
+            valid_of_rel = sp.coo_matrix((values, self.valid_pos[r_id]), shape=pos_links.shape)
+            pos_links += valid_of_rel
+
         r_double_neighs = np.dot(pos_links, pos_links)
         data = r_double_neighs.data
         data[:] = 1
@@ -366,7 +372,7 @@ class data_loader:
                 pos_list[1] = pos_neigh[r_id][h_id]
                 test_neigh[r_id][0].extend(pos_list[0])
                 test_neigh[r_id][1].extend(pos_list[1])
-                test_label[r_id].extend([1] * len(pos_neigh[r_id][h_id]))
+                test_label[r_id].extend([1] * len(pos_list[0]))
 
                 neg_list = random.choices(neg_neigh[r_id][h_id], k=len(pos_list[0])) if len(
                     neg_neigh[r_id][h_id]) != 0 else []
@@ -375,17 +381,22 @@ class data_loader:
                 test_label[r_id].extend([0] * len(neg_list))
         return test_neigh, test_label
 
-    def get_test_neigh_w_random(self, edge_types=[]):
+    def get_test_neigh_w_random(self):
         random.seed(1)
         all_had_neigh = defaultdict(list)
         neg_neigh, pos_neigh, test_neigh, test_label = dict(), dict(), dict(), dict()
-        edge_types = self.test_types if edge_types == [] else edge_types
+        edge_types = self.test_types
         '''get pos_links of train and test data'''
         pos_links = 0
         for r_id in self.links['data'].keys():
             pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
         for r_id in self.links_test['data'].keys():
             pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
+        for r_id in self.valid_pos.keys():
+            values = [1] * len(self.valid_pos[r_id][0])
+            valid_of_rel = sp.coo_matrix((values, self.valid_pos[r_id]), shape=pos_links.shape)
+            pos_links += valid_of_rel
+
         row, col = pos_links.nonzero()
         for h_id, t_id in zip(row, col):
             all_had_neigh[h_id].append(t_id)
@@ -421,7 +432,8 @@ class data_loader:
                 test_label[r_id].extend([0] * len(neg_neigh[r_id][h_id]))
         return test_neigh, test_label
 
-    def get_test_neigh_full_random(self, edge_types=[]):
+    def get_test_neigh_full_random(self):
+        edge_types = self.test_types
         random.seed(1)
         '''get pos_links of train and test data'''
         all_had_neigh = defaultdict(list)
@@ -430,12 +442,16 @@ class data_loader:
             pos_links += self.links['data'][r_id] + self.links['data'][r_id].T
         for r_id in self.links_test['data'].keys():
             pos_links += self.links_test['data'][r_id] + self.links_test['data'][r_id].T
+        for r_id in self.valid_pos.keys():
+            values = [1] * len(self.valid_pos[r_id][0])
+            valid_of_rel = sp.coo_matrix((values, self.valid_pos[r_id]), shape=pos_links.shape)
+            pos_links += valid_of_rel
+
         row, col = pos_links.nonzero()
         for h_id, t_id in zip(row, col):
             all_had_neigh[h_id].append(t_id)
         for h_id in all_had_neigh.keys():
             all_had_neigh[h_id] = set(all_had_neigh[h_id])
-        edge_types = self.test_types if edge_types == [] else edge_types
         test_neigh, test_label = dict(), dict()
         for r_id in edge_types:
             test_neigh[r_id] = [[], []]

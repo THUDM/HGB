@@ -154,6 +154,8 @@ NC/MAGNN/data
 LP/GATNE/
 LP/HetGNN/data/
 LP/MAGNN/data
+*.dat
+*.zip
 
 #model
 *.pth
@@ -161,4 +163,6 @@ LP/MAGNN/data
 NC/HetGNN/model_save/
 NC/RGCN/.vscode/settings.json
 
+#pickle file
+*pickle
 
