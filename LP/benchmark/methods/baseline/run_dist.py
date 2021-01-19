@@ -93,13 +93,11 @@ def run_model_DBLP(args):
     res_random = defaultdict(float)
     total = len(list(dl.links_test['data'].keys()))
 
-    for test_edge_type in dl.links_test['data'].keys():
+    if True:
         train_pos, valid_pos = dl.get_train_valid_pos()#edge_types=[test_edge_type])
-        train_pos = train_pos[test_edge_type]
-        valid_pos = valid_pos[test_edge_type]
         num_classes = args.hidden_dim
-        heads = [args.num_heads] * args.num_layers + [args.num_heads]#[1]
-        net = myGAT(g, args.edge_feats, len(dl.links['count'])*2+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, args.residual, args.residual_att, decode=args.decoder)
+        heads = [args.num_heads] * args.num_layers + [args.num_heads]
+        net = myGAT(g, args.edge_feats, len(dl.links['count'])*2+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, False, 0., decode=args.decoder)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -107,16 +105,23 @@ def run_model_DBLP(args):
         net.train()
         early_stopping = EarlyStopping(patience=args.patience, verbose=True, save_path='checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.num_layers))
         loss_func = nn.BCELoss()
-        for epoch in range(args.epoch):
+    for epoch in range(args.epoch):
+        train_pos_head_full = np.array([])
+        train_pos_tail_full = np.array([])
+        train_neg_head_full = np.array([])
+        train_neg_tail_full = np.array([])
+        r_id_full = np.array([])
+        for test_edge_type in dl.links_test['data'].keys():
           train_neg = dl.get_train_neg(edge_types=[test_edge_type])[test_edge_type]
-          train_pos_head_full = np.array(train_pos[0])
-          train_pos_tail_full = np.array(train_pos[1])
-          train_neg_head_full = np.array(train_neg[0])
-          train_neg_tail_full = np.array(train_neg[1])
-          train_idx = np.arange(len(train_pos_head_full))
-          np.random.shuffle(train_idx)
-          batch_size = args.batch_size
-          for step, start in enumerate(range(0, len(train_pos_head_full), args.batch_size)):
+          train_pos_head_full = np.concatenate([train_pos_head_full, np.array(train_pos[test_edge_type][0])])
+          train_pos_tail_full = np.concatenate([train_pos_tail_full, np.array(train_pos[test_edge_type][1])])
+          train_neg_head_full = np.concatenate([train_neg_head_full, np.array(train_neg[0])])
+          train_neg_tail_full = np.concatenate([train_neg_tail_full, np.array(train_neg[1])])
+          r_id_full = np.concatenate([r_id_full, np.array([test_edge_type]*len(train_pos[test_edge_type][0]))])
+        train_idx = np.arange(len(train_pos_head_full))
+        np.random.shuffle(train_idx)
+        batch_size = args.batch_size
+        for step, start in enumerate(range(0, len(train_pos_head_full), args.batch_size)):
             t_start = time.time()
             # training
             net.train()
@@ -124,9 +129,10 @@ def run_model_DBLP(args):
             train_neg_head = train_neg_head_full[train_idx[start:start+batch_size]]
             train_pos_tail = train_pos_tail_full[train_idx[start:start+batch_size]]
             train_neg_tail = train_neg_tail_full[train_idx[start:start+batch_size]]
+            r_id = r_id_full[train_idx[start:start+batch_size]]
             left = np.concatenate([train_pos_head, train_neg_head])
             right = np.concatenate([train_pos_tail, train_neg_tail])
-            mid = np.zeros(train_pos_head.shape[0]+train_neg_head.shape[0], dtype=np.int32)
+            mid = np.concatenate([r_id, r_id])
             labels = torch.FloatTensor(np.concatenate([np.ones(train_pos_head.shape[0]), np.zeros(train_neg_head.shape[0])])).to(device)
 
             logits = net(features_list, e_feat, left, right, mid)
@@ -147,14 +153,21 @@ def run_model_DBLP(args):
             # validation
             net.eval()
             with torch.no_grad():
-                valid_neg = dl.get_valid_neg(edge_types=[test_edge_type])[test_edge_type]
-                valid_pos_head = np.array(valid_pos[0])
-                valid_pos_tail = np.array(valid_pos[1])
-                valid_neg_head = np.array(valid_neg[0])
-                valid_neg_tail = np.array(valid_neg[1])
+                valid_pos_head = np.array([])
+                valid_pos_tail = np.array([])
+                valid_neg_head = np.array([])
+                valid_neg_tail = np.array([])
+                valid_r_id = np.array([])
+                for test_edge_type in dl.links_test['data'].keys():
+                    valid_neg = dl.get_valid_neg(edge_types=[test_edge_type])[test_edge_type]
+                    valid_pos_head = np.concatenate([valid_pos_head, np.array(valid_pos[test_edge_type][0])])
+                    valid_pos_tail = np.concatenate([valid_pos_tail, np.array(valid_pos[test_edge_type][1])])
+                    valid_neg_head = np.concatenate([valid_neg_head, np.array(valid_neg[0])])
+                    valid_neg_tail = np.concatenate([valid_neg_tail, np.array(valid_neg[1])])
+                    valid_r_id = np.concatenate([valid_r_id, np.array([test_edge_type]*len(valid_pos[test_edge_type][0]))])
                 left = np.concatenate([valid_pos_head, valid_neg_head])
                 right = np.concatenate([valid_pos_tail, valid_neg_tail])
-                mid = np.zeros(valid_pos_head.shape[0]+valid_neg_head.shape[0], dtype=np.int32)
+                mid = np.concatenate([valid_r_id, valid_r_id])
                 labels = torch.FloatTensor(np.concatenate([np.ones(valid_pos_head.shape[0]), np.zeros(valid_neg_head.shape[0])])).to(device)
                 logits = net(features_list, e_feat, left, right, mid)
                 logp = F.sigmoid(logits)
@@ -168,10 +181,11 @@ def run_model_DBLP(args):
             if early_stopping.early_stop:
                 print('Early stopping!')
                 break
-          if early_stopping.early_stop:
-              print('Early stopping!')
-              break
+        if early_stopping.early_stop:
+            print('Early stopping!')
+            break
 
+    for test_edge_type in dl.links_test['data'].keys():
         # testing with evaluate_results_nc
         net.load_state_dict(torch.load('checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.num_layers)))
         net.eval()
@@ -183,6 +197,7 @@ def run_model_DBLP(args):
             left = np.array(test_neigh[0])
             right = np.array(test_neigh[1])
             mid = np.zeros(left.shape[0], dtype=np.int32)
+            mid[:] = test_edge_type
             labels = torch.FloatTensor(test_label).to(device)
             logits = net(features_list, e_feat, left, right, mid)
             pred = F.sigmoid(logits).cpu().numpy()
@@ -199,6 +214,7 @@ def run_model_DBLP(args):
             left = np.array(test_neigh[0])
             right = np.array(test_neigh[1])
             mid = np.zeros(left.shape[0], dtype=np.int32)
+            mid[:] = test_edge_type
             labels = torch.FloatTensor(test_label).to(device)
             logits = net(features_list, e_feat, left, right, mid)
             pred = F.sigmoid(logits).cpu().numpy()
@@ -227,19 +243,17 @@ if __name__ == '__main__':
                         '5 - only term features (zero vec for others).')
     ap.add_argument('--hidden-dim', type=int, default=64, help='Dimension of the node hidden state. Default is 64.')
     ap.add_argument('--num-heads', type=int, default=2, help='Number of the attention heads. Default is 8.')
-    ap.add_argument('--epoch', type=int, default=1000, help='Number of epochs.')
+    ap.add_argument('--epoch', type=int, default=300, help='Number of epochs.')
     ap.add_argument('--patience', type=int, default=40, help='Patience.')
-    ap.add_argument('--num-layers', type=int, default=3)
+    ap.add_argument('--num-layers', type=int, default=2)
     ap.add_argument('--lr', type=float, default=5e-4)
     ap.add_argument('--dropout', type=float, default=0.5)
     ap.add_argument('--weight-decay', type=float, default=1e-4)
     ap.add_argument('--slope', type=float, default=0.01)
     ap.add_argument('--dataset', type=str)
     ap.add_argument('--edge-feats', type=int, default=32)
-    ap.add_argument('--batch-size', type=int, default=100000000)
-    ap.add_argument('--decoder', type=str, default='dot')
-    ap.add_argument('--residual-att', type=float, default=0.)
-    ap.add_argument('--residual', type=bool, default=False)
+    ap.add_argument('--batch-size', type=int, default=1024)
+    ap.add_argument('--decoder', type=str, default='distmult')
 
     args = ap.parse_args()
     run_model_DBLP(args)

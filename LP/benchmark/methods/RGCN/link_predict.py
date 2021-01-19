@@ -148,8 +148,7 @@ def run(args):
         g.cpu(), torch.from_numpy(test_norm).view(-1, 1)).to(device)
 
     for test_edge_type in dl.links_test['data'].keys():
-        train_pos, valid_pos = dl.get_train_valid_pos(
-            edge_types=[test_edge_type])
+        train_pos, valid_pos = dl.get_train_valid_pos()
         train_pos = train_pos[test_edge_type]
         valid_pos = valid_pos[test_edge_type]
 
