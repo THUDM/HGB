@@ -472,7 +472,6 @@ class data_loader:
                 test_neigh[r_id][0].append(neg_h)
                 test_neigh[r_id][1].append(neg_t)
                 test_label[r_id].append(0)
-                all_had_neigh[neg_h].append(neg_t)
         return test_neigh, test_label
 
     def gen_transpose_links(self):
