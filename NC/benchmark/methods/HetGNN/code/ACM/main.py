@@ -1,5 +1,6 @@
 import torch
 import torch.optim as optim
+
 torch.set_num_threads(2)
 from args import read_args
 from torch.autograd import Variable
@@ -7,20 +8,19 @@ import numpy as np
 import random
 import pickle
 import os
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
-
-
 import data_generator
 import tools
 import sys
-sys.path.append('../../')
-from scripts.data_loader import data_loader
 
+os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+sys.path.append(f'../../')
+from scripts.data_loader import data_loader
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 print(f'Use device: {device}')
 
 if __name__ == '__main__':
+    data_name = 'ACM'
     args = read_args()
     print("------arguments-------")
     for k, v in vars(args).items():
@@ -38,14 +38,14 @@ if __name__ == '__main__':
     torch.manual_seed(args.random_seed)
     torch.cuda.manual_seed_all(args.random_seed)
 
-    dl_pickle_f=os.path.join(temp_dir, 'dl_pickle')
+    dl_pickle_f = os.path.join(temp_dir, 'dl_pickle')
     if os.path.exists(dl_pickle_f):
         dl = pickle.load(open(dl_pickle_f, 'rb'))
-        print(f'Info: load DBLP from {dl_pickle_f}')
+        print(f'Info: load {data_name} from {dl_pickle_f}')
     else:
-        dl = data_loader('../../data/DBLP')
+        dl = data_loader(f'../../data/{data_name}')
         pickle.dump(dl, open(dl_pickle_f, 'wb'))
-        print(f'Info: load DBLP from original data and generate {dl_pickle_f}')
+        print(f'Info: load {data_name} from original data and generate {dl_pickle_f}')
 
     input_data = data_generator.input_data(args, dl)
     '''genarate het_neigh_train.txt with walk_restart, and het_random_walk.txt with random walk'''
@@ -61,16 +61,15 @@ if __name__ == '__main__':
     input_data.gen_embeds_w_neigh()
 
     feature_list = input_data.feature_list
-    for i in range(len(feature_list)):
-        feature_list[i] = torch.from_numpy(np.array(feature_list[i])).float().to(device)
+    for node_type in feature_list.keys():
+        feature_list[node_type] = feature_list[node_type].to(device)
 
-    '''het_neigh_train.txt中的top K(10, 10, 10, 3)'''
-    model = tools.HetAgg(args, feature_list, input_data.a_neigh_list_train, input_data.p_neigh_list_train,
-                         input_data.t_neigh_list_train, input_data.v_neigh_list_train, input_data.a_train_id_list,
-                         input_data.p_train_id_list, input_data.t_train_id_list, input_data.v_train_id_list, dl).to(
+    ''' top K of each node_type in het_neigh_train.txt'''
+    model = tools.HetAgg(args, feature_list, neigh_list_train=input_data.neigh_list_train,
+                         train_id_list=input_data.train_id_list, dl=dl, input_data=input_data, device=device).to(
         device)
-    parameters = filter(lambda p: p.requires_grad, model.parameters())
-    optim = optim.Adam(parameters, lr=args.lr, weight_decay=0)
+
+    optim = optim.Adam([{'params': model.parameters()}], lr=args.lr, weight_decay=0)
     model.init_weights()
 
     print('model training ...')
@@ -85,10 +84,14 @@ if __name__ == '__main__':
     for iter_i in range(args.train_iter_n):
         print(f'Info: iteration {iter_i}  out of {args.train_iter_n}')
         triple_list = input_data.sample_het_walk_triple()
+        triple_keys = list(triple_list.keys())
+        for k in triple_keys:
+            if len(triple_list[k]) < 1000:
+                triple_list.pop(k)
         min_len = 1e10
-        for ii in range(len(triple_list)):
-            if len(triple_list[ii]) < min_len:
-                min_len = len(triple_list[ii])
+        for ii in triple_list.values():
+            if len(ii) < min_len:
+                min_len = len(ii)
         batch_n = int(min_len / mini_batch_s)
         print(f'Info: batch_n = {batch_n}')
         for k in range(batch_n):
@@ -96,14 +99,13 @@ if __name__ == '__main__':
             p_out = torch.zeros([len(triple_list), mini_batch_s, embed_d])
             n_out = torch.zeros([len(triple_list), mini_batch_s, embed_d])
 
-            for triple_index in range(len(triple_list)):
-                triple_list_temp = triple_list[triple_index]
-                triple_list_batch = triple_list_temp[k * mini_batch_s: (k + 1) * mini_batch_s]
-                c_out_temp, p_out_temp, n_out_temp = model(triple_list_batch, triple_index)
+            for triple_pair_index, triple_pair in enumerate(triple_list.keys()):
+                triple_list_batch = triple_list[triple_pair][k * mini_batch_s: (k + 1) * mini_batch_s]
+                c_out_temp, p_out_temp, n_out_temp = model(triple_list_batch, triple_pair)
 
-                c_out[triple_index] = c_out_temp
-                p_out[triple_index] = p_out_temp
-                n_out[triple_index] = n_out_temp
+                c_out[triple_pair_index] = c_out_temp
+                p_out[triple_pair_index] = p_out_temp
+                n_out[triple_pair_index] = n_out_temp
 
             loss = tools.cross_entropy_loss(c_out, p_out, n_out, embed_d)
 
@@ -115,10 +117,11 @@ if __name__ == '__main__':
                 print(f"Train: loss= {loss}")
 
         if iter_i % args.save_model_freq == 0:
-            torch.save(model.state_dict(), os.path.join(sys.path[0], 'model_save', f"HetGNN_DBLP_{str(iter_i)}.pt"))
+            torch.save(model.state_dict(),
+                       os.path.join(sys.path[0], 'model_save', f"HetGNN_{data_name}_{str(iter_i)}.pt"))
             # save embeddings for evaluation
             model.save_embed(os.path.join(temp_dir, 'node_embedding.txt'))
             print('Info: save model and  node_embedding.txt done')
         print('Info: iteration ' + str(iter_i) + ' finish.')
 
-    exit('End.')
+    exit("HetGNN\'s traing end.")
