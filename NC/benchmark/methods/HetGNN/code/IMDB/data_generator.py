@@ -24,7 +24,7 @@ class input_data(object):
         self.node_type2name, self.node_name2type = dict(), dict()
         node_types = [int(k) for k in node_type2name.keys()]
         # todo change standand_node_L of new dataset for random_walk_length
-        self.standand_node_L = [41, 21, 41, 41]
+        self.standand_node_L = [61, 21, 31, 31]
         # todo change tok_k of new dataset for sample top k neighs
         self.top_k = {0: 10, 1: 5, 2: 10, 3: 10}
         for k in node_types:
@@ -80,8 +80,19 @@ class input_data(object):
                 if len(neigh_temp):
                     neigh_L = 0
                     node_L = np.array([0 for node_type in node_types])
-
-                    while neigh_L < 100 or np.any(node_L < 2):  # maximum neighbor size = 100
+                    while_count = 0
+                    while neigh_L < 100 or np.any(node_L) < 2:  # maximum neighbor size = 100
+                        while_count += 1
+                        if while_count > 10000:
+                            for n_type in node_types:
+                                if node_L[n_type]<2:
+                                    curNode = random.randrange(0,len(self.neigh_list[n_type]))
+                                    curNodeType = self.node_name2type[curNode[0]]
+                                    neigh_train.append(curNode)
+                                    neigh_train.append(curNode)
+                                    neigh_L += 2
+                                    node_L[curNodeType] += 2
+                            break
                         rand_p = random.random()  # return p
                         if rand_p > 0.5:
                             curNode = random.choice(self.neigh_list[curNodeType][int(curNode[1:])])
