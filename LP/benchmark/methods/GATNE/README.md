@@ -12,23 +12,22 @@ Adapted from [THUDM/GATNE](git@github.com/THUDM/GATNE) to support benchmark.
 
 ## running procedure
 
-* Download data.zip from [tsinghua-cloud]() 
 * cd GATNE
-* mkdir temp
+* mkdir walks
 * run main_pytorch.py
 ```bash
-python main_pytorch.py --data LastFM  --eval-type 0
+python main_pytorch.py --data LastFM --schema 0-1-0,1-0-1;;1-2-1,2-1-2  --eval-type 0
+python main_pytorch.py --data LastFM_magnn --schema 0-1-0,1-0-1;;1-2-1,2-1-2  --eval-type 0
+python main_pytorch.py --data amazon
+python main_pytorch.py --data PubMed --schema ;0-1-0,1-0-1;;2-0-2,0-2-0;1-2-1,2-1-2;;2-3-2,3-2-3;3-0-3,0-3-0;3-1-3,1-3-1;  --eval-type 2
+
 ```
 
-## performance report
-dataset: LastFM   
-
-|                      |     ROC-AUC   |    PR-AUC     | F1 |
-| ---------------------- | --------- | --------- | --------- |
-| GATNE-T   | 97.44     | 97.05   | 92.87  |
-| GATNE-T   | 97.00     | 96.55   | 91.79  |
-| GCN        | **98.68** | **98.45**|  **95.42** |
-| GAT        | 98.58 | 98.12|  95.35 |
+## train history
+GATNE amazon
+Test overall result: ROC-AUC=0.7679802257280208,PR-AUC=0.75179814743223,F1=0.7004179228075813,dl_score:{'auc_score': 0.75179814743223, 'roc_auc': 0.7679802257280208, 'F1': 0.7004179228075813, 'MRR': 0.9156454197216857}
+Random test overall result: ROC-AUC=0.9314440824072643,PR-AUC=0.9036075685434347,F1=0.9083860548275977,dl_score:{'auc_score': 0.9036075685434347, 'roc_auc': 0.9314440824072643, 'F1': 0.9083860548275977, 'MRR': 0.9815737621502107}
+ 
 
 
 

@@ -7,8 +7,8 @@ import random
 prefix='data/preprocessed/DBLP_processed'
 new_prefix='../benchmark/data/DBLP'
 
-# features_0 = sparse.load_npz(prefix + '/features_0.npz').toarray()
-features_0 = np.eye(4057, dtype=np.float32)
+features_0 = sparse.load_npz(prefix + '/features_0.npz').toarray()
+# features_0 = np.eye(4057, dtype=np.float32)
 features_1 = sparse.load_npz(prefix + '/features_1.npz').toarray()
 features_2 = np.load(prefix + '/features_2.npy')
 features_3 = np.eye(20, dtype=np.float32)
@@ -57,7 +57,7 @@ def gen_node_dat():
             elif node_type=='3':
                 node_name = conf_name_list[i]
             node_dat_file_handle.write(f'{str(node_id)}\t{node_name}\t{node_type}')
-            if node_type=='1' or node_type=='2':
+            if node_type=='0' or node_type=='1' or node_type=='2':
                 node_dat_file_handle.write('\t')
                 node_dat_file_handle.write(",".join(str(i) for i in list(feat_[i])))
             node_dat_file_handle.write('\n')
@@ -70,23 +70,27 @@ def gen_link_dat():
     print(f'Generating {link_dat_file}')
     link_dat_file_handle = open(link_dat_file, 'w')
     nnz = adjM.nonzero()  # indices of nonzero values
-    link_num_list=[0,0,0]
+    link_num_list=[0,0,0,0,0,0]
+    sum_list=[sum(node_num_list[:1]), sum(node_num_list[:2]), sum(node_num_list[:3])]
     for left, right in tqdm(zip(nnz[0], nnz[1])):
         link_type = 0
         # link_type=adjM[left, right]
-        if left>right:
-            left, right = right, left
-        if left<sum(node_num_list[:1]) and right<sum(node_num_list[:2]) and right>=sum(node_num_list[:1]):
-            link_type=0 # A-P
-        elif left < sum(node_num_list[:2]) and left >= sum(node_num_list[:1]) and right<sum(node_num_list[:3]) and  right>=sum(node_num_list[:2]):
-            link_type=1 # P-T
-        elif left < sum(node_num_list[:2]) and left >= sum(node_num_list[:1]) and  right>=sum(node_num_list[:3]):
-            link_type=2 # P-V
+        if left < sum_list[0] and right >= sum_list[0] and right < sum_list[1]:
+            link_type = 0 # A-P
+        elif left >= sum_list[0] and left < sum_list[1]  and right >= sum_list[1] and  right < sum_list[2]:
+            link_type = 1 # P-T
+        elif left >= sum_list[0] and left < sum_list[1] and  right>=sum_list[2]:
+            link_type = 2 # P-V
+        elif right < sum_list[0] and left >= sum_list[0] and left < sum_list[1]:
+            link_type = 3  # P-A
+        elif right >= sum_list[0] and right < sum_list[1]  and left >= sum_list[1] and left < sum_list[2]:
+            link_type = 4  # T-P
+        elif right >= sum_list[0] and right < sum_list[1] and left>=sum_list[2]:
+            link_type = 5 # V-P
         else:
             exit('Link error occurs')
         link_num_list[link_type] += 1
         link_dat_file_handle.write(str(left) + '\t' + str(right) + '\t' + str(link_type) + '\t1.0' + '\n')
-        link_dat_file_handle.write(str(right) + '\t' + str(left) + '\t' + str(link_type) + '\t1.0' + '\n')
     link_dat_file_handle.close()
 
 '''  node_id, node_name, node_type, node_label'''
@@ -122,6 +126,6 @@ def gen_label_dat_w_test():
         label_num_list[node_w_label[1]] += 1
     label_dat_test_file_handle.close()
 
-gen_node_dat()
-# gen_link_dat()
+# gen_node_dat()
+gen_link_dat()
 # gen_label_dat_w_test()

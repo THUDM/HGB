@@ -9,6 +9,7 @@ from sklearn.metrics import (auc, f1_score, precision_recall_curve,
 from tqdm import tqdm
 import os
 import random
+import pickle
 
 from walk import RWGraph
 
@@ -23,7 +24,7 @@ class Vocab(object):
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data', type=str, default='LastFM', choices=['LastFM', 'amazon', 'youtube'],
+    parser.add_argument('--data', type=str, default='LastFM',
                         help='Input dataset path')
 
     parser.add_argument('--features', type=str, default=None,
@@ -35,8 +36,8 @@ def parse_args():
     parser.add_argument('--epoch', type=int, default=100,
                         help='Number of epoch. Default is 100.')
 
-    parser.add_argument('--batch-size', type=int, default=64,
-                        help='Number of batch_size. Default is 64.')
+    parser.add_argument('--batch-size', type=int, default=1000,
+                        help='Number of batch_size. Default is 1000.')
 
     parser.add_argument('--eval-type', type=str, default='all',
                         help='The edge type(s) for evaluation.')
@@ -86,8 +87,8 @@ def get_G_from_edges(edges):
     return edge_dict
 
 
-def load_training_data(dl):
-    print('We are loading training data from data_loader')
+def load_train_data(dl):
+    print('Data: Load train data from data_loader')
     edge_data_by_type = defaultdict(list)
     all_nodes = list()
     train_links = dl.links['data']
@@ -103,46 +104,30 @@ def load_training_data(dl):
     return edge_data_by_type
 
 
-def load_train_valid_data(dl):
-    print('We are loading training data and valid data from data_loader')
-    edge_data_by_type = defaultdict(list)
+def load_valid_data(dl):
+    print('Data: Load valid data from data_loader')
     valid_true_data_by_edge, valid_false_data_by_edge = defaultdict(list), defaultdict(list)
-    all_nodes = list()
-    train_links = dl.links['data']
-    for r_id in train_links.keys():
-        t_type = dl.links['meta'][r_id][1]
-        t_range = (dl.nodes['shift'][t_type], dl.nodes['shift'][t_type] + dl.nodes['count'][t_type])
-        row, col = train_links[r_id].nonzero()
-        for (h, t) in zip(row, col):
-            h, t = str(h), str(t)
-            if random.random() > 0.1:
-                edge_data_by_type[str(r_id)].append((h, t))
+    for r_id in dl.valid_pos.keys():
+        for h_id, t_id in zip(dl.valid_pos[r_id][0], dl.valid_pos[r_id][1]):
+            valid_true_data_by_edge[str(r_id)].append((str(h_id), str(t_id)))
+    for r_id in dl.valid_neg.keys():
+        for h_id, t_id in zip(dl.valid_neg[r_id][0], dl.valid_neg[r_id][1]):
+            valid_false_data_by_edge[str(r_id)].append((str(h_id), str(t_id)))
+    return valid_true_data_by_edge, valid_false_data_by_edge
+
+
+def load_test_data(dl, random_test=True):
+    print('Data: Load test data from data_loader')
+    test_neigh, test_label = dl.get_test_neigh_w_random() if random_test else dl.get_test_neigh()
+    test_true_data_by_edge, test_false_data_by_edge = defaultdict(list), defaultdict(list)
+    for r_id in test_neigh.keys():
+        for i in range(len(test_neigh[r_id][0])):
+            h_id, t_id = test_neigh[r_id][0][i], test_neigh[r_id][1][i]
+            if test_label[r_id][i] == 1:
+                test_true_data_by_edge[str(r_id)].append((str(h_id), str(t_id)))
             else:
-                valid_true_data_by_edge[str(r_id)].append((h, t))
-                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
-                valid_false_data_by_edge[str(r_id)].append((h, str(neg_t)))
-            all_nodes.append(h)
-            all_nodes.append(t)
-
-    all_nodes = list(set(all_nodes))
-    print('Total training nodes: ' + str(len(all_nodes)))
-    return edge_data_by_type, valid_true_data_by_edge, valid_false_data_by_edge
-
-
-def load_testing_data(dl):
-    print('We are loading testing data from data_loader')
-    true_edge_data_by_type = defaultdict(list)
-    false_edge_data_by_type = defaultdict(list)
-    for r_id in dl.test_neigh.keys():
-        for h_id in dl.test_neigh[r_id].keys():
-            neighs = dl.test_neigh[r_id][h_id]
-            for t_index, t_id in enumerate(neighs):
-                h_id, t_id = str(h_id), str(t_id)
-                if t_index < len(neighs) / 2:
-                    true_edge_data_by_type[str(r_id)].append((h_id, t_id))
-                else:
-                    false_edge_data_by_type[str(r_id)].append((h_id, t_id))
-    return true_edge_data_by_type, false_edge_data_by_type
+                test_false_data_by_edge[str(r_id)].append((str(h_id), str(t_id)))
+    return test_true_data_by_edge, test_false_data_by_edge
 
 
 def load_node_type(node_type):
@@ -180,7 +165,8 @@ def generate_walks(network_data, num_walks, walk_length, schema, node_type, num_
 
         layer_walker = RWGraph(get_G_from_edges(tmp_data), node_type, num_workers)
         print('Generating random walks for layer', layer_id)
-        layer_walks = layer_walker.simulate_walks(num_walks, walk_length, schema=schema[layer_id])
+        layer_walks = layer_walker.simulate_walks(num_walks, walk_length,
+                                                  schema=schema[layer_id] if schema != None else schema)
 
         all_walks.append(layer_walks)
 
@@ -226,38 +212,24 @@ def generate_vocab(all_walks):
     return vocab, index2word
 
 
-def load_walks(walk_file):
-    print('Loading walks')
-    all_walks = []
-    with open(walk_file, 'r') as f:
-        for line in f:
-            content = line.strip().split()
-            layer_id = int(content[0])
-            if layer_id >= len(all_walks):
-                all_walks.append([])
-            all_walks[layer_id].append(content[1:])
-    return all_walks
-
-
-def save_walks(walk_file, all_walks):
-    with open(walk_file, 'w') as f:
-        for layer_id, walks in enumerate(all_walks):
-            print('Saving walks for layer', layer_id)
-            for walk in tqdm(walks):
-                f.write(' '.join([str(layer_id)] + [str(x) for x in walk]) + '\n')
-
-
-def generate(network_data, num_walks, walk_length, schema, window_size, num_workers, walk_file, node_type=None):
+def generate(network_data, num_walks, walk_length, schema, window_size, num_workers, walk_file, pair_file,
+             node_type=None):
     if os.path.exists(walk_file):
         print(f'Data: Load walks from {walk_file}')
-        all_walks = load_walks(walk_file)
+        all_walks = pickle.load(open(walk_file, 'rb'))
     else:
         print(f'Data: Generate walks and write into {walk_file}')
         all_walks = generate_walks(network_data, num_walks, walk_length, schema, node_type, num_workers)
-        save_walks(walk_file, all_walks)
+        pickle.dump(all_walks, open(walk_file, 'wb'))
 
     vocab, index2word = generate_vocab(all_walks)
-    train_pairs = generate_pairs(all_walks, vocab, window_size, num_workers)
+    if os.path.exists(pair_file):
+        print(f'Data: Load pairs from {pair_file}')
+        train_pairs = pickle.load(open(pair_file, 'rb'))
+    else:
+        print(f'Data: Generate pairs and write into {pair_file}')
+        train_pairs = generate_pairs(all_walks, vocab, window_size, num_workers)
+        pickle.dump(train_pairs, open(pair_file, 'wb'))
 
     return vocab, index2word, train_pairs
 
@@ -317,19 +289,6 @@ def evaluate(model, true_edges, false_edges, dl):
             edge_list[0].append(int(edge[0]))
             edge_list[1].append(int(edge[1]))
 
-    sorted_pred = prediction_list[:]
-    sorted_pred.sort()
-    threshold = sorted_pred[-true_num]
-
-    y_pred = np.zeros(len(prediction_list), dtype=np.int32)
-    for i in range(len(prediction_list)):
-        if prediction_list[i] >= threshold:
-            y_pred[i] = 1
-
     y_true = np.array(true_list)
-    y_scores = np.array(prediction_list)
-    ps, rs, _ = precision_recall_curve(y_true, y_scores)
-    res = roc_auc_score(y_true, y_scores), f1_score(y_true, y_pred), auc(rs, ps)
-    dl_scores = dl.evaluate(edge_list=edge_list, confidence=prediction_list, labels=y_true, threshold=threshold)
-    print(f'dl_scores: {dl_scores}')
-    return res
+    dl_scores = dl.evaluate(edge_list=edge_list, confidence=prediction_list, labels=y_true)
+    return dl_scores

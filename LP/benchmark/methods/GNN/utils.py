@@ -26,6 +26,10 @@ def gen_edge_list(dl, reverse=True):
         if reverse:
             edge_list[1].append(h_id)
             edge_list[0].append(t_id)
+    """self loop"""
+    for i in range(data.shape[0]):
+        edge_list[1].append(i)
+        edge_list[0].append(i)
     return th.LongTensor(edge_list)
 
 
@@ -163,7 +167,6 @@ def read_args():
     parser.add_argument('--edge_sample_ratio', type=float, default=1)
     parser.add_argument('--test_with_CPU', type=bool, default=False)
     parser.add_argument('--decoder', type=str, default="dismult", choices=['dot', 'dismult'])
-    parser.add_argument('--threshold', type=float, default=None)
 
     args = parser.parse_args()
     return args
