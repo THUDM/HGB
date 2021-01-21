@@ -289,7 +289,7 @@ class data_loader:
             train_neg[r_id] = [[], []]
             for h_id in self.train_pos[r_id][0]:
                 train_neg[r_id][0].append(h_id)
-                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                neg_t = random.randrange(t_range[0], t_range[1])
                 train_neg[r_id][1].append(neg_t)
         return train_neg
 
@@ -303,7 +303,7 @@ class data_loader:
             valid_neg[r_id] = [[], []]
             for h_id in self.valid_pos[r_id][0]:
                 valid_neg[r_id][0].append(h_id)
-                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                neg_t = random.randrange(t_range[0], t_range[1])
                 valid_neg[r_id][1].append(neg_t)
         return valid_neg
 
@@ -410,9 +410,9 @@ class data_loader:
             (row, col), data = self.links_test['data'][r_id].nonzero(), self.links_test['data'][r_id].data
             for h_id, t_id in zip(row, col):
                 pos_neigh[r_id][h_id].append(t_id)
-                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                neg_t = random.randrange(t_range[0], t_range[1])
                 while neg_t in all_had_neigh[h_id]:
-                    neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                    neg_t = random.randrange(t_range[0], t_range[1])
                 neg_neigh[r_id][h_id].append(neg_t)
             '''get the test_neigh'''
             test_neigh[r_id] = [[], []]
@@ -464,14 +464,15 @@ class data_loader:
                 test_neigh[r_id][0].append(h_id)
                 test_neigh[r_id][1].append(t_id)
                 test_label[r_id].append(1)
-                neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
-                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                neg_h = random.randrange(h_range[0], h_range[1])
+                neg_t = random.randrange(t_range[0], t_range[1])
                 while neg_t in all_had_neigh[neg_h]:
-                    neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
-                    neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
+                    neg_h = random.randrange(h_range[0], h_range[1])
+                    neg_t = random.randrange(t_range[0], t_range[1])
                 test_neigh[r_id][0].append(neg_h)
                 test_neigh[r_id][1].append(neg_t)
                 test_label[r_id].append(0)
+
         return test_neigh, test_label
 
     def gen_transpose_links(self):

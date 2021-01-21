@@ -16,7 +16,7 @@ device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
 print(f'use device: {device}')
 
 
-def train_gnn(edge_list, feat_list, train_data, args, model, dl):
+def train_gnn(edge_list, feat_list, train_data, args, model, dl, eval_type):
     for i in range(len(feat_list)):
         feat_list[i] = feat_list[i].to(device)
     edge_list = edge_list.to(device)
@@ -55,12 +55,10 @@ def train_gnn(edge_list, feat_list, train_data, args, model, dl):
                     target = th.FloatTensor(valid_label).to(device)
                     valid_loss = lossFun(out_feat, target)
 
-                    threshold = args.threshold if args.threshold != None else np.median(
-                        out_feat.flatten().detach().cpu().numpy())
                     valid_score = dl.evaluate(
                         edge_list=valid_list,
                         confidence=out_feat.flatten().detach().cpu().numpy(),
-                        labels=target.flatten().detach().cpu().numpy(), threshold=threshold)
+                        labels=target.flatten().detach().cpu().numpy())
                     print(
                         f"Valid: loss {valid_loss}, score:{valid_score}")
                     early_stopping.step(valid_loss, model)
@@ -70,7 +68,7 @@ def train_gnn(edge_list, feat_list, train_data, args, model, dl):
             break
 
     # 2 hop test
-    test_list, test_label = dl.get_test_neigh([eval_type])
+    test_list, test_label = dl.get_test_neigh()
     test_list, test_label = test_list[eval_type], test_label[eval_type]
     model.load_state_dict(th.load(args.model_path))
     model.eval()
@@ -80,14 +78,13 @@ def train_gnn(edge_list, feat_list, train_data, args, model, dl):
         r_list = [0] * len(test_label)
         out_feat = model.decode(r_list, hid_feat[test_list[0]], hid_feat[test_list[1]])
         out_feat = th.sigmoid(out_feat)
-        threshold = args.threshold if args.threshold != None else np.median(out_feat.flatten().detach().cpu().numpy())
         test_score = dl.evaluate(
             edge_list=test_list,
             confidence=out_feat.flatten().detach().cpu().numpy(),
-            labels=target.flatten().detach().cpu().numpy(), threshold=threshold)
-    # random test
+            labels=target.flatten().detach().cpu().numpy())
+
     with th.no_grad():
-        test_list, test_label = dl.get_test_neigh_w_random([eval_type])
+        test_list, test_label = dl.get_test_neigh_full_random()
         test_list, test_label = test_list[eval_type], test_label[eval_type]
         model.load_state_dict(th.load(args.model_path))
         model.eval()
@@ -96,11 +93,10 @@ def train_gnn(edge_list, feat_list, train_data, args, model, dl):
         r_list = [0] * len(test_label)
         out_feat = model.decode(r_list, hid_feat[test_list[0]], hid_feat[test_list[1]])
         out_feat = th.sigmoid(out_feat)
-        threshold = args.threshold if args.threshold != None else np.median(out_feat.flatten().detach().cpu().numpy())
         random_test_score = dl.evaluate(
             edge_list=test_list,
             confidence=out_feat.flatten().detach().cpu().numpy(),
-            labels=target.flatten().detach().cpu().numpy(), threshold=threshold, eval_mrr=True)
+            labels=target.flatten().detach().cpu().numpy())
 
     return random_test_score, test_score
 
@@ -145,7 +141,8 @@ if __name__ == '__main__':
         model = model.to(device)
         random_score, score = train_gnn(edge_list=edge_list, feat_list=feat_list, train_data=train_data, args=args,
                                    model=model,
-                                   dl=dl)
+                                   dl=dl,
+                                        eval_type=eval_type)
         # test_score['auc_score'].append(score['auc_score'])
         # test_score['F1'].append(score['F1'])
         test_score['roc_auc'].append(score['roc_auc'])
