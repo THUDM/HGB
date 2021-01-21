@@ -136,6 +136,7 @@ dmypy.json
 #data
 *ACM.mat
 NC/HetGNN/data/
+NC/benchmark/methods/HetGNN/code/*/temp/*.txt
 
 TC/HGAT/data/data-web-snippets
 TC/HGAT/data/wikiAbstract
