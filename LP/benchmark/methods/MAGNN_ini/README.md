@@ -1,3 +1,13 @@
+# MAGNN for benchmark
+
+Frist, run trans\_format.py to transform our benchmark data to MAGNN format.
+
+Then, run ```ipython preprocess_LastFM.ipynb``` (or LastFM\_magnn) to get preprocessed data.
+
+Next, run ```python run_LastFM.py --save-postfix LastFM``` or (LastFM\_magnn) to train model.
+
+Last, run ```python test_LastFM.py --save-postfix LastFM``` or (LastFM\_magnn) to test model.
+
 ## MAGNN
 
 This repository provides a reference implementation of MAGNN as described in the paper:
