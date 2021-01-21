@@ -11,6 +11,7 @@ import pickle
 
 from utils import *
 import sys
+
 sys.path.append('../../')
 from scripts.data_loader import data_loader
 
@@ -33,7 +34,7 @@ def get_batches(pairs, neighbors, batch_size):
 
 class GATNEModel(nn.Module):
     def __init__(
-        self, num_nodes, embedding_size, embedding_u_size, edge_type_count, dim_a, features
+            self, num_nodes, embedding_size, embedding_u_size, edge_type_count, dim_a, features
     ):
         super(GATNEModel, self).__init__()
         self.num_nodes = num_nodes
@@ -148,8 +149,11 @@ class NSLoss(nn.Module):
 
 
 def train_model(network_data, feature_dic):
-    walk_file = f'walks/{args.data}-walks.txt'
-    vocab, index2word, train_pairs = generate(network_data, args.num_walks, args.walk_length, args.schema, args.window_size, args.num_workers, walk_file, node_type=dl.types['data'])
+    walk_file = f'pickles/{args.data}-walks-pickle'
+    pair_file = f'pickles/{args.data}-pairs-pickle'
+    vocab, index2word, train_pairs = generate(network_data, args.num_walks, args.walk_length, args.schema,
+                                              args.window_size, args.num_workers, walk_file=walk_file,
+                                              pair_file=pair_file, node_type=dl.types['data'])
 
     edge_types = list(network_data.keys())
 
@@ -166,8 +170,14 @@ def train_model(network_data, feature_dic):
     neighbor_samples = args.neighbor_samples
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f'device: {device}')
-    neighbors = generate_neighbors(network_data, vocab, num_nodes, edge_types, neighbor_samples)
+    print(f'Info: device: {device}')
+    neigh_file = f'pickles/{args.data}-neighs-pickle'
+    if os.path.exists(neigh_file):
+        print(f'Data: Load neighs from {neigh_file}')
+        neighbors = pickle.load(open(neigh_file, 'rb'))
+    else:
+        neighbors = generate_neighbors(network_data, vocab, num_nodes, edge_types, neighbor_samples)
+        pickle.dump(neighbors, open(neigh_file, 'wb'))
 
     features = None
     if feature_dic is not None:
@@ -192,8 +202,8 @@ def train_model(network_data, feature_dic):
     )
 
     best_score = 0
-    test_score = (0.0, 0.0, 0.0)
     patience = 0
+    test_2hop_best, test_random_best = None, None
     for epoch in range(epochs):
         random.shuffle(train_pairs)
         batches = get_batches(train_pairs, neighbors, batch_size)
@@ -208,7 +218,7 @@ def train_model(network_data, feature_dic):
 
         for i, data in enumerate(data_iter):
             optimizer.zero_grad()
-            embs = model(data[0].to(device), data[2].to(device), data[3].to(device),)
+            embs = model(data[0].to(device), data[2].to(device), data[3].to(device), )
             loss = nsloss(data[0].to(device), embs, data[1].to(device))
             loss.backward()
             optimizer.step()
@@ -223,6 +233,7 @@ def train_model(network_data, feature_dic):
                     "loss": loss.item(),
                 }
                 data_iter.write(str(post_fix))
+            # break
         final_model = dict(zip(edge_types, [dict() for _ in range(edge_type_count)]))
         for i in range(num_nodes):
             train_inputs = torch.tensor([i for _ in range(edge_type_count)], dtype=torch.int64).to(device)
@@ -236,41 +247,53 @@ def train_model(network_data, feature_dic):
                     node_emb[j].cpu().detach().numpy()
                 )
 
-        valid_aucs, valid_f1s, valid_prs = [], [], []
-        test_aucs, test_f1s, test_prs = [], [], []
+        valid_scores, test_2hop_scores, test_random_scores = defaultdict(list), defaultdict(list), defaultdict(list)
         for i in range(edge_type_count):
             if args.eval_type == "all" or edge_types[i] in args.eval_type.split(","):
-                tmp_auc, tmp_f1, tmp_pr = evaluate(
+                valid_score = evaluate(
                     final_model[edge_types[i]],
                     valid_true_data_by_edge[edge_types[i]],
                     valid_false_data_by_edge[edge_types[i]],
                     dl
                 )
-                valid_aucs.append(tmp_auc)
-                valid_f1s.append(tmp_f1)
-                valid_prs.append(tmp_pr)
-
-                tmp_auc, tmp_f1, tmp_pr = evaluate(
+                for k in valid_score.keys():
+                    valid_scores[k].append(valid_score[k])
+                test_2hop_score = evaluate(
                     final_model[edge_types[i]],
                     testing_true_data_by_edge[edge_types[i]],
                     testing_false_data_by_edge[edge_types[i]],
                     dl
                 )
-                test_aucs.append(tmp_auc)
-                test_f1s.append(tmp_f1)
-                test_prs.append(tmp_pr)
-        print("valid auc:", np.mean(valid_aucs))
-        print("valid pr:", np.mean(valid_prs))
-        print("valid f1:", np.mean(valid_f1s))
+                for k in test_2hop_score.keys():
+                    test_2hop_scores[k].append(test_2hop_score[k])
 
-        average_auc = np.mean(test_aucs)
-        average_f1 = np.mean(test_f1s)
-        average_pr = np.mean(test_prs)
+                test_random_score = evaluate(
+                    final_model[edge_types[i]],
+                    random_testing_true_data_by_edge[edge_types[i]],
+                    random_testing_false_data_by_edge[edge_types[i]],
+                    dl
+                )
+                for k in test_random_score.keys():
+                    test_random_scores[k].append(test_random_score[k])
+        valid_score_mean = dict()
+        for k in valid_scores.keys():
+            valid_score_mean[k] = np.mean(valid_scores[k])
+        print(f"valid score: {valid_score_mean}")
 
-        cur_score = np.mean(valid_aucs)
+        test_2hop_score_mean = dict()
+        for s in test_2hop_scores.keys():
+            test_2hop_score_mean[s] = np.mean(test_2hop_scores[s])
+        print(f"test 2hop scroe: {test_2hop_score_mean}")
+
+        test_random_score_mean = dict()
+        for s in test_random_scores.keys():
+            test_random_score_mean[s] = np.mean(test_random_scores[s])
+        print(f"test random score: {test_random_score_mean}")
+
+        cur_score = valid_score_mean['roc_auc']
         if cur_score > best_score:
             best_score = cur_score
-            test_score = (average_auc, average_f1, average_pr)
+            test_2hop_best, test_random_best = test_2hop_scores, test_random_scores
             patience = 0
         else:
             patience += 1
@@ -278,37 +301,36 @@ def train_model(network_data, feature_dic):
             if patience > args.patience:
                 print("Early Stopping")
                 break
-        print(f"test: {test_score}")
-    return test_score
+    return test_2hop_best, test_random_best
 
 
 if __name__ == "__main__":
     args = parse_args()
-    print('args: ',args)
-    file_name = 'walks'
+    print('args: ', args)
+    file_name = 'pickles'
     if args.features is not None:
         feature_dic = load_feature_data(args.features)
     else:
         feature_dic = None
     data_name = args.data
-    data_dir = os.path.join('../../data',data_name)
+    data_dir = os.path.join('../../data', data_name)
     node_type_file = os.path.join('../../data', data_name, 'node.dat')
     dl_pickle_f = os.path.join(data_dir, 'dl_pickle')
-    random_test = True
-    if os.path.exists(dl_pickle_f) and not random_test:
+    if os.path.exists(dl_pickle_f):
         dl = pickle.load(open(dl_pickle_f, 'rb'))
         print(f'Info: load {data_name} from {dl_pickle_f}')
     else:
-        dl = data_loader(data_dir, random_test)
-        if not random_test:
-            pickle.dump(dl, open(dl_pickle_f, 'wb'))
-            print(f'Info: load {data_name} from original data '
-                  f'and generate {dl_pickle_f} ')
+        dl = data_loader(data_dir)
+        pickle.dump(dl, open(dl_pickle_f, 'wb'))
+        print(f'Info: load {data_name} from original data and generate {dl_pickle_f} ')
 
-    training_data_by_type,valid_true_data_by_edge, valid_false_data_by_edge = load_train_valid_data(dl)
-    testing_true_data_by_edge, testing_false_data_by_edge = load_testing_data(dl)
-    average_auc, average_f1, average_pr = train_model(training_data_by_type, feature_dic)
+    """ Load train/valid/test data """
+    training_data_by_type = load_train_data(dl)
+    valid_true_data_by_edge, valid_false_data_by_edge = load_valid_data(dl)
+    testing_true_data_by_edge, testing_false_data_by_edge = load_test_data(dl, random_test=False)
+    random_testing_true_data_by_edge, random_testing_false_data_by_edge = load_test_data(dl, random_test=True)
 
-    print("Overall ROC-AUC:", average_auc)
-    print("Overall PR-AUC", average_pr)
-    print("Overall F1:", average_f1)
+
+    test_2hop_best, test_random_best = train_model(training_data_by_type, feature_dic)
+    print(f"Test 2hop result: {test_2hop_best}")
+    print(f"Test random result: {test_random_best}")
