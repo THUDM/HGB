@@ -20,6 +20,9 @@ We replace the GNN module in paper by GCN for comparison.
 
 ```bash
 python link_predict.py --dataset=LastFM 
+python link_predict.py --dataset=amazon  --hidden-dim=60
+python link_predict.py --dataset=PubMed  --hidden-dim=60
+python link_predict.py --dataset=LastFM_magnn 
 ```
 ## performance report
 
