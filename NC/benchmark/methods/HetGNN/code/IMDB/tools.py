@@ -8,6 +8,7 @@ import string
 import re
 import math
 import sys
+from collections import defaultdict
 
 args = read_args()
 
@@ -84,12 +85,13 @@ class HetAgg(nn.Module):
     # heterogeneous neighbor aggregation
     def node_het_agg(self, id_batch, node_type):
         node_types = self.node_types
-        neigh_batch = dict()
+        neigh_batch = defaultdict(list)
         for n_type in node_types:
-            neigh_batch[n_type] = [[0] * self.node_min_size[n_type]] * len(id_batch)
-        for i in range(len(id_batch)):
-            for n_type in node_types:
-                neigh_batch[n_type][i] = self.neigh_list_train[node_type][n_type][id_batch[i]]
+            for i in id_batch:
+                if len(self.neigh_list_train[node_type][n_type][i]) != 0:
+                    neigh_batch[n_type].append(self.neigh_list_train[node_type][n_type][i])
+            while len(neigh_batch[n_type]) < len(id_batch):
+                neigh_batch[n_type].append(neigh_batch[n_type][-1])
         ''''neigh's embed of each type node'''
         agg_batch = dict()
         for n_type in node_types:
