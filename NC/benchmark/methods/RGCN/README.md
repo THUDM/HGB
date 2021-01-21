@@ -19,7 +19,8 @@ We replace the Benchmark.
 * run python file
 ```bash
 python entity_classify.py --dataset=dblp -e 150 --gpu=3
-python entity_classify.py --dataset=imdb -e 150 --gpu=3 --n-layers=3 --l2norm=1e-6 --n-hidden=32 --testing
+python entity_classify.py --dataset=imdb -e 150 --gpu=k --n-layers=3 --l2norm=1e-6 --n-hidden=32 --testing
+python entity_classify.py --dataset=acm -e 150 --gpu=3
 ```
 ## performance report
 
