@@ -2,7 +2,7 @@ import numpy as np
 import torch as th
 from torch_geometric.data import Data
 from torch import nn
-from torch_geometric.nn import GCNConv, SAGEConv,TopKPooling,GATConv
+from torch_geometric.nn import GCNConv, SAGEConv, TopKPooling, GATConv
 import torch.nn.functional as F
 import re
 import random
@@ -14,6 +14,7 @@ import math
 from itertools import *
 from torch_geometric.utils import train_test_split_edges
 from torch_geometric.utils import to_undirected
+
 
 class EarlyStopping(object):
     def __init__(self, patience=10):
@@ -30,19 +31,22 @@ class EarlyStopping(object):
         if auc > 0.9 and f1 > 0.9:
             return True
 
+
 class Para_reset():
-    def __init__(self,patience=10):
+    def __init__(self, patience=10):
         self.patience = patience
         self.counter = 0
         self.last_loss = 999
 
         pass
-    def step(self,loss, auc, model):
-        if (self.last_loss < loss+0.0001 and self.last_loss >= loss and auc<=0.7) or auc==0.5: #todo compare tensor and float
+
+    def step(self, loss, auc, model):
+        if (
+                self.last_loss < loss + 0.0001 and self.last_loss >= loss and auc <= 0.7) or auc == 0.5:
             self.counter += 1
-            print('reset patience %d of %d'%(self.counter, self.patience))
+            print('reset patience %d of %d' % (self.counter, self.patience))
         else:
-            self.last_loss =loss
+            self.last_loss = loss
             self.counter = 0
         if self.counter >= self.patience:
             self.counter = 0
@@ -51,8 +55,10 @@ class Para_reset():
                     l.reset_parameters()
             model.fc.reset_parameters()
             print('reset para.')
+
+
 class GCN(th.nn.Module):
-    def __init__(self, in_feats, hid_feats, out_feats,n_layers=2,dropout=0.5):
+    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5):
         super(GCN, self).__init__()
         self.layers = nn.ModuleList()
         # input layer
@@ -64,52 +70,88 @@ class GCN(th.nn.Module):
         self.dropout = nn.Dropout(p=dropout)
 
     def encode(self, data):
-        x, edge_list= data.x,data.edge_list
+        x, edge_list = data.x, data.edge_list
         for i, layer in enumerate(self.layers):
             if i != 0:
                 x = self.dropout(x)
-            x = layer(x,edge_list)
-            if i<len(self.layers)-1:
+            x = layer(x, edge_list)
+            if i < len(self.layers) - 1:
                 x = F.relu(x)
         return x
 
-    def decode(self,x,edge_index):
+    def decode(self, x, edge_index):
+        return self.de_dismult(x, edge_index)
+
+    def de_dot(self, x, edge_index):
         x = (x[edge_index[0]] * x[edge_index[1]])
         x = self.fc(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x)
         return x
 
+    def de_dismult(self, x, edge_index):
+        x = self.dismult(x[edge_index[0]], x[edge_index[1]])
+        return x
+
+    def de_cosine(self, x, edge_index):
+        embed_size = x[edge_index[0]].shape[0]
+        feature1 = x[edge_index[0]].view(embed_size, -1)  # 将特征转换为N*(C*W*H)，即两维
+        feature2 = x[edge_index[1]].view(embed_size, -1)
+        feature1 = F.normalize(feature1)  # F.normalize只能处理两维的数据，L2归一化
+        feature2 = F.normalize(feature2)
+        distance = feature1.mm(feature2.t())  # 计算余弦相似度
+        distance = th.diag(distance).view(-1, 1)
+        return distance
+
+
 class GAT(th.nn.Module):
-    def __init__(self, in_feats, hid_feats, out_feats,n_layers=2,dropout=0.5,heads=[1]):
+    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5, heads=[1]):
         super(GAT, self).__init__()
         self.layers = nn.ModuleList()
         # input layer
-        self.layers.append(GATConv(in_feats, hid_feats,heads[0]))
+        self.layers.append(GATConv(in_feats, hid_feats, heads[0]))
         # hidden layers
-        for l in range(1,n_layers-1):
-            self.layers.append(GATConv(hid_feats* heads[l-1], hid_feats, heads[l]))
+        for l in range(1, n_layers - 1):
+            self.layers.append(GATConv(hid_feats * heads[l - 1], hid_feats, heads[l]))
         # output layer
-        self.layers.append(GATConv(hid_feats*heads[-2], hid_feats,heads[-1]))
-        self.fc = nn.Linear(hid_feats,out_feats)
+        self.layers.append(GATConv(hid_feats * heads[-2], hid_feats, heads[-1]))
+        self.fc = nn.Linear(hid_feats, out_feats)
         self.dropout = nn.Dropout(p=dropout)
         # nn.init.xavier_normal_(self.fc.weight)
         # nn.init.constant_(self.fc.bias, 0)
 
     def encode(self, data):
-        x, edge_list= data.x,data.edge_list
+        x, edge_list = data.x, data.edge_list
         for i, layer in enumerate(self.layers):
             if i != 0:
                 pass
                 x = self.dropout(x)
-            x = layer(x,edge_list)
+            x = layer(x, edge_list)
             x = F.relu(x)
         return x
 
     def decode(self, x, edge_index):
+        return self.de_dismult(x, edge_index)
+
+    def de_dot(self, x, edge_index):
         x = (x[edge_index[0]] * x[edge_index[1]])
         x = self.fc(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x)
         return x
+
+    def de_dismult(self, x, edge_index):
+        x = self.dismult(x[edge_index[0]], x[edge_index[1]])
+        return x
+
+    def de_cosine(self, x, edge_index):
+        embed_size = x[edge_index[0]].shape[0]
+        feature1 = x[edge_index[0]].view(embed_size, -1)  # 将特征转换为N*(C*W*H)，即两维
+        feature2 = x[edge_index[1]].view(embed_size, -1)
+        feature1 = F.normalize(feature1)  # F.normalize只能处理两维的数据，L2归一化
+        feature2 = F.normalize(feature2)
+        distance = feature1.mm(feature2.t())  # 计算余弦相似度
+        distance = th.diag(distance).view(-1, 1)
+        return distance
+
 
 class GSAGE(th.nn.Module):
     def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5):
@@ -133,17 +175,18 @@ class GSAGE(th.nn.Module):
             x = F.relu(x)
         return x
 
+
 class edge_data():
-    def __init__(self,args):
+    def __init__(self, args):
         if args.data_name == 'cite':
             self.train_file_pth = args.data_path + "a_p_cite_list_train.txt"
             self.test_file_pth = args.data_path + "a_p_cite_list_test.txt"
-        elif args.data_name=='colab':
-            self.train_file_pth = args.data_path+"a_a_list_train.txt"
+        elif args.data_name == 'colab':
+            self.train_file_pth = args.data_path + "a_a_list_train.txt"
             self.test_file_pth = args.data_path + "a_a_list_test.txt"
         else:
             exit('data_name errors.')
-        train_edge_index,train_label, val_edge_index, val_label = [[], []], [], [[],[]], []
+        train_edge_index, train_label, val_edge_index, val_label = [[], []], [], [[], []], []
         test_edge_index = [[], []]
         test_label = []
         val_tag = False
@@ -205,14 +248,15 @@ class edge_data():
         # mask = row < col
         # row, col = row[mask], col[mask]
 
-        self.train_edge_index,self.val_edge_index,self.test_edge_index = train_edge_index, val_edge_index, test_edge_index
-        self.train_label,self.val_label,self.test_label = train_label,val_label, test_label
+        self.train_edge_index, self.val_edge_index, self.test_edge_index = train_edge_index, val_edge_index, test_edge_index
+        self.train_label, self.val_label, self.test_label = train_label, val_label, test_label
+
     def split_train(self, batch_size=1000):
 
-        row,col = self.train_edge_index
-        row,col = row.numpy().tolist(),col.numpy().tolist()
+        row, col = self.train_edge_index
+        row, col = row.numpy().tolist(), col.numpy().tolist()
         label_list = self.train_label.numpy().tolist()
-        #random
+        # random
         ran_seed = random.random()
         random.seed(ran_seed)
         random.shuffle(row)
@@ -220,24 +264,25 @@ class edge_data():
         random.shuffle(col)
         random.seed(ran_seed)
         random.shuffle(label_list)
-        #to tensor
+        # to tensor
         row = [th.LongTensor(row[i:i + batch_size]) for i in range(len(row)) if i % batch_size == 0]
         col = [th.LongTensor(col[i:i + batch_size]) for i in range(len(col)) if i % batch_size == 0]
 
         label = [th.LongTensor(label_list[i:i + batch_size]) for i in range(len(label_list)) if i % batch_size == 0]
-        return [row,col],label
+        return [row, col], label
+
 
 class random_edge_data():
-    def __init__(self,args):
+    def __init__(self, args):
         if args.data_name == 'cite':
             self.train_file_pth = args.data_path + "a_p_cite_list_train.txt"
             self.test_file_pth = args.data_path + "a_p_cite_list_test.txt"
-        elif args.data_name=='colab':
-            self.train_file_pth = args.data_path+"a_a_list_train.txt"
+        elif args.data_name == 'colab':
+            self.train_file_pth = args.data_path + "a_a_list_train.txt"
             self.test_file_pth = args.data_path + "a_a_list_test.txt"
         else:
             exit('data_name errors.')
-        all_edge_index = [[],[]]
+        all_edge_index = [[], []]
         all_label = []
         with open(self.train_file_pth) as f:
             data_file = csv.reader(f)
@@ -255,7 +300,7 @@ class random_edge_data():
                 all_edge_index[1].append(second_edge)
                 all_label.append(int(d[2]))
             f.close()
-        #random all edge and label
+        # random all edge and label
         row, col = all_edge_index
         ran_seed = random.random()
         random.seed(ran_seed)
@@ -277,9 +322,9 @@ class random_edge_data():
         val_label = th.FloatTensor(val_label)
         # test data
         row, col = all_edge_index
-        row, col = row[n_val:n_val+n_test], col[n_val:n_val+n_test]
+        row, col = row[n_val:n_val + n_test], col[n_val:n_val + n_test]
         row, col = th.LongTensor(row), th.LongTensor(col)
-        test_label = all_label[n_val:n_val+n_test]
+        test_label = all_label[n_val:n_val + n_test]
         test_edge_index = th.stack([row, col], dim=0)
         test_label = th.FloatTensor(test_label)
         # train data
@@ -290,16 +335,17 @@ class random_edge_data():
         train_edge_index = th.stack([row, col], dim=0)
         train_label = th.FloatTensor(train_label)
 
-        self.train_edge_index,self.val_edge_index,self.test_edge_index = train_edge_index, val_edge_index, test_edge_index
-        self.train_label,self.val_label,self.test_label = train_label,val_label, test_label
+        self.train_edge_index, self.val_edge_index, self.test_edge_index = train_edge_index, val_edge_index, test_edge_index
+        self.train_label, self.val_label, self.test_label = train_label, val_label, test_label
         print('get data size (train,val,test): ', self.train_label.size()[0], self.val_label.size()[0],
               self.test_label.size()[0])
+
     def split_train(self, batch_size=1000):
 
-        row,col = self.train_edge_index
-        row,col = row.numpy().tolist(),col.numpy().tolist()
+        row, col = self.train_edge_index
+        row, col = row.numpy().tolist(), col.numpy().tolist()
         label_list = self.train_label.numpy().tolist()
-        #random
+        # random
         ran_seed = random.random()
         random.seed(ran_seed)
         random.shuffle(row)
@@ -307,33 +353,34 @@ class random_edge_data():
         random.shuffle(col)
         random.seed(ran_seed)
         random.shuffle(label_list)
-        #to tensor
+        # to tensor
         row = [th.LongTensor(row[i:i + batch_size]) for i in range(len(row)) if i % batch_size == 0]
         col = [th.LongTensor(col[i:i + batch_size]) for i in range(len(col)) if i % batch_size == 0]
         label = [th.FloatTensor(label_list[i:i + batch_size]) for i in range(len(label_list)) if i % batch_size == 0]
 
-        return [row,col],label
+        return [row, col], label
+
 
 def read_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--data_path', type = str, default = '../data/academic_test/',
-                   help='path to data')
-    parser.add_argument('--model_path', type = str, default = '../model_save/',
-                   help='path to save model')
-    parser.add_argument('--A_n', type = int, default = 28646,
-                   help = 'number of author node')
-    parser.add_argument('--P_n', type = int, default = 21044,
-                   help = 'number of paper node')
-    parser.add_argument('--V_n', type = int, default = 18,
-                   help = 'number of venue node')
-    parser.add_argument('--in_f_d', type = int, default = 128,
-                   help = 'input feature dimension')
-    parser.add_argument('--embed_d', type = int, default = 128,
-                   help = 'embedding dimension')
-    parser.add_argument('--train_iter_n', type = int, default = 50,
-                   help = 'max number of training iteration')
-    parser.add_argument("--cuda", default = 0, type = int)
-    parser.add_argument("--checkpoint", default = '', type=str)
+    parser.add_argument('--data_path', type=str, default='../data/academic_test/',
+                        help='path to data')
+    parser.add_argument('--model_path', type=str, default='../model_save/',
+                        help='path to save model')
+    parser.add_argument('--A_n', type=int, default=28646,
+                        help='number of author node')
+    parser.add_argument('--P_n', type=int, default=21044,
+                        help='number of paper node')
+    parser.add_argument('--V_n', type=int, default=18,
+                        help='number of venue node')
+    parser.add_argument('--in_f_d', type=int, default=128,
+                        help='input feature dimension')
+    parser.add_argument('--embed_d', type=int, default=128,
+                        help='embedding dimension')
+    parser.add_argument('--train_iter_n', type=int, default=50,
+                        help='max number of training iteration')
+    parser.add_argument("--cuda", default=0, type=int)
+    parser.add_argument("--checkpoint", default='', type=str)
     parser.add_argument("--epochs", default=1000, type=str)
     parser.add_argument("--patience", default=10, type=str)
     parser.add_argument("--n_layers", default=3, type=int)
@@ -346,10 +393,11 @@ def read_args():
     parser.add_argument('--batch_size', type=int, default=1000000)
     parser.add_argument('--val_ratio', type=float, default=0.1)
     parser.add_argument('--test_ratio', type=float, default=0.2)
-    parser.add_argument('--data_name', type=str, default='cite')
+    parser.add_argument('--data', type=str, default='LastFM', choices=['LastFM', 'amazon', 'youtube'])
 
     args = parser.parse_args()
     return args
+
 
 def gen_embed(args, with_paper=True):
     if with_paper:
@@ -374,19 +422,20 @@ def gen_embed(args, with_paper=True):
         a_embed = np.zeros((args.A_n, args.in_f_d * 2))
         v_embed = np.zeros((args.V_n, args.in_f_d * 2))
         embed = np.vstack((a_embed, p_embed, v_embed))
-        embed=th.FloatTensor(embed)
-    else:  #sparse one-hot
-        node_all = args.A_n+args.P_n+args.V_n
-        embed_index_list=[]
+        embed = th.FloatTensor(embed)
+    else:  # sparse one-hot
+        node_all = args.A_n + args.P_n + args.V_n
+        embed_index_list = []
         for i in range(args.A_n):
-            embed_index_list.append([i,i])
+            embed_index_list.append([i, i])
         embed_value_list = [1] * args.A_n
 
-        embed_index_tensor= th.tensor(embed_index_list,dtype=th.long)
+        embed_index_tensor = th.tensor(embed_index_list, dtype=th.long)
         embed_value_tensor = th.FloatTensor(embed_value_list)
 
-        embed = th.sparse.FloatTensor(embed_index_tensor.t(),embed_value_tensor,th.Size([node_all,args.A_n]))
+        embed = th.sparse.FloatTensor(embed_index_tensor.t(), embed_value_tensor, th.Size([node_all, args.A_n]))
     return embed
+
 
 def gen_edge_list(args):
     a_p_list = [[], []]
@@ -395,7 +444,7 @@ def gen_edge_list(args):
     v_p_list = [[], []]
     p_v_list = [[], []]
 
-    relation_f = ["a_p_list_train.txt", "p_a_list_train.txt", "p_p_cite_list_train.txt",  "v_p_list_train.txt"]
+    relation_f = ["a_p_list_train.txt", "p_a_list_train.txt", "p_p_cite_list_train.txt", "v_p_list_train.txt"]
     for i in range(len(relation_f)):
         f_name = relation_f[i]
         neigh_f = open(args.data_path + f_name, "r")
@@ -423,7 +472,7 @@ def gen_edge_list(args):
             else:
                 print('Some errors occur.')
         neigh_f.close()
-    #get paper-venue edge
+    # get paper-venue edge
     p_v = [0] * args.P_n
 
     p_v_f = open(args.data_path + 'p_v.txt', "r")
@@ -435,7 +484,7 @@ def gen_edge_list(args):
         p_v_list[0].append(p_id)
         p_v_list[1].append(v_id)
     p_v_f.close()
-    #set range of a,p,v (0-28645,0-21043,0-17) -> (0-28645,28646-49689,49690-49707)
+    # set range of a,p,v (0-28645,0-21043,0-17) -> (0-28645,28646-49689,49690-49707)
     for i in range(len(a_p_list[1])):
         a_p_list[1][i] += args.A_n
     for i in range(len(p_a_list[0])):
@@ -444,25 +493,26 @@ def gen_edge_list(args):
         p_p_list[0][i] += args.A_n
         p_p_list[1][i] += args.A_n
     for i in range(len(v_p_list[0])):
-        v_p_list[0][i] += args.A_n+args.P_n
+        v_p_list[0][i] += args.A_n + args.P_n
         v_p_list[1][i] += args.A_n
     for i in range(len(p_v_list[0])):
         p_v_list[0][i] += args.A_n
-        p_v_list[1][i] += args.A_n+args.P_n
-    #42379 42379 ...
+        p_v_list[1][i] += args.A_n + args.P_n
+    # 42379 42379 ...
     start_list = a_p_list[0] + p_a_list[0] + p_p_list[0] + v_p_list[0] + p_v_list[0]
     end_list = a_p_list[1] + p_a_list[1] + p_p_list[1] + v_p_list[1] + p_v_list[1]
-    return [start_list,end_list]
+    return [start_list, end_list]
 
-def gen_data(embed,edge_list):
+
+def gen_data(embed, edge_list):
     return Data(x=embed,
                 edge_list=th.LongTensor(edge_list),
                 )
 
+
 # This function modified from author's code.
 def score_AUC_f1(test_predict, test_target):
-
-    _, test_predict = th.max(test_predict,1)
+    _, test_predict = th.max(test_predict, 1)
     test_predict, test_target = test_predict.cpu().detach().numpy(), test_target.cpu().detach().numpy()
     AUC_score = roc_auc_score(test_target, test_predict)
 
@@ -484,14 +534,15 @@ def score_AUC_f1(test_predict, test_target):
             false_n_count += 1
 
     # print("accuracy: " + str(float(correct_count) / total_count))
-    precision = float(true_p_count) / (true_p_count + false_p_count) if true_p_count + false_p_count>0 else 0
+    precision = float(true_p_count) / (true_p_count + false_p_count) if true_p_count + false_p_count > 0 else 0
     # print("precision: " + str(precision))
-    recall = float(true_p_count) / (true_p_count + false_n_count) if true_p_count + false_n_count>0 else 0
+    recall = float(true_p_count) / (true_p_count + false_n_count) if true_p_count + false_n_count > 0 else 0
     # print("recall: " + str(recall))
-    F1 = float(2 * precision * recall) / (precision + recall) if precision + recall> 0 else 0
+    F1 = float(2 * precision * recall) / (precision + recall) if precision + recall > 0 else 0
     return AUC_score, F1
 
-def train(model,data,args):
+
+def train(model, data, args):
     device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
     # train
     stopper = EarlyStopping(patience=args.patience)
@@ -501,7 +552,7 @@ def train(model,data,args):
     loss_func = th.nn.CrossEntropyLoss()
     for epoch in range(args.epochs):
         model.train()
-        [row,col], train_label_ = edge_data_.split_train(batch_size=args.batch_size)
+        [row, col], train_label_ = edge_data_.split_train(batch_size=args.batch_size)
         for i in range(len(train_label_)):
             z = model.encode(data)
             row_, col_ = row[i].to(device), col[i].to(device)
@@ -512,10 +563,11 @@ def train(model,data,args):
             loss.backward()
             optimizer.step()
 
-
-            auc,f1 = score_AUC_f1(out, link_labels)
+            auc, f1 = score_AUC_f1(out, link_labels)
             para_reseter.step(loss, auc, model)
-            print('epoch {:d} | batch {:d} | train loss {:.4f} | train auc {:.4f} | train f1 {:.4f}'.format(epoch,i,loss,auc,f1))
+            print('epoch {:d} | batch {:d} | train loss {:.4f} | train auc {:.4f} | train f1 {:.4f}'.format(epoch, i,
+                                                                                                            loss, auc,
+                                                                                                            f1))
 
             # val_loss, val_auc, val_f1 = evaluate(model, data, edge_data_.val_edge_index.to(device), edge_data_.val_label.to(device))
             # print('---------------------------------------------------------------------------'
@@ -546,17 +598,19 @@ def train(model,data,args):
     # stopper.load_checkpoint(model)
     # print('Score of test_data(accuracy, micro_f1, macro_f1):',evaluate(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device) ))
 
-def evaluate(model,data,edge_index,labels):
+
+def evaluate(model, data, edge_index, labels):
     model.eval()
     with th.no_grad():
         z = model.encode(data)
         out = model.decode(z, edge_index)
     loss_func = th.nn.CrossEntropyLoss()
     loss = loss_func(out, labels)
-    auc,f1 = score_AUC_f1(out, labels)
+    auc, f1 = score_AUC_f1(out, labels)
     # print('Test loss {:.4f} | Test Micro f1 {:.4f} | Test Macro f1 {:.4f}'.format(
     #     loss.item(), micro_f1, macro_f1))
     return loss, auc, f1
+
 
 def main(args):
     device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
@@ -564,20 +618,24 @@ def main(args):
         print("Use GPU(%s) success." % th.cuda.get_device_name())
 
     edge_list = gen_edge_list(args)
-    embed = gen_embed(args,with_paper=True).to(device) #sparse
+    embed = gen_embed(args, with_paper=True).to(device)  # sparse
     feat_size = embed.size()[1]
     data = gen_data(embed, edge_list).to(device)
 
-    if args.model=='GCN':
-        model= GCN(in_feats=feat_size,hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout).to(device)
-    elif args.model=='GSAGE':
-        model= GSAGE(in_feats=feat_size,hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout).to(device)
-    else :
-        heads = args.n_heads * (args.n_layers - 1 ) + [1]
-        model = GAT(in_feats=feat_size, hid_feats=128,out_feats=2,n_layers=args.n_layers,dropout=args.dropout,heads=heads).to(device)
+    if args.model == 'GCN':
+        model = GCN(in_feats=feat_size, hid_feats=128, out_feats=2, n_layers=args.n_layers, dropout=args.dropout).to(
+            device)
+    elif args.model == 'GSAGE':
+        model = GSAGE(in_feats=feat_size, hid_feats=128, out_feats=2, n_layers=args.n_layers, dropout=args.dropout).to(
+            device)
+    else:
+        heads = args.n_heads * (args.n_layers - 1) + [1]
+        model = GAT(in_feats=feat_size, hid_feats=128, out_feats=2, n_layers=args.n_layers, dropout=args.dropout,
+                    heads=heads).to(device)
     print(args)
-    train(model,data,args)
+    train(model, data, args)
     # evaluate(model,data,,labels)
+
 
 def test_model(args):
     device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
@@ -602,6 +660,7 @@ def test_model(args):
     print('Score of test_data(accuracy, micro_f1, macro_f1):',
           evaluate(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device)))
 
-if __name__=='__main__':
+
+if __name__ == '__main__':
     args = read_args()
     main(args)

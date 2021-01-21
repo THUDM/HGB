@@ -26,7 +26,7 @@ parser.add_argument('--walk_L', type = int, default = 30,
 			   help='length of each walk')
 parser.add_argument('--window', type = int, default = 7,
 			   help='window size for relation extration')
-parser.add_argument('--T_split', type = int, default = 2012,
+parser.add_argument('--T_split', type = int, default = 2013,
 			   help = 'split time of train/test data')
 
 args = parser.parse_args()
@@ -244,9 +244,9 @@ class input_data(object):
 		p_p_cite_list_train = self.p_p_cite_list_train
 		p_p_cite_list_test = self.p_p_cite_list_test
 		
-		for t in range(len(a_p_list)):
-			for i in range(len(a_p_list[t])):
-				for j in range(len(a_p_list[t][i])):
+		for t in range(len(a_p_list)): # train or test
+			for i in range(len(a_p_list[t])):# each author
+				for j in range(len(a_p_list[t][i])):# each author's paper
 					if t == 0:
 						p_id = int(a_p_list[t][i][j][1:])
 						for k in range(len(p_p_cite_list_train[p_id])):
@@ -360,7 +360,7 @@ input_data_class = input_data(args = args)
 input_data_class.a_a_collaborate_train_test() #set author-author collaboration data
 
 
-#input_data_class.a_p_citation_train_test() #set author-paper citation data 
+input_data_class.a_p_citation_train_test() #set author-paper citation data
 
 
 #input_data_class.a_v_train_test() #generate author-venue data 
