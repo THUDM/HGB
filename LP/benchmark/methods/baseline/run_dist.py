@@ -191,7 +191,7 @@ def run_model_DBLP(args):
         net.eval()
         test_logits = []
         with torch.no_grad():
-            test_neigh, test_label = dl.get_test_neigh(edge_types=[test_edge_type])
+            test_neigh, test_label = dl.get_test_neigh()
             test_neigh = test_neigh[test_edge_type]
             test_label = test_label[test_edge_type]
             left = np.array(test_neigh[0])
@@ -208,7 +208,7 @@ def run_model_DBLP(args):
             for k in res:
                 res_2hop[k] += res[k]
         with torch.no_grad():
-            test_neigh, test_label = dl.get_test_neigh_w_random(edge_types=[test_edge_type])
+            test_neigh, test_label = dl.get_test_neigh_w_random()
             test_neigh = test_neigh[test_edge_type]
             test_label = test_label[test_edge_type]
             left = np.array(test_neigh[0])
