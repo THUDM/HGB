@@ -120,7 +120,7 @@ if __name__ == '__main__':
             torch.save(model.state_dict(),
                        os.path.join(sys.path[0], 'model_save', f"HetGNN_{data_name}_{str(iter_i)}.pt"))
             # save embeddings for evaluation
-            model.save_embed(os.path.join(temp_dir, 'node_embedding.txt'))
+            model.save_embed(os.path.join(temp_dir, f'node_embedding.txt'))
             print('Info: save model and  node_embedding.txt done')
         print('Info: iteration ' + str(iter_i) + ' finish.')
 

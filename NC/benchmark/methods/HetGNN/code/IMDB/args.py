@@ -15,7 +15,7 @@ def read_args():
                         help='batch size')
     parser.add_argument('--mini_batch_s', type=int, default=200,
                         help='mini batch size')
-    parser.add_argument('--train_iter_n', type=int, default=200,
+    parser.add_argument('--train_iter_n', type=int, default=50,
                         help='max number of training iteration')
     parser.add_argument('--walk_n', type=int, default=10,
                         help='number of walk per root node')

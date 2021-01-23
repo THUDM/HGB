@@ -8,6 +8,7 @@ import argparse
 import pickle
 import sklearn
 from sklearn import linear_model
+from sklearn.tree import DecisionTreeClassifier
 import sys
 
 sys.path.append('../../')
@@ -44,7 +45,7 @@ node_n = dl.nodes['count']
 def get_class_embed():
     decimal_keep = 4
     class_embed = np.around(np.random.normal(0, 0.01, [node_n[node_type_2class], args.embed_d]), decimal_keep)
-    embed_f = open(os.path.join(temp_dir, "node_embedding.txt"), "r")
+    embed_f = open(os.path.join(temp_dir, "node_embedding50.txt"), "r")
     for line in islice(embed_f, 0, None):
         line = line.strip()
         node_id = re.split(' ', line)[0]
@@ -65,7 +66,7 @@ def model():
     train_target = dl.labels_train['data'][train_id]
     train_target = np.array(train_target)
 
-    learner = linear_model.RidgeClassifier()
+    learner =DecisionTreeClassifier()
     learner.fit(train_features, train_target)
     print("training finish!")
 
