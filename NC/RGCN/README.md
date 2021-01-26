@@ -19,14 +19,20 @@ We replace the GNN module in paper by GCN for comparison.
 * run python file
 
 ```bash
-python3 entity_classify.py -d aifb --gpu=3 --lr=0.001 -e 300 --model=gcn --testing
-python3 entity_classify.py -d mutag --l2norm 1e-2 --gpu=3 --lr=0.01 --n-hidden=32 --model=gcn --testing
-python3 entity_classify.py -d bgs --gpu 3 --n-hidden=64  --lr=0.015 --n-layer=1 --model=gcn --testing 
-python3 entity_classify.py -d am --n-hidden=64 --n-layer=1 --gpu=3 --lr=0.005 -e 100  --model=gcn --testing
+python3 entity_classify.py -d aifb --gpu=0 --lr=0.001 --model=gcn
+python3 entity_classify.py -d mutag --l2norm 1e-2 --gpu=0 --lr=0.01 --n-hidden=32 --model=gcn
+python3 entity_classify.py -d bgs --gpu=0 --n-hidden=64  --lr=0.05 --model=gcn
+python3 entity_classify.py -d am --n-hidden=64 --gpu=0 --lr=0.01  --model=gcn
 
-python3 entity_classify.py -d aifb --gpu=3 --lr=0.002 -e 300 --model=gat --testing
-python3 entity_classify.py -d mutag  --gpu=3 --lr=0.008 --n-hidden=32 --dropout=0.5 --l2norm=5e-3 -e 100 --model=gat --testing
-python3 entity_classify.py -d bgs --gpu 3 --n-hidden=32 --l2norm=5e-4  --lr=0.03 --n-layer=1 --model=gat -e 300 --testing
+python3 entity_classify.py -d aifb --gpu=0 --lr=0.002 --model=gat
+python3 entity_classify.py -d mutag  --gpu=0 --lr=0.008 --n-hidden=32 --dropout=0.5 --l2norm=5e-3 --model=gat
+python3 entity_classify.py -d bgs --gpu=0 --n-hidden=32 --l2norm=5e-4  --lr=0.01 --model=gat --dropout=0.4
+python3 entity_classify.py -d am --n-hidden=64 --gpu=0 --lr=0.01  --model=gat --dropout=0.3
+
+python3 entity_classify.py -d aifb --gpu=0
+python3 entity_classify.py -d mutag --l2norm 5e-4 --n-bases 30 --gpu=0
+python3 entity_classify.py -d bgs --l2norm 5e-4 --n-bases 40  --gpu=0
+python3 entity_classify.py -d am --n-bases=40 --n-hidden=10 --l2norm=5e-4 --gpu=0
 ```
 ## performance report
 

@@ -18,7 +18,7 @@ from dgl.nn.pytorch import RelGraphConv
 from functools import partial
 from dgl.data.rdf import AIFBDataset, MUTAGDataset, BGSDataset, AMDataset
 
-from model import BaseRGCN, GCN, GAT
+from model import BaseRGCN, GCN, GAT, EarlyStopping
 
 
 class EntityClassify(BaseRGCN):
@@ -70,11 +70,8 @@ def main(args):
     labels = hg.nodes[category].data.pop('labels')
 
     # split dataset into train, validate, test
-    if args.validation:
-        val_idx = train_idx[:len(train_idx) // 5]
-        train_idx = train_idx[len(train_idx) // 5:]
-    else:
-        val_idx = train_idx
+    val_idx = train_idx[:len(train_idx) // 5]
+    train_idx = train_idx[len(train_idx) // 5:]
 
     # calculate norm for each edge type and store in edge
     for canonical_etype in hg.canonical_etypes:
@@ -172,6 +169,8 @@ def main(args):
     forward_time = []
     backward_time = []
     model.train()
+    early_stopping = EarlyStopping(patience=args.patience, verbose=True, delta=1e-6,
+                                   save_path='checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.n_layers))
     for epoch in range(args.n_epochs):
         optimizer.zero_grad()
         t0 = time.time()
@@ -198,8 +197,14 @@ def main(args):
             dim=1) == labels[val_idx]).item() / len(val_idx)
         print("Train Accuracy: {:.4f} | Train Loss: {:.4f} | Validation Accuracy: {:.4f} | Validation loss: {:.4f}".
               format(train_acc, loss.item(), val_acc, val_loss.item()))
+        early_stopping(val_loss, model)
+        if early_stopping.early_stop:
+            print('Early stopping!')
+            break
     print()
 
+    model.load_state_dict(torch.load(
+        'checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.n_layers)))
     model.eval()
     if not args.model == "rgcn":
         logits = model(g, feats)
@@ -235,8 +240,9 @@ if __name__ == '__main__':
                         help="number of filter weight matrices, default: -1 [use all]")
     parser.add_argument("--n-layers", type=int, default=2,
                         help="number of propagation rounds")
-    parser.add_argument("-e", "--n-epochs", type=int, default=50,
+    parser.add_argument("-e", "--n-epochs", type=int, default=5000,
                         help="number of training epochs")
+    parser.add_argument('--patience', type=int, default=30, help='Patience.')
     parser.add_argument("-d", "--dataset", type=str, required=True,
                         help="dataset to use")
     parser.add_argument("--l2norm", type=float, default=0,
@@ -244,9 +250,6 @@ if __name__ == '__main__':
     parser.add_argument("--use-self-loop", default=False, action='store_true',
                         help="include self feature as a special relation")
     fp = parser.add_mutually_exclusive_group(required=False)
-    fp.add_argument('--validation', dest='validation', action='store_true')
-    fp.add_argument('--testing', dest='validation', action='store_false')
-    parser.set_defaults(validation=True)
 
     args = parser.parse_args()
     print(args)
