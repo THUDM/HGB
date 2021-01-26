@@ -16,7 +16,8 @@ class DisMult(th.nn.Module):
         self.reset_parameters()
 
     def reset_parameters(self):
-        nn.init.xavier_normal_(self.weights, gain=1.414)
+        nn.init.xavier_uniform_(
+            self.weights, gain=nn.init.calculate_gain('relu'))
 
     def forward(self, r_list, input1, input2):
         r = self.weights[r_list]

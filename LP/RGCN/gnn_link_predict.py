@@ -15,11 +15,8 @@ import argparse
 import numpy as np
 import time
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
-import random
 from dgl.data.knowledge_graph import load_data
-from dgl.nn.pytorch import RelGraphConv
 import dgl
 
 from model import GCN, GAT
@@ -120,11 +117,14 @@ def main(args):
 
         t0 = time.time()
         hid_feat = model.encode([g, [feat]])
+        reg_loss = torch.mean(hid_feat.pow(2)) + \
+            torch.mean(model.decode.weights.pow(2))
         r_list = data[:, 1]
         out_feat = model.decode(
             r_list, hid_feat[data[:, 0]], hid_feat[data[:, 2]])
-        out_feat = torch.sigmoid(out_feat)
-        loss = F.binary_cross_entropy_with_logits(out_feat, labels)
+        print(out_feat)
+        loss = F.binary_cross_entropy_with_logits(
+            out_feat, labels) + reg_loss * args.regularization
         t1 = time.time()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(
@@ -134,7 +134,7 @@ def main(args):
 
         forward_time.append(t1 - t0)
         backward_time.append(t2 - t1)
-        print("Epoch {:04d} | Loss {:.10f} | Best MRR {:.4f} | Forward {:.4f}s | Backward {:.4f}s".
+        print("Epoch {:04d} | Loss {:f} | Best MRR {:.4f} | Forward {:.4f}s | Backward {:.4f}s".
               format(epoch, loss.item(), best_mrr, forward_time[-1], backward_time[-1]))
 
         optimizer.zero_grad()
@@ -200,7 +200,7 @@ if __name__ == '__main__':
                         help="dataset to use")
     parser.add_argument("--eval-batch-size", type=int, default=500,
                         help="batch size when evaluating")
-    parser.add_argument("--eval-protocol", type=str, default="filtered",
+    parser.add_argument("--eval-protocol", type=str, default="raw",
                         help="type of evaluation protocol: 'raw' or 'filtered' mrr")
     parser.add_argument("--regularization", type=float, default=0.01,
                         help="regularization weight")

@@ -237,7 +237,7 @@ if __name__ == '__main__':
                         help="learning rate")
     parser.add_argument("--n-bases", type=int, default=100,
                         help="number of weight blocks for each relation")
-    parser.add_argument("--n-layers", type=int, default=2,
+    parser.add_argument("--n-layers", type=int, default=3,
                         help="number of propagation rounds")
     parser.add_argument("--n-epochs", type=int, default=6000,
                         help="number of minimum training epochs")
@@ -245,7 +245,7 @@ if __name__ == '__main__':
                         help="dataset to use")
     parser.add_argument("--eval-batch-size", type=int, default=500,
                         help="batch size when evaluating")
-    parser.add_argument("--eval-protocol", type=str, default="filtered",
+    parser.add_argument("--eval-protocol", type=str, default="raw",
                         help="type of evaluation protocol: 'raw' or 'filtered' mrr")
     parser.add_argument("--regularization", type=float, default=0.01,
                         help="regularization weight")
@@ -257,7 +257,7 @@ if __name__ == '__main__':
                         help="portion of edges used as positive sample")
     parser.add_argument("--negative-sample", type=int, default=10,
                         help="number of negative samples per positive sample")
-    parser.add_argument("--evaluate-every", type=int, default=500,
+    parser.add_argument("--evaluate-every", type=int, default=100,
                         help="perform evaluation every n epochs")
     parser.add_argument("--edge-sampler", type=str, default="uniform",
                         help="type of edge sampler: 'uniform' or 'neighbor'")
