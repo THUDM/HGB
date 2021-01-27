@@ -38,11 +38,6 @@ class myGAT(nn.Module):
             item = item_embed.shape[0]
             self.ret_num = user+item
             self.ini = torch.FloatTensor(np.concatenate([user_embed, item_embed], axis=0)).cuda()
-            """self.embed.data[:user] = nn.Parameter(torch.tensor(user_embed))
-            self.embed.data[user:user+item] = nn.Parameter(torch.tensor(item_embed))
-            left = nn.Parameter(torch.zeros((num_entity-item-user, in_dim)))
-            nn.init.xavier_normal_(left, gain=1.414)
-            self.embed.data[user+item:] = left"""
         # input projection (no residual)
         self.gat_layers.append(myGATConv(edge_dim, num_etypes,
             in_dim, num_hidden, heads[0],
