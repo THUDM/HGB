@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import dgl
@@ -35,11 +36,13 @@ class myGAT(nn.Module):
             item_embed = pretrain['item_embed']
             user = user_embed.shape[0]
             item = item_embed.shape[0]
-            self.embed.data[:user] = nn.Parameter(torch.tensor(user_embed))
+            self.ret_num = user+item
+            self.ini = torch.FloatTensor(np.concatenate([user_embed, item_embed], axis=0)).cuda()
+            """self.embed.data[:user] = nn.Parameter(torch.tensor(user_embed))
             self.embed.data[user:user+item] = nn.Parameter(torch.tensor(item_embed))
             left = nn.Parameter(torch.zeros((num_entity-item-user, in_dim)))
             nn.init.xavier_normal_(left, gain=1.414)
-            self.embed.data[user+item:] = left
+            self.embed.data[user+item:] = left"""
         # input projection (no residual)
         self.gat_layers.append(myGATConv(edge_dim, num_etypes,
             in_dim, num_hidden, heads[0],
@@ -61,7 +64,8 @@ class myGAT(nn.Module):
     def forward(self, g, e_feat):
         all_embed = []
         h = self.embed
-        all_embed.append(h)
+        tmp = (h / (torch.max(torch.norm(h, dim=1, keepdim=True),self.epsilon)))
+        all_embed.append(tmp)
         res_attn = None
         for l in range(self.num_layers):
             h, res_attn = self.gat_layers[l](g, h, e_feat, res_attn=res_attn)
@@ -73,4 +77,5 @@ class myGAT(nn.Module):
         logits = logits.mean(1)
         all_embed.append(logits / (torch.max(torch.norm(logits, dim=1, keepdim=True),self.epsilon)))
         all_embed = torch.cat(all_embed, 1)
-        return all_embed
+        return torch.cat([all_embed[:self.ret_num], self.ini], 1)
+
