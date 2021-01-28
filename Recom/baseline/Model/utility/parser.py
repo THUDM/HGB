@@ -70,15 +70,15 @@ def parse_args():
     parser.add_argument('--report', type=int, default=0,
                         help='0: Disable performance report w.r.t. sparsity levels, 1: Show performance report w.r.t. sparsity levels')
 
-    parser.add_argument('--use_att', type=bool, default=True,
+    parser.add_argument('--use_att', type=bool, default=False,
                         help='whether using attention mechanism')
-    parser.add_argument('--use_kge', type=bool, default=True,
+    parser.add_argument('--use_kge', type=bool, default=False,
                         help='whether using knowledge graph embedding')
     
-    parser.add_argument('--l1_flag', type=bool, default=True,
+    parser.add_argument('--l1_flag', type=bool, default=False,
                         help='Flase: using the L2 norm, True: using the L1 norm.')
     parser.add_argument('--heads', type=int, default=1)
     parser.add_argument('--weight_decay', type=float, default=1e-5)
-    parser.add_argument('--alpha', type=float, default=1.0)
+    parser.add_argument('--alpha', type=float, default=0.)
 
     return parser.parse_args()

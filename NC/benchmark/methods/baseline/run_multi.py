@@ -169,7 +169,7 @@ if __name__ == '__main__':
     ap.add_argument('--num-layers', type=int, default=5)
     ap.add_argument('--lr', type=float, default=1e-3)
     ap.add_argument('--dropout', type=float, default=0.5)
-    ap.add_argument('--weight-decay', type=float, default=1e-4)
+    ap.add_argument('--weight-decay', type=float, default=2e-4)
     ap.add_argument('--slope', type=float, default=0.1)
     ap.add_argument('--dataset', type=str)
     ap.add_argument('--edge-feats', type=int, default=64)

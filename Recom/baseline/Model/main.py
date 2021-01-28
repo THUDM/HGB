@@ -105,7 +105,7 @@ if __name__ == '__main__':
         weight_size = eval(args.layer_size)
         num_layers = len(weight_size) - 2
         heads = [args.heads] * num_layers + [1]
-        model = myGAT(config['n_users']+config['n_entities'], args.kge_size, config['n_relations']*2+1, args.embed_size, weight_size[-2], weight_size[-1], num_layers, heads, F.elu, 0.1, 0., 0.05, False, pretrain=pretrain_data, alpha=args.alpha).cuda()
+        model = myGAT(config['n_users']+config['n_entities'], args.kge_size, config['n_relations']*2+1, args.embed_size, weight_size[-2], weight_size[-1], num_layers, heads, F.elu, 0.1, 0., 0.01, False, pretrain=pretrain_data, alpha=args.alpha).cuda()
 
     #ret = test_pretrain(model, pretrain_data, list(data_generator.test_user_dict.keys()), drop_flag=False, batch_test_flag=False)
     #print(ret['recall'])
