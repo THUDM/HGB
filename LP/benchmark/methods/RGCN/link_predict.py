@@ -1,32 +1,19 @@
-"""
-Modeling Relational Data with Graph Convolutional Networks
-Paper: https://arxiv.org/abs/1703.06103
-Code: https://github.com/MichSchli/RelationPrediction
-Difference compared to MichSchli/RelationPrediction
-* Report raw metrics instead of filtered metrics.
-* By default, we use uniform edge sampling instead of neighbor-based edge
-  sampling used in author's code. In practice, we find it achieves similar MRR
-  probably because the model only uses one GNN layer so messages are propagated
-  among immediate neighbors. User could specify "--edge-sampler=neighbor" to switch
-  to neighbor-based edge sampling.
-"""
-
-import argparse
-import numpy as np
-import time
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import random
 import dgl
-from dgl.nn.pytorch import RelGraphConv
-import sys
-
 from model import BaseRGCN
-
+from utils import load_data
+from utils import EarlyStopping
 import utils
+import numpy as np
+import torch.nn.functional as F
+import torch.nn as nn
+import torch
+from collections import defaultdict
+import argparse
+import time
+import sys
+from dgl.nn.pytorch import RelGraphConv
 
-sys.path.append("../../")
+sys.path.append('../../')
 
 
 class RGCN(BaseRGCN):
@@ -42,10 +29,10 @@ class RGCN(BaseRGCN):
 
 class LinkPredict(nn.Module):
     def __init__(self, in_dims, h_dim, num_rels, num_bases=-1,
-                 num_hidden_layers=1, dropout=0, use_cuda=False, reg_param=0):
+                 num_hidden_layers=1, dropout=0, reg_param=0):
         super(LinkPredict, self).__init__()
         self.rgcn = RGCN(in_dims, h_dim, h_dim, num_rels * 2, num_bases,
-                         num_hidden_layers, dropout, use_cuda)
+                         num_hidden_layers, dropout)
         self.reg_param = reg_param
         self.w_relation = nn.Parameter(torch.Tensor(num_rels, h_dim))
         nn.init.xavier_uniform_(self.w_relation,
@@ -75,13 +62,29 @@ class LinkPredict(nn.Module):
         return predict_loss + self.reg_param * reg_loss
 
 
-def run(args):
+def sp_to_spt(mat):
+    coo = mat.tocoo()
+    values = coo.data
+    indices = np.vstack((coo.row, coo.col))
+
+    i = torch.LongTensor(indices)
+    v = torch.FloatTensor(values)
+    shape = coo.shape
+
+    return torch.sparse.FloatTensor(i, v, torch.Size(shape))
+
+
+def mat2tensor(mat):
+    if type(mat) is np.ndarray:
+        return torch.from_numpy(mat).type(torch.FloatTensor)
+    return sp_to_spt(mat)
+
+
+def run_model_DBLP(args):
     feats_type = args.feats_type
-    features_list, adjM, dl = utils.load_data(args.dataset)
-    device = torch.device(
-        'cuda:0' if torch.cuda.is_available() and args.gpu >= 0 else 'cpu')
-    use_cuda = args.gpu >= 0 and torch.cuda.is_available()
-    features_list = [utils.mat2tensor(features).to(device)
+    features_list, adjM, dl = load_data(args.dataset)
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    features_list = [mat2tensor(features).to(device)
                      for features in features_list]
     in_dims = []
     if feats_type == 0:
@@ -137,21 +140,25 @@ def run(args):
     g = dgl.add_self_loop(g)
     g = g.to(device)
     e_feat = []
-    for u, v in zip(*g.edges()):
-        u = u.cpu().item()
-        v = v.cpu().item()
-        e_feat.append(edge2type[(u, v)])
-    e_feat = torch.tensor(e_feat, dtype=torch.long).to(device)
 
     test_norm = utils.comp_deg_norm(g.cpu())
     edge_norm = utils.node_norm_to_edge_norm(
         g.cpu(), torch.from_numpy(test_norm).view(-1, 1)).to(device)
 
-    for test_edge_type in dl.links_test['data'].keys():
-        train_pos, valid_pos = dl.get_train_valid_pos()
-        train_pos = train_pos[test_edge_type]
-        valid_pos = valid_pos[test_edge_type]
+    for u, v in zip(*g.edges()):
+        u = u.cpu().item()
+        v = v.cpu().item()
+        e_feat.append(edge2type[(u, v)])
+    e_feat = torch.tensor(e_feat, dtype=torch.long).to(device)
+    res_2hop = defaultdict(float)
+    res_random = defaultdict(float)
+    total = len(list(dl.links_test['data'].keys()))
 
+    if True:
+        # edge_types=[test_edge_type])
+        train_pos, valid_pos = dl.get_train_valid_pos()
+        num_classes = args.hidden_dim
+        heads = [args.num_heads] * args.num_layers + [args.num_heads]
         net = LinkPredict(
             in_dims,
             args.hidden_dim,
@@ -159,7 +166,6 @@ def run(args):
             num_bases=args.n_bases,
             num_hidden_layers=args.num_layers,
             dropout=args.dropout,
-            use_cuda=use_cuda,
             reg_param=args.regularization)
         net.to(device)
         optimizer = torch.optim.Adam(
@@ -167,25 +173,43 @@ def run(args):
 
         # training loop
         net.train()
-        early_stopping = utils.EarlyStopping(patience=args.patience, verbose=True,
-                                             save_path='checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.num_layers))
-        for epoch in range(args.epoch):
-            t_start = time.time()
-
+        early_stopping = EarlyStopping(patience=args.patience, verbose=True,
+                                       save_path='checkpoint/rgcn_checkpoint_{}_{}.pt'.format(args.dataset, args.num_layers))
+        loss_func = nn.BCELoss()
+    for epoch in range(args.epoch):
+        train_pos_head_full = np.array([])
+        train_pos_tail_full = np.array([])
+        train_neg_head_full = np.array([])
+        train_neg_tail_full = np.array([])
+        r_id_full = np.array([])
+        for test_edge_type in dl.links_test['data'].keys():
             train_neg = dl.get_train_neg(edge_types=[test_edge_type])[
                 test_edge_type]
-            train_pos_head = np.array(train_pos[0])
-            train_pos_tail = np.array(train_pos[1])
-            train_neg_head = np.array(train_neg[0])
-            train_neg_tail = np.array(train_neg[1])
-
+            train_pos_head_full = np.concatenate(
+                [train_pos_head_full, np.array(train_pos[test_edge_type][0])])
+            train_pos_tail_full = np.concatenate(
+                [train_pos_tail_full, np.array(train_pos[test_edge_type][1])])
+            train_neg_head_full = np.concatenate(
+                [train_neg_head_full, np.array(train_neg[0])])
+            train_neg_tail_full = np.concatenate(
+                [train_neg_tail_full, np.array(train_neg[1])])
+            r_id_full = np.concatenate([r_id_full, np.array(
+                [test_edge_type]*len(train_pos[test_edge_type][0]))])
+        train_idx = np.arange(len(train_pos_head_full))
+        np.random.shuffle(train_idx)
+        batch_size = args.batch_size
+        for step, start in enumerate(range(0, len(train_pos_head_full), args.batch_size)):
+            t_start = time.time()
             # training
             net.train()
-
+            train_pos_head = train_pos_head_full[train_idx[start:start+batch_size]]
+            train_neg_head = train_neg_head_full[train_idx[start:start+batch_size]]
+            train_pos_tail = train_pos_tail_full[train_idx[start:start+batch_size]]
+            train_neg_tail = train_neg_tail_full[train_idx[start:start+batch_size]]
+            r_id = r_id_full[train_idx[start:start+batch_size]]
             left = np.concatenate([train_pos_head, train_neg_head])
             right = np.concatenate([train_pos_tail, train_neg_tail])
-            mid = np.zeros(
-                train_pos_head.shape[0]+train_neg_head.shape[0], dtype=np.int32)
+            mid = np.concatenate([r_id, r_id])
             labels = torch.FloatTensor(np.concatenate(
                 [np.ones(train_pos_head.shape[0]), np.zeros(train_neg_head.shape[0])])).to(device)
 
@@ -202,23 +226,34 @@ def run(args):
             t_end = time.time()
 
             # print training info
-            print('Epoch {:05d} | Train_Loss: {:.4f} | Time: {:.4f}'.format(
-                epoch, train_loss.item(), t_end-t_start))
+            # print('Epoch {:05d}, Step{:05d} | Train_Loss: {:.4f} | Time: {:.4f}'.format(
+            #     epoch, step, train_loss.item(), t_end-t_start))
 
             t_start = time.time()
             # validation
             net.eval()
             with torch.no_grad():
-                valid_neg = dl.get_valid_neg(edge_types=[test_edge_type])[
-                    test_edge_type]
-                valid_pos_head = np.array(valid_pos[0])
-                valid_pos_tail = np.array(valid_pos[1])
-                valid_neg_head = np.array(valid_neg[0])
-                valid_neg_tail = np.array(valid_neg[1])
+                valid_pos_head = np.array([])
+                valid_pos_tail = np.array([])
+                valid_neg_head = np.array([])
+                valid_neg_tail = np.array([])
+                valid_r_id = np.array([])
+                for test_edge_type in dl.links_test['data'].keys():
+                    valid_neg = dl.get_valid_neg(edge_types=[test_edge_type])[
+                        test_edge_type]
+                    valid_pos_head = np.concatenate(
+                        [valid_pos_head, np.array(valid_pos[test_edge_type][0])])
+                    valid_pos_tail = np.concatenate(
+                        [valid_pos_tail, np.array(valid_pos[test_edge_type][1])])
+                    valid_neg_head = np.concatenate(
+                        [valid_neg_head, np.array(valid_neg[0])])
+                    valid_neg_tail = np.concatenate(
+                        [valid_neg_tail, np.array(valid_neg[1])])
+                    valid_r_id = np.concatenate([valid_r_id, np.array(
+                        [test_edge_type]*len(valid_pos[test_edge_type][0]))])
                 left = np.concatenate([valid_pos_head, valid_neg_head])
                 right = np.concatenate([valid_pos_tail, valid_neg_tail])
-                mid = np.zeros(
-                    valid_pos_head.shape[0]+valid_neg_head.shape[0], dtype=np.int32)
+                mid = np.concatenate([valid_r_id, valid_r_id])
                 labels = torch.FloatTensor(np.concatenate(
                     [np.ones(valid_pos_head.shape[0]), np.zeros(valid_neg_head.shape[0])])).to(device)
                 embed = net(g, features_list, e_feat, edge_norm)
@@ -227,27 +262,31 @@ def run(args):
                     embed, torch.LongTensor(triplets), labels)
             t_end = time.time()
             # print validation info
-            print('Epoch {:05d} | Val_Loss {:.4f} | Time(s) {:.4f}'.format(
-                epoch, val_loss.item(), t_end - t_start))
+            # print('Epoch {:05d} | Val_Loss {:.4f} | Time(s) {:.4f}'.format(
+            #     epoch, val_loss.item(), t_end - t_start))
             # early stopping
             early_stopping(val_loss, net)
             if early_stopping.early_stop:
-                print('Early stopping!')
+                # print('Early stopping!')
                 break
+        if early_stopping.early_stop:
+            # print('Early stopping!')
+            break
 
+    for test_edge_type in dl.links_test['data'].keys():
         # testing with evaluate_results_nc
         net.load_state_dict(torch.load(
-            'checkpoint/checkpoint_{}_{}.pt'.format(args.dataset, args.num_layers)))
+            'checkpoint/rgcn_checkpoint_{}_{}.pt'.format(args.dataset, args.num_layers)))
         net.eval()
         test_logits = []
         with torch.no_grad():
-            test_neigh, test_label = dl.get_test_neigh(
-                edge_types=[test_edge_type])
+            test_neigh, test_label = dl.get_test_neigh()
             test_neigh = test_neigh[test_edge_type]
             test_label = test_label[test_edge_type]
             left = np.array(test_neigh[0])
             right = np.array(test_neigh[1])
             mid = np.zeros(left.shape[0], dtype=np.int32)
+            mid[:] = test_edge_type
             labels = torch.FloatTensor(test_label).to(device)
             embed = net(g, features_list, e_feat, edge_norm)
             triplets = [[i[0], i[1], i[2]]for i in zip(left, mid, right)]
@@ -256,28 +295,41 @@ def run(args):
             edge_list = np.concatenate(
                 [left.reshape((1, -1)), right.reshape((1, -1))], axis=0)
             labels = labels.cpu().numpy()
-            print(dl.evaluate(edge_list, pred, labels))
+            res = dl.evaluate(edge_list, pred, labels)
+            print(res)
+            for k in res:
+                res_2hop[k] += res[k]
         with torch.no_grad():
-            test_neigh, test_label = dl.get_test_neigh_w_random(
-                edge_types=[test_edge_type])
+            test_neigh, test_label = dl.get_test_neigh_w_random()
             test_neigh = test_neigh[test_edge_type]
             test_label = test_label[test_edge_type]
             left = np.array(test_neigh[0])
             right = np.array(test_neigh[1])
             mid = np.zeros(left.shape[0], dtype=np.int32)
+            mid[:] = test_edge_type
             labels = torch.FloatTensor(test_label).to(device)
             embed = net(g, features_list, e_feat, edge_norm)
             triplets = [[i[0], i[1], i[2]]for i in zip(left, mid, right)]
             logits = net.calc_score(embed, torch.LongTensor(triplets))
-            pred = torch.sigmoid(logits).cpu().numpy()
+            pred = F.sigmoid(logits).cpu().numpy()
             edge_list = np.concatenate(
                 [left.reshape((1, -1)), right.reshape((1, -1))], axis=0)
             labels = labels.cpu().numpy()
-            print(dl.evaluate(edge_list, pred, labels))
+            res = dl.evaluate(edge_list, pred, labels)
+            print(res)
+            for k in res:
+                res_random[k] += res[k]
+    for k in res_2hop:
+        res_2hop[k] /= total
+    for k in res_random:
+        res_random[k] /= total
+    print(res_2hop)
+    print(res_random)
 
 
 if __name__ == '__main__':
-    ap = argparse.ArgumentParser(description='RGCN testing')
+    ap = argparse.ArgumentParser(
+        description='MRGNN testing for the DBLP dataset')
     ap.add_argument('--feats-type', type=int, default=3,
                     help='Type of the node features used. ' +
                          '0 - loaded features; ' +
@@ -288,15 +340,17 @@ if __name__ == '__main__':
                     '5 - only term features (zero vec for others).')
     ap.add_argument('--hidden-dim', type=int, default=64,
                     help='Dimension of the node hidden state. Default is 64.')
+    ap.add_argument('--num-heads', type=int, default=2,
+                    help='Number of the attention heads. Default is 8.')
     ap.add_argument('--epoch', type=int, default=300, help='Number of epochs.')
-    ap.add_argument('--patience', type=int, default=30, help='Patience.')
+    ap.add_argument('--patience', type=int, default=40, help='Patience.')
     ap.add_argument('--num-layers', type=int, default=2)
     ap.add_argument('--lr', type=float, default=5e-4)
     ap.add_argument('--dropout', type=float, default=0.5)
     ap.add_argument('--weight-decay', type=float, default=1e-4)
-    ap.add_argument('--slope', type=float, default=0.05)
+    ap.add_argument('--slope', type=float, default=0.01)
     ap.add_argument('--dataset', type=str)
-    ap.add_argument('--edge-feats', type=int, default=64)
+    ap.add_argument('--edge-feats', type=int, default=32)
     ap.add_argument('--batch-size', type=int, default=1024)
     ap.add_argument('--gpu', type=int, default=-1)
     ap.add_argument('--n-bases', type=int, default=10)
@@ -304,4 +358,4 @@ if __name__ == '__main__':
                     help="regularization weight")
 
     args = ap.parse_args()
-    run(args)
+    run_model_DBLP(args)
