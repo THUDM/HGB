@@ -49,7 +49,7 @@ for k in node_types:
     name = f_node_type2name[str(k)][0]
     node_type2name[k] = name
     node_name2type[name] = k
-iter=200
+iter=300
 while True:
     # read node embed
     decimal_keep = 4
