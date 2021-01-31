@@ -45,7 +45,7 @@ node_n = dl.nodes['count']
 def get_class_embed():
     decimal_keep = 4
     class_embed = np.around(np.random.normal(0, 0.01, [node_n[node_type_2class], args.embed_d]), decimal_keep)
-    embed_f = open(os.path.join(temp_dir, "node_embedding.txt"), "r")
+    embed_f = open(os.path.join(temp_dir, "node_embedding-200.txt"), "r")
     for line in islice(embed_f, 0, None):
         line = line.strip()
         node_id = re.split(' ', line)[0]
