@@ -68,7 +68,7 @@ def main(args):
                         dropout=args['dropout']).to(args['device'])
         elif args['model'] == 'gcn':
             from GNN import GCN
-            model = GCN(D, args['hidden_units'], num_classes, args['num_layers'], F.relu, args['dropout']).to(args['device'])
+            model = GCN(D, args['hidden_units'], num_classes, args['num_layers'], F.elu, args['dropout']).to(args['device'])
         elif args['model'] == 'gat':
             from GNN import GAT
             heads = args['num_heads']*args['num_layers'] + [1]
