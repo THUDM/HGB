@@ -11,7 +11,11 @@ We produced the result of HetSANN.M.R.V on our DBLP, ACM, IMDB dataset.
 - run execute_sparse.py
 ```shell
 cd HetSANN_MRV
-python -u execute_sparse.py --dataset ACM --train_rate 0.8 --lr 0.001 --l2_coef 0.0001 --hid 64 --heads 8 8 1 --epochs 10000 --patience 100 --target_node 0 --target_is_multilabels 0 --layers 3 --inv_coef 1e-3 --feats-type 2
+CUDA_VISIBLE_DEVICES=0 python -u execute_sparse.py --dataset ACM --train_rate 0.8 --lr 0.001 --l2_coef 0.0001 --hid 64 --heads 8 8 1 --epochs 10000 --patience 100 --target_node 0 --target_is_multilabels 0 --layers 3 --inv_coef 1e-3 --feats-type 2
+
+CUDA_VISIBLE_DEVICES=0 python -u execute_sparse.py --repeat=5 --dataset IMDB --train_rate 0.8 --lr 0.005 --l2_coef 0 --hid 32 --heads 4 1 --epochs 10000 --patience 100 --target_node 0 --target_is_multilabels 1 --layers 2 --inv_coef 1e-3 --feats-type $type
+
+CUDA_VISIBLE_DEVICES=0 python -u execute_sparse.py --repeat=5 --dataset DBLP --train_rate 0.8 --lr 0.005 --l2_coef 0.0001 --hid 64 --heads 4 1 --epochs 10000 --patience 100 --target_node 0 --target_is_multilabels 0 --layers 2 --inv_coef 1e-3 --feats-type $type
 ```
 
 The following contnet is from initial `didi/hetsann` repo
