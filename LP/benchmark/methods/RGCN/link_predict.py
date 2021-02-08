@@ -12,7 +12,12 @@ import argparse
 import time
 import sys
 from dgl.nn.pytorch import RelGraphConv
+import pynvml
+import os
+import gc
+import psutil
 
+pynvml.nvmlInit()
 sys.path.append('../../')
 
 
@@ -83,10 +88,18 @@ def mat2tensor(mat):
 def run_model_DBLP(args):
     feats_type = args.feats_type
     features_list, adjM, dl = load_data(args.dataset)
+    use_gpu = 0
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     features_list = [mat2tensor(features).to(device)
                      for features in features_list]
     in_dims = []
+    handle = pynvml.nvmlDeviceGetHandleByIndex(use_gpu)
+    meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    gpu_begin = meminfo.used
+    print("begin:", gpu_begin / 1024 / 1024, 'MB')
+    process = psutil.Process(os.getpid())
+    memory_begin = process.memory_info().rss
+    print('Used Memory begin:', memory_begin / 1024 / 1024, 'MB')
     if feats_type == 0:
         in_dims = [features.shape[1] for features in features_list]
     elif feats_type == 1 or feats_type == 5:
@@ -273,6 +286,7 @@ def run_model_DBLP(args):
             # print('Early stopping!')
             break
 
+    torch.cuda.empty_cache()
     for test_edge_type in dl.links_test['data'].keys():
         # testing with evaluate_results_nc
         net.load_state_dict(torch.load(
@@ -296,7 +310,7 @@ def run_model_DBLP(args):
                 [left.reshape((1, -1)), right.reshape((1, -1))], axis=0)
             labels = labels.cpu().numpy()
             res = dl.evaluate(edge_list, pred, labels)
-            print(res)
+            # print(res)
             for k in res:
                 res_2hop[k] += res[k]
         with torch.no_grad():
@@ -311,12 +325,12 @@ def run_model_DBLP(args):
             embed = net(g, features_list, e_feat, edge_norm)
             triplets = [[i[0], i[1], i[2]]for i in zip(left, mid, right)]
             logits = net.calc_score(embed, torch.LongTensor(triplets))
-            pred = F.sigmoid(logits).cpu().numpy()
+            pred = torch.sigmoid(logits).cpu().numpy()
             edge_list = np.concatenate(
                 [left.reshape((1, -1)), right.reshape((1, -1))], axis=0)
             labels = labels.cpu().numpy()
             res = dl.evaluate(edge_list, pred, labels)
-            print(res)
+            # print(res)
             for k in res:
                 res_random[k] += res[k]
     for k in res_2hop:
@@ -325,6 +339,15 @@ def run_model_DBLP(args):
         res_random[k] /= total
     print(res_2hop)
     print(res_random)
+    meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    gpu_end = meminfo.used
+    print("GPU usage test end:", gpu_end / 1024 / 1024, 'MB')
+    memory_end = process.memory_info().rss
+    print('Memory usage test end:',
+          memory_end / 1024 / 1024, 'MB')
+
+    print("Net GPU usage:", (gpu_end-gpu_begin) / 1024 / 1024, 'MB')
+    print('Net Memory usage:', (memory_end-memory_begin) / 1024 / 1024, 'MB')
 
 
 if __name__ == '__main__':

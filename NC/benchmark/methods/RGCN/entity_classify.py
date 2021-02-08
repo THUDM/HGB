@@ -21,9 +21,16 @@ import numpy as np
 from os import link
 import argparse
 import torch.nn as nn
+import pynvml
+import os
+import gc
+import psutil
+
 
 import sys
+
 sys.path.append('../../')
+pynvml.nvmlInit()
 
 
 def sp_to_spt(mat):
@@ -89,6 +96,12 @@ class EntityClassify(BaseRGCN):
 
 
 def main(args):
+    handle = pynvml.nvmlDeviceGetHandleByIndex(0)
+    if args.gpu >= 0:
+        handle = pynvml.nvmlDeviceGetHandleByIndex(args.gpu)
+    meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    gpu_begin = meminfo.used
+    print("begin:", gpu_begin)
     dataset = ['dblp', 'imdb', 'acm', 'freebase']
     if args.dataset in dataset:
         dataset = None
@@ -159,11 +172,10 @@ def main(args):
     # check cuda
     use_cuda = args.gpu >= 0 and torch.cuda.is_available()
     device = torch.device('cuda:'+str(args.gpu) if use_cuda else 'cpu')
-    if use_cuda:
-        torch.cuda.set_device(args.gpu)
-        edge_type = edge_type.cuda()
-        edge_norm = edge_norm.cuda()
-        labels = labels.cuda()
+    torch.cuda.set_device(args.gpu)
+    edge_type = edge_type.to(device)
+    edge_norm = edge_norm.to(device)
+    labels = labels.to(device)
 
     features_list = []
     for i in range(len(dl.nodes['count'])):
@@ -218,12 +230,10 @@ def main(args):
                            num_bases=args.n_bases,
                            num_hidden_layers=args.n_layers - 2,
                            dropout=args.dropout,
-                           use_self_loop=args.use_self_loop,
-                           use_cuda=use_cuda)
+                           use_self_loop=args.use_self_loop)
 
-    if use_cuda:
-        model.cuda()
-        g = g.to('cuda:%d' % args.gpu)
+    model.to(device)
+    g = g.to('cuda:%d' % args.gpu)
 
     # optimizer
     optimizer = torch.optim.Adam(
@@ -256,9 +266,9 @@ def main(args):
         backward_time.append(t2 - t1)
         # print("Epoch {:05d} | Train Forward Time(s) {:.4f} | Backward Time(s) {:.4f}".
         #       format(epoch, forward_time[-1], backward_time[-1]))
-        val_loss = LOSS(logits[val_idx], labels[val_idx])
-        train_micro, train_macro = EVALUATE(
-            logits[train_idx], labels[train_idx])
+        # val_loss = LOSS(logits[val_idx], labels[val_idx])
+        # train_micro, train_macro = EVALUATE(
+        #     logits[train_idx], labels[train_idx])
         valid_micro, valid_macro = EVALUATE(
             logits[val_idx], labels[val_idx])
         if valid_micro > best_result_micro:
@@ -276,23 +286,32 @@ def main(args):
 
     model.eval()
     result = [save_dict_micro, save_dict_macro]
-    for i in range(2):
-        if i == 0:
-            print("Best Micro At:"+str(best_epoch_micro))
-        else:
-            print("Best Macro At:"+str(best_epoch_macro))
-        model.load_state_dict(result[i])
-        logits = model.forward(g, features_list, edge_type, edge_norm)
-        logits = logits[target_idx]
-        test_loss = LOSS(logits[test_idx], labels[test_idx])
-        test_micro, test_macro = EVALUATE(
-            logits[test_idx], labels[test_idx])
-        print("Test micro: {:.4f} | Test macro: {:.4f} | Test loss: {:.4f}".format(
-            test_micro, test_macro, test_loss.item()))
-    # print("Mean forward time: {:4f}".format(
-    #     np.mean(forward_time[len(forward_time) // 4:])))
-    # print("Mean backward time: {:4f}".format(
-    #     np.mean(backward_time[len(backward_time) // 4:])))
+    torch.cuda.empty_cache()
+    with torch.no_grad():
+        for i in range(2):
+            if i == 0:
+                print("Best Micro At:"+str(best_epoch_micro))
+            else:
+                print("Best Macro At:"+str(best_epoch_macro))
+            model.load_state_dict(result[i])
+            t0 = time.time()
+            logits = model.forward(g, features_list, edge_type, edge_norm)
+            t1 = time.time()
+            print("test time:"+str(t1-t0))
+            logits = logits[target_idx]
+            test_loss = LOSS(logits[test_idx], labels[test_idx])
+            test_micro, test_macro = EVALUATE(
+                logits[test_idx], labels[test_idx])
+            print("Test micro: {:.4f} | Test macro: {:.4f} | Test loss: {:.4f}".format(
+                test_micro, test_macro, test_loss.item()))
+        # print("Mean forward time: {:4f}".format(
+        #     np.mean(forward_time[len(forward_time) // 4:])))
+        # print("Mean backward time: {:4f}".format(
+        #     np.mean(backward_time[len(backward_time) // 4:])))
+    meminfo = pynvml.nvmlDeviceGetMemoryInfo(handle)
+    gpu_end = meminfo.used
+    print("test end:", gpu_end)
+    print("net gpu usage:", (gpu_end-gpu_begin)/1024/1024, 'MB')
 
 
 if __name__ == '__main__':
@@ -317,7 +336,7 @@ if __name__ == '__main__':
                         help="number of filter weight matrices, default: -1 [use all]")
     parser.add_argument("--n-layers", type=int, default=3,
                         help="number of propagation rounds")
-    parser.add_argument("-e", "--n-epochs", type=int, default=50,
+    parser.add_argument("-e", "--n-epochs", type=int, default=150,
                         help="number of training epochs")
     parser.add_argument("-d", "--dataset", type=str, required=True,
                         help="dataset to use")
