@@ -99,8 +99,6 @@ default_configure = {
     'hidden_units': 8,
     'dropout': 0.6,
     'weight_decay': 0.001,
-    'num_epochs': 200,
-    'patience': 20
 }
 
 sampling_configure = {
@@ -132,7 +130,7 @@ def get_binary_mask(total_size, indices):
 
 def load_acm(feat_type=0):
     dl = data_loader('../../data/ACM')
-    link_type_dic = {0: 'pp', 1: 'pp', 2: 'pa', 3: 'ap', 4: 'ps', 5: 'sp', 6: 'pt', 7: 'tp'}
+    link_type_dic = {0: 'pp', 1: '-pp', 2: 'pa', 3: 'ap', 4: 'ps', 5: 'sp', 6: 'pt', 7: 'tp'}
     paper_num = dl.nodes['count'][0]
     data_dic = {}
     for link_type in dl.links['data'].keys():
@@ -169,7 +167,7 @@ def load_acm(feat_type=0):
     valid_mask[train_indices] = False
     test_indices = np.where(test_mask == True)[0]
 
-    meta_paths = [['pp', 'pp'], ['pa', 'ap'], ['ps', 'sp'], ['pt', 'tp']]
+    meta_paths = [['pp', 'ps', 'sp'], ['-pp', 'ps', 'sp'], ['pa', 'ap'], ['ps', 'sp'], ['pt', 'tp']]
     return hg, features, labels, num_classes, train_indices, valid_indices, test_indices, \
            th.BoolTensor(train_mask), th.BoolTensor(valid_mask), th.BoolTensor(test_mask), meta_paths
 
@@ -184,42 +182,14 @@ def load_freebase(feat_type=1):
                      22: '51', 23: '55',
                      24: '61', 25: '62', 26: '63', 27: '65', 28: '66', 29: '67',
                      30: '70', 31: '71', 32: '72', 33: '73', 34: '75', 35: '77',
-                     36: '00',
-                     37: '10',
-                     38: '30',
-                     39: '50',
-                     40: '60',
-                     41: '11',
-                     42: '02',
-                     43: '12',
-                     44: '22',
-                     45: '32',
-                     46: '52',
-                     47: '13',
-                     48: '33',
-                     49: '53',
-                     50: '04',
-                     51: '14',
-                     52: '24',
-                     53: '34',
-                     54: '44',
-                     55: '54',
-                     56: '64',
-                     57: '74',
-                     58: '15',
-                     59: '55',
-                     60: '16',
-                     61: '26',
-                     62: '36',
-                     63: '56',
-                     64: '66',
-                     65: '76',
-                     66: '07',
-                     67: '17',
-                     68: '27',
-                     69: '37',
-                     70: '57',
-                     71: '77',
+                     36: '-00', 37: '10', 38: '30', 39: '50', 40: '60',
+                     41: '-11',
+                     42: '02', 43: '12', 44: '-22', 45: '32', 46: '52',
+                     47: '13', 48: '-33', 49: '53',
+                     50: '04', 51: '14', 52: '24', 53: '34', 54: '-44', 55: '54', 56: '64', 57: '74',
+                     58: '15', 59: '-55',
+                     60: '16', 61: '26', 62: '36', 63: '56', 64: '-66', 65: '76',
+                     66: '07', 67: '17', 68: '27', 69: '37', 70: '57', 71: '-77',
                      }
     book_num = dl.nodes['count'][0]
     data_dic = {}
@@ -228,7 +198,8 @@ def load_freebase(feat_type=1):
         dst_type = str(dl.links['meta'][link_type][1])
         data_dic[(src_type, link_type_dic[link_type], dst_type)] = dl.links['data'][link_type].nonzero()
         # reverse
-        data_dic[(dst_type, link_type_dic[link_type + 36], src_type)] = dl.links['data'][link_type].T.nonzero()
+        if link_type_dic[link_type + 36][0] != '-':
+            data_dic[(dst_type, link_type_dic[link_type + 36], src_type)] = dl.links['data'][link_type].T.nonzero()
     hg = dgl.heterograph(data_dic)
 
     if feat_type == 0:
@@ -260,7 +231,6 @@ def load_freebase(feat_type=1):
     valid_mask[train_indices] = False
     test_indices = np.where(test_mask == True)[0]
 
-    # meta_paths = [['01', '10']]
     meta_paths = [['00', '00'], ['01', '10'], ['05', '52', '20'], ['04', '40'], ['04', '43', '30'], ['06', '61', '10'],
                   ['07', '70'], ]
     return hg, features, labels, num_classes, train_indices, valid_indices, test_indices, \

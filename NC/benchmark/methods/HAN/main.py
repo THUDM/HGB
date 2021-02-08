@@ -109,6 +109,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset', type=str, default='DBLP',
                         choices=['DBLP', 'ACM', 'Freebase'])
     parser.add_argument('--device', type=str, default='cuda:0')
+    parser.add_argument('--num_epochs', type=int, default=200)
+    parser.add_argument('--patience', type=int, default=100)
     args = parser.parse_args().__dict__
 
     args = setup(args)
