@@ -1,6 +1,5 @@
 import numpy as np
 import torch as th
-from torch_geometric.data import Data
 import torch.nn as nn
 from torch_geometric.nn import GCNConv, SAGEConv, TopKPooling, GATConv
 import torch.nn.functional as F
@@ -14,7 +13,6 @@ from itertools import *
 from scipy.sparse import coo_matrix, bmat
 
 device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
-
 
 class EarlyStopping(object):
     def __init__(self, patience=10):
@@ -32,7 +30,7 @@ class EarlyStopping(object):
             self.best_acc = acc
             self.best_loss = loss
             self.save_checkpoint(model)
-        elif (loss > self.best_loss) and (acc < self.best_acc) and (acc > 0.8):
+        elif (loss > self.best_loss) and (acc < self.best_acc):
             self.counter += 1
             print(f'EarlyStopping counter: {self.counter} out of {self.patience}')
             if self.counter >= self.patience:
@@ -74,7 +72,7 @@ class GCN(th.nn.Module):
             if i != 0:
                 x = self.dropout(x)
             x = layer(x, edge_list)
-            x = F.leaky_relu(x)
+            x = F.elu(x)
         return x
 
 
@@ -98,7 +96,7 @@ class GAT(th.nn.Module):
             if i != 0:
                 x = self.dropout(x)
             x = layer(x, edge_list)
-            x = F.leaky_relu(x, negative_slope=0.01)
+            x = F.elu(x)
         return x
 
 
@@ -124,12 +122,12 @@ def read_args():
     parser.add_argument("--checkpoint", default='', type=str)
     parser.add_argument("--epochs", default=500, type=str)
     parser.add_argument("--patience", default=50, type=str)
-    parser.add_argument("--n_layers", default=3, type=int)
+    parser.add_argument("--n_layers", default=2, type=int)
     parser.add_argument("--n_heads", default=[4], type=list)
     parser.add_argument("--dropout", default=0.5, type=float)
     parser.add_argument("--model", default='GAT', type=str)
     parser.add_argument('--lr', type=float, default=0.005, )
-    parser.add_argument('--weight_decay', type=float, default=0.0)
+    parser.add_argument('--weight_decay', type=float, default=0.001)
     args = parser.parse_args()
     return args
 
@@ -317,7 +315,6 @@ def train(model, data, train_mask, val_mask, test_mask, labels):
     stopper = EarlyStopping(patience=args.patience)
     loss_func = th.nn.CrossEntropyLoss()
     optimizer = th.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    CosineLR = th.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=20, eta_min=0.001)
     for epoch in range(args.epochs):
         model.train()
         logits = model(data)
@@ -336,9 +333,6 @@ def train(model, data, train_mask, val_mask, test_mask, labels):
             epoch + 1, loss.item(), train_micro_f1, train_macro_f1,
             val_loss.item(), val_micro_f1, val_macro_f1
         ))
-        if val_macro_f1 > 0.9:
-            CosineLR.step()
-        print(CosineLR.get_lr())
         if early_stop:
             break
     stopper.load_checkpoint(model)

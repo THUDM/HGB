@@ -18,23 +18,27 @@ We add GCN and GAT comparison.
 * run homoGNN.py
 
 ```bash
-python homoGNN.py --model GCN
-python homoGNN.py --model GAT
+python homoGNN.py --model GCN --n_layers 4
+python homoGNN.py --model GAT --n_layers 2
+```  
+* run HetGNN.py
+```
+python HetGNN.py [parameters] + python application.py
 ```
 
 ## performance report
 
 |          train ratio:0.1           | micro f1 score | macro f1 score |
 | ------------------- | -------------- | -------------- |
-| HetGNN + LogisticRegression | 97.3  | 97.2     |
-| GCN   | 96.4            | 96.5     |
-| GAT   | **98.7**          | **98.7**          |
+| HetGNN + LogisticRegression | 97.11  | 97.06     |
+| GCN   | 92.04            | 91.88    |
+| GAT   | **98.30**          | **98.25**          |
 
 |          train ratio:0.3           | micro f1 score | macro f1 score |
 | ------------------- | -------------- | -------------- |
-| HetGNN + LogisticRegression | 97.4  | 97.5     |
-| GCN   | 97.9   | 97.8 |
-| GAT   | **99.0**   | **99.0**|
+| HetGNN + LogisticRegression | 97.37  | 97.34     |
+| GCN   | 95.57   | 95.37 |
+| GAT   | **98.50**   | **98.42**|
 
 ***The following content is from the initial chuxuzhang/KDD2019_HetGNN repo.***
 

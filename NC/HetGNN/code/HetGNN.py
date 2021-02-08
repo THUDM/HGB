@@ -100,6 +100,8 @@ class model_class(object):
 					print ("loss: " + str(loss))
 
 			if iter_i % self.args.save_model_freq == 0:
+				if not os.path.exists(self.args.model_path):
+					os.makedirs(self.args.model_path)
 				torch.save(self.model.state_dict(), self.args.model_path + "HetGNN_" + str(iter_i) + ".pt")
 				# save embeddings for evaluation
 				triple_index = 9 

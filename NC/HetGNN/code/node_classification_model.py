@@ -65,11 +65,11 @@ def model(train_num, test_num):
 		output_f.write('%d,%lf\n'%(test_id[i],test_predict[i]))
 	output_f.close()
 
-	print ("MacroF1: ")
-	print (sklearn.metrics.f1_score(test_target,test_predict,average='macro'))
-
 	print ("MicroF1: ")
 	print (sklearn.metrics.f1_score(test_target,test_predict,average='micro'))
+
+	print("MacroF1: ")
+	print(sklearn.metrics.f1_score(test_target, test_predict, average='macro'))
 
 
 
