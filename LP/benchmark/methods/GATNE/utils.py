@@ -24,7 +24,7 @@ class Vocab(object):
 def parse_args():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--data', type=str, default='LastFM',
+    parser.add_argument('--data', type=str, default='amazon',
                         help='Input dataset path')
 
     parser.add_argument('--features', type=str, default=None,
