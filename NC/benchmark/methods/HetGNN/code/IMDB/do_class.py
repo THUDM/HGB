@@ -42,10 +42,10 @@ print(args)
 node_n = dl.nodes['count']
 
 
-def get_class_embed():
+def get_class_embed(iter_i):
     decimal_keep = 4
     class_embed = np.around(np.random.normal(0, 0.01, [node_n[node_type_2class], args.embed_d]), decimal_keep)
-    embed_f = open(os.path.join(temp_dir, "node_embedding50.txt"), "r")
+    embed_f = open(os.path.join(temp_dir, f"node_embedding-{iter_i}.txt"), "r")
     for line in islice(embed_f, 0, None):
         line = line.strip()
         node_id = re.split(' ', line)[0]
@@ -60,7 +60,9 @@ def get_class_embed():
 
 
 def model():
-    class_embed = get_class_embed()
+    iter_i=200
+    print(f'Info: Use embed of {iter_i}')
+    class_embed = get_class_embed(iter_i)
     train_id = np.where(dl.labels_train['mask'])
     train_features = class_embed[train_id]
     train_target = dl.labels_train['data'][train_id]
@@ -77,10 +79,10 @@ def model():
     test_target = np.array(test_target)
     print("test prediction finish!")
 
-    print("MacroF1: ")
-    print(sklearn.metrics.f1_score(test_target, test_predict, average='macro'))
     print("MicroF1: ")
     print(sklearn.metrics.f1_score(test_target, test_predict, average='micro'))
+    print("MacroF1: ")
+    print(sklearn.metrics.f1_score(test_target, test_predict, average='macro'))
 
 
 print(f"------{data_name} classification------")

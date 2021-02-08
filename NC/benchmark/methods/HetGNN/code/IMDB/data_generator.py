@@ -87,14 +87,15 @@ class input_data(object):
                             for n_type in node_types:
                                 if node_L[n_type]<2:
                                     curNode = random.randrange(0,len(self.neigh_list[n_type]))
-                                    curNodeType = self.node_name2type[curNode[0]]
                                     neigh_train.append(curNode)
                                     neigh_train.append(curNode)
                                     neigh_L += 2
-                                    node_L[curNodeType] += 2
+                                    node_L[n_type] += 2
                             break
                         rand_p = random.random()  # return p
                         if rand_p > 0.5:
+                            if self.neigh_list[curNodeType][int(curNode[1:])]==[]:
+                                break
                             curNode = random.choice(self.neigh_list[curNodeType][int(curNode[1:])])
                             curNodeType = self.node_name2type[curNode[0]]
                             if node_L[curNodeType] < self.standand_node_L[curNodeType]:
@@ -220,7 +221,13 @@ class input_data(object):
                         for l in range(len(neigh_list_train_top[node_type][neigh_type][n_id]), neigh_size):
                             neigh_list_train_top[node_type][neigh_type][n_id]. \
                                 append(random.choice(neigh_list_train_top[node_type][neigh_type][n_id]))
-
+        # for h_type in neigh_list_train_top.keys():
+        #     for t_type in range(len(neigh_list_train_top[h_type])):
+        #         for n_list in neigh_list_train_top[h_type][t_type]:
+        #             num_lack = self.top_k[t_type]-len(n_list)
+        #             if num_lack > 0:
+        #                 random_list = [0]*num_lack
+        #                 n_list.extend(random_list)
         self.neigh_list_train = neigh_list_train_top
         self.train_id_list = dict()
         train_id_list = [[] for i in node_types]
