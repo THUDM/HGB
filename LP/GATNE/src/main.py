@@ -8,7 +8,7 @@ import tensorflow as tf
 from numpy import random
 
 from utils import *
-
+os.environ['CUDA_VISIBEL_DEVICES']='4'
 
 def get_batches(pairs, neighbors, batch_size):
     n_batches = (len(pairs) + (batch_size - 1)) // batch_size

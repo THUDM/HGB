@@ -8,7 +8,8 @@ from numpy import random
 from torch.nn.parameter import Parameter
 
 from utils import *
-
+import os
+os.environ['CUDA_VISIBEL_DEVICES']='9'
 
 def get_batches(pairs, neighbors, batch_size):
     n_batches = (len(pairs) + (batch_size - 1)) // batch_size
