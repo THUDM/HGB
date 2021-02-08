@@ -143,12 +143,8 @@ if __name__ == '__main__':
                                    model=model,
                                    dl=dl,
                                         eval_type=eval_type)
-        # test_score['auc_score'].append(score['auc_score'])
-        # test_score['F1'].append(score['F1'])
         test_score['roc_auc'].append(score['roc_auc'])
         test_score['MRR'].append(score['MRR'])
-        # random_test_score['auc_score'].append(random_score['auc_score'])
-        # random_test_score['F1'].append(random_score['F1'])
         random_test_score['roc_auc'].append(random_score['roc_auc'])
         random_test_score['MRR'].append(random_score['MRR'])
 
@@ -156,9 +152,9 @@ if __name__ == '__main__':
     print(f'Random test: score list: {random_test_score}')
 
     for s in test_score.keys():
-        test_score[s] = np.mean(test_score[s])
+        test_score[s] = np.round(np.mean(test_score[s]),4)
     print(f'Sec neigh test:average score: {test_score}')
 
     for s in random_test_score.keys():
-        random_test_score[s] = np.mean(random_test_score[s])
+        random_test_score[s] = np.round(np.mean(random_test_score[s]),4)
     print(f'Random test: average score: {random_test_score}')
