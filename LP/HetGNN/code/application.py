@@ -378,10 +378,10 @@ LP.model(train_num, test_num)
 print("------author collaboration link prediction end------")
 
 
-# print("------author paper citation link prediction------")
-# train_num, test_num = a_p_cite_feature_setting() #setup of author-paper citation prediction task
-# LP.model(train_num, test_num)
-# print("------author paper citation link prediction end------")
+print("------author paper citation link prediction------")
+train_num, test_num = a_p_cite_feature_setting() #setup of author-paper citation prediction task
+LP.model(train_num, test_num)
+print("------author paper citation link prediction end------")
 
 
 # print("------venue recommendation------")

@@ -14,51 +14,41 @@ import math
 from itertools import *
 from torch_geometric.utils import train_test_split_edges
 from torch_geometric.utils import to_undirected
+import os
+# os.environ['CUDA_VISIBEL_DEVICES']=''
+import scipy.sparse as sp
 
+class DisMult(th.nn.Module):
+    def __init__(self, dim, rel_num=1):
+        super(DisMult, self).__init__()
+        self.dim = dim
+        self.weights = nn.Parameter(th.FloatTensor(size=(rel_num, dim, dim)))
+        self.reset_parameters()
 
-class EarlyStopping(object):
-    def __init__(self, patience=10):
-        dt = datetime.datetime.now()
-        self.filename = 'early_stop_{}_{:02d}-{:02d}-{:02d}.pth'.format(
-            dt.date(), dt.hour, dt.minute, dt.second)
-        self.patience = patience
-        self.counter = 0
-        self.best_auc = None
-        self.best_loss = None
-        self.early_stop = False
+    def reset_parameters(self):
+        nn.init.xavier_normal_(self.weights, gain=1.414)
 
-    def step(self, loss, auc, f1):
-        if auc > 0.9 and f1 > 0.9:
-            return True
+    def forward(self, input1, input2, r_list=None):
+        if r_list==None:
+            r_list = [0] * input1.shape[0]
+        w = self.weights[r_list]
+        input1 = th.unsqueeze(input1, 1)
+        input2 = th.unsqueeze(input2, 2)
+        tmp = th.bmm(input1, w)
+        re = th.bmm(tmp, input2).squeeze()
+        return re
 
+class Dot(nn.Module):
+    def __init__(self):
+        super(Dot, self).__init__()
 
-class Para_reset():
-    def __init__(self, patience=10):
-        self.patience = patience
-        self.counter = 0
-        self.last_loss = 999
-
-        pass
-
-    def step(self, loss, auc, model):
-        if (
-                self.last_loss < loss + 0.0001 and self.last_loss >= loss and auc <= 0.7) or auc == 0.5:
-            self.counter += 1
-            print('reset patience %d of %d' % (self.counter, self.patience))
-        else:
-            self.last_loss = loss
-            self.counter = 0
-        if self.counter >= self.patience:
-            self.counter = 0
-            for l in model.layers:
-                if isinstance(l, GATConv) or isinstance(l, GCNConv):
-                    l.reset_parameters()
-            model.fc.reset_parameters()
-            print('reset para.')
-
+    def forward(self, input1, input2):
+        input1 = th.unsqueeze(input1, 1)
+        input2 = th.unsqueeze(input2, 2)
+        return th.bmm(input1, input2).squeeze()
 
 class GCN(th.nn.Module):
-    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5):
+    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5,decoder='dot'):
         super(GCN, self).__init__()
         self.layers = nn.ModuleList()
         # input layer
@@ -68,7 +58,10 @@ class GCN(th.nn.Module):
             self.layers.append(GCNConv(hid_feats, hid_feats))
         self.fc = nn.Linear(hid_feats, out_feats)
         self.dropout = nn.Dropout(p=dropout)
-
+        if decoder == 'dismult':
+            self.decode = DisMult(dim=hid_feats)
+        elif decoder == 'dot':
+            self.decode = Dot()
     def encode(self, data):
         x, edge_list = data.x, data.edge_list
         for i, layer in enumerate(self.layers):
@@ -76,35 +69,13 @@ class GCN(th.nn.Module):
                 x = self.dropout(x)
             x = layer(x, edge_list)
             if i < len(self.layers) - 1:
-                x = F.relu(x)
+                x = F.elu(x)
         return x
 
-    def decode(self, x, edge_index):
-        return self.de_dismult(x, edge_index)
-
-    def de_dot(self, x, edge_index):
-        x = (x[edge_index[0]] * x[edge_index[1]])
-        x = self.fc(x)
-        x = F.leaky_relu(x)
-        return x
-
-    def de_dismult(self, x, edge_index):
-        x = self.dismult(x[edge_index[0]], x[edge_index[1]])
-        return x
-
-    def de_cosine(self, x, edge_index):
-        embed_size = x[edge_index[0]].shape[0]
-        feature1 = x[edge_index[0]].view(embed_size, -1)  # 将特征转换为N*(C*W*H)，即两维
-        feature2 = x[edge_index[1]].view(embed_size, -1)
-        feature1 = F.normalize(feature1)  # F.normalize只能处理两维的数据，L2归一化
-        feature2 = F.normalize(feature2)
-        distance = feature1.mm(feature2.t())  # 计算余弦相似度
-        distance = th.diag(distance).view(-1, 1)
-        return distance
 
 
 class GAT(th.nn.Module):
-    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5, heads=[1]):
+    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5, heads=[1],decoder='dot'):
         super(GAT, self).__init__()
         self.layers = nn.ModuleList()
         # input layer
@@ -118,6 +89,10 @@ class GAT(th.nn.Module):
         self.dropout = nn.Dropout(p=dropout)
         # nn.init.xavier_normal_(self.fc.weight)
         # nn.init.constant_(self.fc.bias, 0)
+        if decoder == 'dismult':
+            self.decode = DisMult(dim=hid_feats)
+        elif decoder == 'dot':
+            self.decode = Dot()
 
     def encode(self, data):
         x, edge_list = data.x, data.edge_list
@@ -126,54 +101,10 @@ class GAT(th.nn.Module):
                 pass
                 x = self.dropout(x)
             x = layer(x, edge_list)
-            x = F.relu(x)
+            x = F.elu(x)
         return x
 
-    def decode(self, x, edge_index):
-        return self.de_dismult(x, edge_index)
 
-    def de_dot(self, x, edge_index):
-        x = (x[edge_index[0]] * x[edge_index[1]])
-        x = self.fc(x)
-        x = F.leaky_relu(x)
-        return x
-
-    def de_dismult(self, x, edge_index):
-        x = self.dismult(x[edge_index[0]], x[edge_index[1]])
-        return x
-
-    def de_cosine(self, x, edge_index):
-        embed_size = x[edge_index[0]].shape[0]
-        feature1 = x[edge_index[0]].view(embed_size, -1)  # 将特征转换为N*(C*W*H)，即两维
-        feature2 = x[edge_index[1]].view(embed_size, -1)
-        feature1 = F.normalize(feature1)  # F.normalize只能处理两维的数据，L2归一化
-        feature2 = F.normalize(feature2)
-        distance = feature1.mm(feature2.t())  # 计算余弦相似度
-        distance = th.diag(distance).view(-1, 1)
-        return distance
-
-
-class GSAGE(th.nn.Module):
-    def __init__(self, in_feats, hid_feats, out_feats, n_layers=2, dropout=0.5):
-        super(GSAGE, self).__init__()
-        self.layers = nn.ModuleList()
-        # input layer
-        self.layers.append(SAGEConv(in_feats, hid_feats))
-        # hidden layers
-        for i in range(n_layers - 1):
-            self.layers.append(SAGEConv(hid_feats, hid_feats))
-        # output layer
-        self.layers.append(SAGEConv(hid_feats, out_feats))
-        self.dropout = nn.Dropout(p=dropout)
-
-    def forward(self, data):
-        x, edge_list = data.x, data.edge_list
-        for i, layer in enumerate(self.layers):
-            if i != 0:
-                x = self.dropout(x)
-            x = layer(x, edge_list)
-            x = F.relu(x)
-        return x
 
 
 class edge_data():
@@ -193,32 +124,18 @@ class edge_data():
         with open(self.train_file_pth) as f:
             data_file = csv.reader(f)
             for i, d in enumerate(data_file):
-                # odd number
+                # odd number -> pos sample
                 if i % 2 == 0:
-                    if random.random() < args.val_ratio_of_train:
-                        val_edge_index[0].append(int(d[0]))
-                        second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
-                        val_edge_index[1].append(second_edge)
-                        val_label.append(int(d[2]))
-                        val_tag = True
-                    else:
-                        train_edge_index[0].append(int(d[0]))
-                        second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
-                        train_edge_index[1].append(second_edge)
-                        train_label.append(int(d[2]))
-                        val_tag = False
-                # even number
+                    train_edge_index[0].append(int(d[0]))
+                    second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                    train_edge_index[1].append(second_edge)
+                    train_label.append(int(d[2]))
+                #even number -> neg sample
                 else:
-                    if val_tag:
-                        val_edge_index[0].append(int(d[0]))
-                        second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
-                        val_edge_index[1].append(second_edge)
-                        val_label.append(int(d[2]))
-                    else:
-                        train_edge_index[0].append(int(d[0]))
-                        second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
-                        train_edge_index[1].append(second_edge)
-                        train_label.append(int(d[2]))
+                    train_edge_index[0].append(int(d[0]))
+                    second_edge = int(d[1]) if args.data_name == 'colab' else int(d[1]) + args.A_n
+                    train_edge_index[1].append(second_edge)
+                    train_label.append(int(d[2]))
             f.close()
         with open(self.test_file_pth) as f:
             data_file = csv.reader(f)
@@ -232,17 +149,18 @@ class edge_data():
         row, col = train_edge_index
         row, col = th.LongTensor(row), th.LongTensor(col)
         train_edge_index = th.stack([row, col], dim=0)
-        train_label = th.LongTensor(train_label)
+        train_label = th.FloatTensor(train_label)
         # gen valid data
         row, col = val_edge_index
         row, col = th.LongTensor(row), th.LongTensor(col)
         val_edge_index = th.stack([row, col], dim=0)
-        val_label = th.LongTensor(val_label)
+        val_label = th.FloatTensor(val_label)
+
         # gen test data
         row, col = test_edge_index
         row, col = th.LongTensor(row), th.LongTensor(col)
         test_edge_index = th.stack([row, col], dim=0)
-        test_label = th.LongTensor(test_label)
+        test_label = th.FloatTensor(test_label)
 
         # Return upper triangular portion.
         # mask = row < col
@@ -252,24 +170,23 @@ class edge_data():
         self.train_label, self.val_label, self.test_label = train_label, val_label, test_label
 
     def split_train(self, batch_size=1000):
-
         row, col = self.train_edge_index
-        row, col = row.numpy().tolist(), col.numpy().tolist()
-        label_list = self.train_label.numpy().tolist()
-        # random
-        ran_seed = random.random()
-        random.seed(ran_seed)
-        random.shuffle(row)
-        random.seed(ran_seed)
-        random.shuffle(col)
-        random.seed(ran_seed)
-        random.shuffle(label_list)
-        # to tensor
-        row = [th.LongTensor(row[i:i + batch_size]) for i in range(len(row)) if i % batch_size == 0]
-        col = [th.LongTensor(col[i:i + batch_size]) for i in range(len(col)) if i % batch_size == 0]
+        row, col = row.numpy(), col.numpy()
+        labels = self.train_label.numpy()
 
-        label = [th.LongTensor(label_list[i:i + batch_size]) for i in range(len(label_list)) if i % batch_size == 0]
-        return [row, col], label
+        """random"""
+        random_index = np.arange(len(row))
+        random.seed(1)
+        random.shuffle(random_index)
+        row, col, labels = row[random_index], col[random_index], labels[random_index]
+
+        # to tensor
+        row_list, col_list, label_list = [], [], []
+        for i in range(0,len(row),batch_size):
+            row_list.append(th.LongTensor(row[i:i + batch_size]))
+            col_list.append(th.LongTensor(col[i:i + batch_size]))
+            label_list.append(th.FloatTensor(labels[i:i + batch_size]))
+        return [row_list, col_list], label_list
 
 
 class random_edge_data():
@@ -377,23 +294,16 @@ def read_args():
                         help='input feature dimension')
     parser.add_argument('--embed_d', type=int, default=128,
                         help='embedding dimension')
-    parser.add_argument('--train_iter_n', type=int, default=50,
-                        help='max number of training iteration')
-    parser.add_argument("--cuda", default=0, type=int)
-    parser.add_argument("--checkpoint", default='', type=str)
-    parser.add_argument("--epochs", default=1000, type=str)
-    parser.add_argument("--patience", default=10, type=str)
-    parser.add_argument("--n_layers", default=3, type=int)
+    parser.add_argument("--epochs", default=1, type=str)
+    parser.add_argument("--patience", default=3, type=str)
+    parser.add_argument("--n_layers", default=4, type=int)
     parser.add_argument("--n_heads", default=[4], type=list)
     parser.add_argument("--dropout", default=0.0, type=float)
     parser.add_argument("--model", default='GCN', type=str)
-    parser.add_argument('--lr', type=float, default=0.005)
+    parser.add_argument('--lr', type=float, default=0.002)
     parser.add_argument('--weight_decay', type=float, default=0.000)
-    parser.add_argument('--val_ratio_of_train', type=float, default=0.0)
-    parser.add_argument('--batch_size', type=int, default=1000000)
-    parser.add_argument('--val_ratio', type=float, default=0.1)
-    parser.add_argument('--test_ratio', type=float, default=0.2)
-    parser.add_argument('--data', type=str, default='LastFM', choices=['LastFM', 'amazon', 'youtube'])
+    parser.add_argument('--batch_size', type=int, default=1024)
+    parser.add_argument('--data_name', type=str, default='cite')
 
     args = parser.parse_args()
     return args
@@ -437,13 +347,22 @@ def gen_embed(args, with_paper=True):
     return embed
 
 
-def gen_edge_list(args):
+def gen_edge_list(args, edge_data_):
     a_p_list = [[], []]
     p_a_list = [[], []]
     p_p_list = [[], []]
     v_p_list = [[], []]
     p_v_list = [[], []]
 
+    ## gen valid sparse
+    valid_pos_index = th.where(edge_data_.val_label==1)[0]
+    row,col = edge_data_.val_edge_index[0][valid_pos_index], edge_data_.val_edge_index[1][valid_pos_index]
+    indices = np.vstack((np.array(row), np.array(col)))
+    values = np.ones(len(row))
+    dim = args.A_n + args.P_n + args.V_n
+    valid_sparse = sp.coo_matrix((values, indices), shape=(dim, dim)).tocsr()
+
+    pass_num=[0,0,0]
     relation_f = ["a_p_list_train.txt", "p_a_list_train.txt", "p_p_cite_list_train.txt", "v_p_list_train.txt"]
     for i in range(len(relation_f)):
         f_name = relation_f[i]
@@ -455,14 +374,26 @@ def gen_edge_list(args):
             neigh_list_id = re.split(',', neigh_list)
             if f_name == 'a_p_list_train.txt':
                 for j in range(len(neigh_list_id)):
+                    h_id, t_id = node_id, int(neigh_list_id[j])+args.A_n
+                    if valid_sparse[h_id,t_id]==1:
+                        pass_num[0]+=1
+                        continue
                     a_p_list[0].append(node_id)
                     a_p_list[1].append(int(neigh_list_id[j]))
             elif f_name == 'p_a_list_train.txt':
                 for j in range(len(neigh_list_id)):
+                    h_id, t_id = node_id+args.A_n, int(neigh_list_id[j])
+                    if valid_sparse[t_id, h_id] == 1:
+                        pass_num[1] += 1
+                        continue
                     p_a_list[0].append(node_id)
                     p_a_list[1].append(int(neigh_list_id[j]))
             elif f_name == 'p_p_cite_list_train.txt':
                 for j in range(len(neigh_list_id)):
+                    h_id, t_id = node_id+args.A_n, int(neigh_list_id[j])+args.A_n
+                    if valid_sparse[h_id, t_id] == 1:
+                        pass_num[2] += 1
+                        continue
                     p_p_list[0].append(node_id)
                     p_p_list[1].append(int(neigh_list_id[j]))
             elif f_name == 'v_p_list_train.txt':
@@ -512,16 +443,19 @@ def gen_data(embed, edge_list):
 
 # This function modified from author's code.
 def score_AUC_f1(test_predict, test_target):
-    _, test_predict = th.max(test_predict, 1)
+    # _, test_predict = th.max(test_predict, 1)
     test_predict, test_target = test_predict.cpu().detach().numpy(), test_target.cpu().detach().numpy()
     AUC_score = roc_auc_score(test_target, test_predict)
+
+    thres=0.5
+    test_predict[np.where(test_predict>thres)]=1
+    test_predict[np.where(test_predict <= thres)] = 0
 
     total_count = 0
     correct_count = 0
     true_p_count = 0
     false_p_count = 0
     false_n_count = 0
-
     for i in range(len(test_predict)):
         total_count += 1
         if (int(test_predict[i]) == int(test_target[i])):
@@ -542,71 +476,56 @@ def score_AUC_f1(test_predict, test_target):
     return AUC_score, F1
 
 
-def train(model, data, args):
+def train(model, data, edge_data_, args):
     device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
+    device = th.device('cpu')
     # train
-    stopper = EarlyStopping(patience=args.patience)
-    para_reseter = Para_reset()
     optimizer = th.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    edge_data_ = edge_data(args)
-    loss_func = th.nn.CrossEntropyLoss()
+
+    loss_func = th.nn.BCELoss()
     for epoch in range(args.epochs):
         model.train()
         [row, col], train_label_ = edge_data_.split_train(batch_size=args.batch_size)
-        for i in range(len(train_label_)):
-            z = model.encode(data)
+        iter_count = len(train_label_)
+        for i in range(iter_count):
+            device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
+            device = th.device('cpu')
+            model=model.to(device)
+            z = model.encode(data.to(device))
             row_, col_ = row[i].to(device), col[i].to(device)
-            out = model.decode(z, th.stack([row_, col_], dim=0))
-            link_labels = train_label_[i].to(device)
+            out = model.decode(z[row_], z[col_])
+            out = th.sigmoid(out)
+            link_labels = train_label_[i].float().to(device)
             loss = loss_func(out, link_labels)
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
+            # auc, f1 = score_AUC_f1(out, link_labels)
+            print('epoch {:d} | batch {:d} | train loss {:.4f}'.format(epoch, i, loss))
+        device = th.device('cpu')
 
-            auc, f1 = score_AUC_f1(out, link_labels)
-            para_reseter.step(loss, auc, model)
-            print('epoch {:d} | batch {:d} | train loss {:.4f} | train auc {:.4f} | train f1 {:.4f}'.format(epoch, i,
-                                                                                                            loss, auc,
-                                                                                                            f1))
+        test_score = evaluate(model.to(device), data.to(device), edge_data_.test_edge_index.to(device),
+                              edge_data_.test_label.to(device))
+        print('-------------------------------------------'
+              'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
+            .format(
+            test_score[0], test_score[1], test_score[2]))
 
-            # val_loss, val_auc, val_f1 = evaluate(model, data, edge_data_.val_edge_index.to(device), edge_data_.val_label.to(device))
-            # print('---------------------------------------------------------------------------'
-            #       'Score of valid_data Epoch {:d}  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
-            #     .format(
-            #     epoch + 1, val_loss, val_auc, val_f1
-            # ))
 
-            early_stop = stopper.step(loss, auc, f1)
-            if early_stop:
-                test_loss, test_auc, test_f1 = evaluate(model, data, edge_data_.test_edge_index.to(device),
-                                                        edge_data_.test_label.to(device))
-                print('---------------------------------------------------------------------------'
-                      '---------------------------------------------------------------------------'
-                      'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} (final result)'
-                    .format(
-                    test_loss, test_auc, test_f1
-                ))
-                return
-
-            test_loss, test_auc, test_f1 = evaluate(model, data, edge_data_.test_edge_index.to(device),
-                                                    edge_data_.test_label.to(device))
-            print('---------------------------------------------------------------------------'
-                  'Score of test_data  Loss {:.4f} | auc {:.4f} | f1 {:.4f} '
-                .format(
-                test_loss, test_auc, test_f1
-            ))
     # stopper.load_checkpoint(model)
     # print('Score of test_data(accuracy, micro_f1, macro_f1):',evaluate(model, data, edge_data_.test_edge_index.to(device), edge_data_.test_label.to(device) ))
 
 
 def evaluate(model, data, edge_index, labels):
     model.eval()
+    loss_func = th.nn.BCELoss()
     with th.no_grad():
         z = model.encode(data)
-        out = model.decode(z, edge_index)
-    loss_func = th.nn.CrossEntropyLoss()
-    loss = loss_func(out, labels)
-    auc, f1 = score_AUC_f1(out, labels)
+        out = model.decode(z[edge_index[0]], z[edge_index[1]])
+        out = th.sigmoid(out)
+
+        loss = loss_func(out, labels)
+        auc, f1 = score_AUC_f1(out, labels)
     # print('Test loss {:.4f} | Test Micro f1 {:.4f} | Test Macro f1 {:.4f}'.format(
     #     loss.item(), micro_f1, macro_f1))
     return loss, auc, f1
@@ -614,14 +533,14 @@ def evaluate(model, data, edge_index, labels):
 
 def main(args):
     device = th.device('cuda:0' if th.cuda.is_available() else 'cpu')
+    device = th.device('cpu')
     if th.cuda.is_available():
         print("Use GPU(%s) success." % th.cuda.get_device_name())
-
-    edge_list = gen_edge_list(args)
+    edge_data_ = edge_data(args)
+    edge_list = gen_edge_list(args, edge_data_)
     embed = gen_embed(args, with_paper=True).to(device)  # sparse
     feat_size = embed.size()[1]
     data = gen_data(embed, edge_list).to(device)
-
     if args.model == 'GCN':
         model = GCN(in_feats=feat_size, hid_feats=128, out_feats=2, n_layers=args.n_layers, dropout=args.dropout).to(
             device)
@@ -633,7 +552,7 @@ def main(args):
         model = GAT(in_feats=feat_size, hid_feats=128, out_feats=2, n_layers=args.n_layers, dropout=args.dropout,
                     heads=heads).to(device)
     print(args)
-    train(model, data, args)
+    train(model, data, edge_data_, args)
     # evaluate(model,data,,labels)
 
 
@@ -654,7 +573,7 @@ def test_model(args):
     data = gen_data(embed, edge_list).to(device)
 
     edge_data_ = edge_data(args)
-    filename = 'early_stop_2020-11-24_13-08-59.pth'
+    filename = 'early_stop_**.pth'
 
     model.load_state_dict(th.load(filename))
     print('Score of test_data(accuracy, micro_f1, macro_f1):',

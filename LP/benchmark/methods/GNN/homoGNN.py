@@ -3,6 +3,7 @@ import numpy as np
 from torch.utils.data import DataLoader
 from torch import nn
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '5'
 import pickle
 import sys
 from collections import defaultdict

@@ -18,26 +18,23 @@ We add GCN and GAT comparison.
 * run homoGNN.py
 
 ```bash
-python homoGNN.py --model GCN/GAT --data_name colab/cite 
-```
+python homoGNN.py --model GCN --data_name colab/cite 
+python homoGNN.py --model GAT --data_name colab/cite
+``` 
 
 ## performance report
 
 | LP:author-author colab |     AUC   |    F1     |
 | ---------------------- | --------- | --------- |
-| HetGNN(reproduction)   | 0.716     | 0.649     |
-| GCN                    | **0.7793**| **0.7794**| 
-| GAT                    | 0.7489    | 0.7065    |   
+| HetGNN(reproduction)   | 0.7594     | 0.7130     |
+| GCN                    | 0.8180| 0.7529| 
+| GAT                    | **0.8397**    | **0.7700**    |   
 
 | LP:author-paper cite     |    AUC       |    F1     |
 | ------------------------ | ------------ | --------- |
-| HetGNN(reproduction)     | 0.763        | 0.737     |
-| GC                       | **0.7672**   | **0.7486**|  
-| GAT                      | 0.73         | 0.70      | 
-` Data is provide by author and splited by author's code, all models work with same data and are evaluated by same method. Since the author does not divide the validation set, we also do not use the validation set, and the training is finished when the auc/f1 of the training set reaches 0.9.`
-## todo
-- How to split train/valid
-- The method for decoding 
+| HetGNN(reproduction)     | 0.7839       | **0.7661**     |
+| GCN                     | 0.7789   | 0.7328|  
+| GAT                      | **0.8433**         | 0.7420      | 
 
 ***The following content is from the initial chuxuzhang/KDD2019_HetGNN repo.***
 
