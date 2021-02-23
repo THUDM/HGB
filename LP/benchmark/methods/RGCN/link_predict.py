@@ -364,7 +364,7 @@ if __name__ == '__main__':
     ap.add_argument('--hidden-dim', type=int, default=64,
                     help='Dimension of the node hidden state. Default is 64.')
     ap.add_argument('--num-heads', type=int, default=2,
-                    help='Number of the attention heads. Default is 8.')
+                    help='Number of the attention heads. Default is 2.')
     ap.add_argument('--epoch', type=int, default=300, help='Number of epochs.')
     ap.add_argument('--patience', type=int, default=40, help='Patience.')
     ap.add_argument('--num-layers', type=int, default=2)

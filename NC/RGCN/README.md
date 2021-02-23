@@ -6,10 +6,10 @@ We replace the GNN module in paper by GCN for comparison.
 
 ## running environment
 
-* Python 3.6
-* tensorflow-gpu 1.9.0
-
 ## running procedure
+* Python 3.7
+* torch 1.7.0
+* dgl 0.5.2
 
 * Dataset will be downloaded automatically at ~/.dgl/.
 * or you can download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/8b9644cfa8344f26878c/)

@@ -21,6 +21,7 @@ We replace the Benchmark.
 python entity_classify.py --dataset=dblp -e 150 --gpu=3
 python entity_classify.py --dataset=imdb -e 150 --gpu=3 --n-layers=3 --l2norm=1e-6 --n-hidden=32
 python entity_classify.py --dataset=acm -e 150 --gpu=3
+python entity_classify.py --dataset=Freebase -e 150 --gpu=3
 ```
 ## performance report
 
