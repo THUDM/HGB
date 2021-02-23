@@ -163,7 +163,7 @@ def read_args():
     parser.add_argument("--model", default='GCN', type=str)
     parser.add_argument('--lr', type=float, default=0.005)
     parser.add_argument('--weight_decay', type=float, default=0.000)
-    parser.add_argument('--batch_size', type=int, default=1000)
+    parser.add_argument('--batch_size', type=int, default=1024)
     parser.add_argument('--edge_sample_ratio', type=float, default=1)
     parser.add_argument('--test_with_CPU', type=bool, default=False)
     parser.add_argument('--decoder', type=str, default="dismult", choices=['dot', 'dismult'])

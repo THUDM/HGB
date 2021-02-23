@@ -16,16 +16,7 @@ from scripts.data_loader import data_loader
 parser = argparse.ArgumentParser(description = 'application data process')
 parser.add_argument('--A_n', type = int, default = 4057,
 			   help = 'number of author node')
-parser.add_argument('--P_n', type = int, default = 14328,
-			   help = 'number of paper node')
-parser.add_argument('--T_n', type = int, default = 7723,
-			   help = 'number of venue node')
-parser.add_argument('--V_n', type = int, default = 20,
-			   help = 'number of venue node')
-parser.add_argument('--C_n', type = int, default = 4,
-			   help = 'number of node class label')
-parser.add_argument('--data_path', type = str, default = '../data/academic_test/',
-				   help='path to data')
+
 parser.add_argument('--embed_d', type = int, default = 128,
 			   help = 'embedding dimension')
 temp_dir = os.path.join(sys.path[0], 'temp')
@@ -43,8 +34,8 @@ args = parser.parse_args()
 print(args)
 
 def get_author_embed():
-	a_embed = np.around(np.random.normal(0, 0.01, [args.A_n, args.embed_d]), 4)
-	embed_f = open(os.path.join(temp_dir, "node_embedding.txt"), "r")
+	a_embed = np.around(np.random.normal(0, 0.01, [args.A_n, args.embed_d]), 10)
+	embed_f = open(os.path.join(temp_dir, "node_embedding-200.txt"), "r")
 	for line in islice(embed_f, 0, None):
 		line = line.strip()
 		node_id = re.split(' ', line)[0]
@@ -78,10 +69,11 @@ def model():
 	test_predict = learner.predict(test_features)
 	print("test prediction finish!")
 
-	print ("MacroF1: ")
-	print (sklearn.metrics.f1_score(test_target,test_predict,average='macro'))
+
 	print ("MicroF1: ")
 	print (sklearn.metrics.f1_score(test_target,test_predict,average='micro'))
+	print("MacroF1: ")
+	print(sklearn.metrics.f1_score(test_target, test_predict, average='macro'))
 
 
 print("------author classification------")

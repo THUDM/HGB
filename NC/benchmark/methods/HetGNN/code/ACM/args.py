@@ -17,7 +17,7 @@ def read_args():
                         help='batch size')
     parser.add_argument('--mini_batch_s', type=int, default=200,
                         help='mini batch size')
-    parser.add_argument('--train_iter_n', type=int, default=50,
+    parser.add_argument('--train_iter_n', type=int, default=210,
                         help='max number of training iteration')
     parser.add_argument('--walk_n', type=int, default=10,
                         help='number of walk per root node')
@@ -28,11 +28,11 @@ def read_args():
     parser.add_argument("--random_seed", default=10, type=int)
     parser.add_argument('--train_test_label', type=int, default=0,
                         help='train/test label: 0 - train, 1 - test, 2 - code test/generate negative ids for evaluation')
-    parser.add_argument('--save_model_freq', type=float, default=5,
+    parser.add_argument('--save_model_freq', type=float, default=10,
                         help='number of iterations to save model')
     parser.add_argument("--cuda", default=0, type=int)
     parser.add_argument("--checkpoint", default='', type=str)
-    parser.add_argument("--feat_type", default=0, type=int,
+    parser.add_argument("--feat_type", default=1, type=int,
                         help='feat_type=0: all id vector'
                              'feat_type=1: load feat from data_loader')
     args = parser.parse_args()

@@ -17,9 +17,9 @@ We add GCN and GAT comparison under --hetero setting.
 * run main.py
 
 ```bash
-python main.py --hetero --model gcn
-python main.py --hetero --model gat
-python main.py --hetero --model han
+python main.py --model gcn
+python main.py --model gat
+python main.py --model han
 ```
 
 ## performance report

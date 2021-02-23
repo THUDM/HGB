@@ -157,6 +157,7 @@ LP/HetGNN/data/
 LP/MAGNN/data
 *.dat
 *.zip
+Recom/benchmark/datasets/*
 
 #model
 *.pth
@@ -166,4 +167,19 @@ NC/RGCN/.vscode/settings.json
 
 #pickle file
 *pickle
+
+# code to generate detail of dataset and details files
+LP/benchmark/gen_meta_csv.py
+LP/benchmark/gen_node_edge_csv.py
+LP/benchmark/gen_outline_meta.py
+LP/benchmark/*.csv
+NC/benchmark/gen_meta_csv.py
+NC/benchmark/gen_node_edge_csv.py
+NC/benchmark/gen_outline_meta.py
+NC/benchmark/*.csv
+Recom/benchmark/datasets/get_data_meta.py
+
+# temp file of HetGNN
+LP/benchmark/methods/HetGNN/*-temp/
+
 

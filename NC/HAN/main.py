@@ -3,6 +3,8 @@ from sklearn.metrics import f1_score
 import dgl
 from utils import load_data, EarlyStopping
 import torch.nn.functional as F
+import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '3'
 
 def score(logits, labels):
     _, indices = torch.max(logits, dim=1)
@@ -57,34 +59,25 @@ def main(args):
     val_mask = val_mask.to(args['device'])
     test_mask = test_mask.to(args['device'])
 
-    if args['hetero']:
-        if args['model'] == 'han':
-            from model_hetero import HAN
-            model = HAN(meta_paths=[['pa', 'ap'], ['pf', 'fp']],
-                        in_size=features.shape[1],
-                        hidden_size=args['hidden_units'],
-                        out_size=num_classes,
-                        num_heads=args['num_heads'],
-                        dropout=args['dropout']).to(args['device'])
-        elif args['model'] == 'gcn':
-            from GNN import GCN
-            model = GCN(D, args['hidden_units'], num_classes, args['num_layers'], F.elu, args['dropout']).to(args['device'])
-        elif args['model'] == 'gat':
-            from GNN import GAT
-            heads = args['num_heads']*args['num_layers'] + [1]
-            slope = 0.1
-            model = GAT(D, args['hidden_units'], num_classes, args['num_layers'], F.elu, args['dropout'], args['dropout'], heads, slope).to(args['device'])
-        g = g.to(args['device'])
-        
-    else:
-        from model import HAN
-        model = HAN(num_meta_paths=len(g),
+
+    if args['model'] == 'han':
+        from model_hetero import HAN
+        model = HAN(meta_paths=[['pa', 'ap'], ['pf', 'fp']],
                     in_size=features.shape[1],
                     hidden_size=args['hidden_units'],
                     out_size=num_classes,
                     num_heads=args['num_heads'],
                     dropout=args['dropout']).to(args['device'])
-        g = [graph.to(args['device']) for graph in g]
+    elif args['model'] == 'gcn':
+        from GNN import GCN
+        model = GCN(D, args['hidden_units'], num_classes, args['num_layers'], F.relu, args['dropout']).to(args['device'])
+    elif args['model'] == 'gat':
+        from GNN import GAT
+        heads = args['num_heads']*args['num_layers'] + [1]
+        slope = 0.1
+        model = GAT(D, args['hidden_units'], num_classes, args['num_layers'], F.elu, args['dropout'], args['dropout'], heads, slope).to(args['device'])
+    g = g.to(args['device'])
+
 
     stopper = EarlyStopping(patience=args['patience'])
     loss_fcn = torch.nn.CrossEntropyLoss()
@@ -126,8 +119,6 @@ if __name__ == '__main__':
                         help='Random seed')
     parser.add_argument('-ld', '--log-dir', type=str, default='results',
                         help='Dir for saving training results')
-    parser.add_argument('--hetero', action='store_true',
-                        help='Use metapath coalescing with DGL\'s own dataset')
     parser.add_argument('--model', type=str)
     parser.add_argument('--num_layers', type=int, default=2)
     args = parser.parse_args().__dict__

@@ -11,7 +11,7 @@ import pickle
 
 from utils import *
 import sys
-
+os.environ['CUDA_VISIBLE_DEVICES'] = '2'
 sys.path.append('../../')
 from scripts.data_loader import data_loader
 
@@ -149,8 +149,11 @@ class NSLoss(nn.Module):
 
 
 def train_model(network_data, feature_dic):
-    walk_file = f'pickles/{args.data}-walks-pickle'
-    pair_file = f'pickles/{args.data}-pairs-pickle'
+    pickle_dir = './pickles'
+    if not os.path.exists(pickle_dir):
+        os.makedir(pickle_dir)
+    walk_file = os.path.join(pickle_dir,f'{args.data}-walks-pickle')
+    pair_file = os.path.join(pickle_dir,f'{args.data}-pair-pickle')
     vocab, index2word, train_pairs = generate(network_data, args.num_walks, args.walk_length, args.schema,
                                               args.window_size, args.num_workers, walk_file=walk_file,
                                               pair_file=pair_file, node_type=dl.types['data'])
@@ -332,5 +335,8 @@ if __name__ == "__main__":
 
 
     test_2hop_best, test_random_best = train_model(training_data_by_type, feature_dic)
+    for k in test_2hop_best.keys():
+        test_2hop_best[k]=np.around(np.mean(test_2hop_best[k]),4)
+        test_random_best[k] = np.around(np.mean(test_random_best[k]), 4)
     print(f"Test 2hop result: {test_2hop_best}")
     print(f"Test random result: {test_random_best}")

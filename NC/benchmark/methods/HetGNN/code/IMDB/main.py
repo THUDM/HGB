@@ -12,7 +12,7 @@ import data_generator
 import tools
 import sys
 
-os.environ['CUDA_VISIBLE_DEVICES'] = '0'
+os.environ['CUDA_VISIBLE_DEVICES'] = '7'
 sys.path.append(f'../../')
 from scripts.data_loader import data_loader
 
@@ -120,8 +120,8 @@ if __name__ == '__main__':
             torch.save(model.state_dict(),
                        os.path.join(sys.path[0], 'model_save', f"HetGNN_{data_name}_{str(iter_i)}.pt"))
             # save embeddings for evaluation
-            model.save_embed(os.path.join(temp_dir, f'node_embedding.txt'))
-            print('Info: save model and  node_embedding.txt done')
+            model.save_embed(os.path.join(temp_dir, f'node_embedding-{iter_i}.txt'))
+            print(f'Info: save model and  node_embedding{iter_i}.txt done')
         print('Info: iteration ' + str(iter_i) + ' finish.')
 
     exit("HetGNN\'s traing end.")
