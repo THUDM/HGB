@@ -2,6 +2,8 @@
 
 Revisiting, benchmarking, and refining Heterogeneous Graph Neural Networks.
 
+**This repo is actively under-development.** Therefore, there are some extra experiments in this repo such as graph-based text classification.
+
 ## Roadmap
 
 We organize our repo by task. Each folder contains a task and the structure is similar, i.e. reproducing experiments for each method in each sub-folder and benchmark experiments in benchmark sub-folder.
@@ -38,3 +40,6 @@ This part is in Recom folder.
 
 This part is in TC folder.
 
+## Citation
+
+**(To be added)**
