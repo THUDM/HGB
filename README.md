@@ -2,9 +2,7 @@
 
 Revisiting, benchmarking, and refining Heterogeneous Graph Neural Networks.
 
-**This repo is actively under-development.** Therefore, there are some extra experiments in this repo such as graph-based text classification.
-
-Moreover, we are adapting HGB with [cogdl](https://github.com/THUDM/cogdl). For more information, see our website (under construction).
+**This repo is actively under-development.** Therefore, there are some extra experiments in this repo beyond our paper, such as graph-based text classification. Moreover, we are adapting HGB with [cogdl](https://github.com/THUDM/cogdl). For more information, see our website (under construction).
 
 ## Roadmap
 
