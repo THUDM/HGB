@@ -1,35 +1,40 @@
-# HeterZoo
-Revisiting and Benchmarking Homo- and Hetero-geneous Network Embedding Methods.
+# Heterogeneous Graph Benchmark
+
+Revisiting, benchmarking, and refining Heterogeneous Graph Neural Networks.
 
 ## Roadmap
 
-The code under differenct tasks (even different datasets) are separatedly organized at present. (Maybe tidyup is needed later on, but maybe not necessary, since different models may have conflicts on relied packages).
+We organize our repo by task. Each folder contains a task and the structure is similar, i.e. reproducing experiments for each method in each sub-folder and benchmark experiments in benchmark sub-folder.
+
+```
+task/
+    method1/
+    method2/
+    ...
+    method_n/
+    benchmark/
+        scripts/
+            data_loader.py
+        methods/
+            method1/
+            method2/
+            ...
+            method_n/
+```
 
 ### Node classification
 
 This part is in NC folder.
 
-We mainly focuse on supervised learning setting for node classification task for now. (Maybe unsupervised setting in [HNE](https://github.com/yangji9181/HNE) should also be added here later.)
-
-If we compare our method on the existing datasets with published methods, we will use the same settings in the corresponding papers.
-
-If we compare our method on our own datasets:
-
-* For unsupervised embedding methods, we train an SVM by separating labeled nodes with 2:1:7 (train:valid:test) on the learnt embedding.
-* For semi-supervised embedding methods, we train the model by separating labeled nodes with 2:1:7 (train:valid:test).
-
 ### Link prediction
 
 This part is in LP folder.
-
-### Text classification
-
-This part is in TC folder.
 
 ### Recommendation
 
 This part is in Recom folder.
 
-### Alignment
+### Text classification
 
-todo
+This part is in TC folder.
+
