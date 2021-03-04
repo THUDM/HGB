@@ -11,41 +11,15 @@ import heapq
 import numpy as np
 import torch
 
-# from utility.loader_bprmf import BPRMF_loader
-
-# from utility.loader_cke import CKE_loader
-# from utility.loader_nfm import NFM_loader
 from utility.loader_kgat import KGAT_loader
-# from utility.loader_cfkg import CFKG_loader
 
 cores = multiprocessing.cpu_count() // 2
 
 args = parse_args()
 Ks = eval(args.Ks)
 
-if args.model_type == 'bprmf':
-    data_generator = BPRMF_loader(args=args, path=args.data_path + args.dataset)
-    batch_test_flag = False
-
-elif args.model_type == 'cke':
-    data_generator = CKE_loader(args=args, path=args.data_path + args.dataset)
-    batch_test_flag = False
-
-elif args.model_type in ['cfkg']:
-    data_generator = CFKG_loader(args=args, path=args.data_path + args.dataset)
-    batch_test_flag = True
-
-elif args.model_type in ['fm','nfm']:
-    data_generator = NFM_loader(args=args, path=args.data_path + args.dataset)
-    batch_test_flag = True
-
-elif args.model_type in ['kgat']:
-    data_generator = KGAT_loader(args=args, path=args.data_path + args.dataset)
-    batch_test_flag = False
-
-else:
-    data_generator = KGAT_loader(args=args, path=args.data_path + args.dataset)
-    batch_test_flag = False
+data_generator = KGAT_loader(args=args, path=args.data_path + args.dataset)
+batch_test_flag = False
 
 
 USR_NUM, ITEM_NUM = data_generator.n_users, data_generator.n_items
