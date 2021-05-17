@@ -103,7 +103,7 @@ def get_performance(user_pos_test, r, auc, Ks):
     for K in Ks:
         precision.append(metrics.precision_at_k(r, K))
         recall.append(metrics.recall_at_k(r, K, len(user_pos_test)))
-        ndcg.append(metrics.ndcg_at_k(r, K))
+        ndcg.append(metrics.ndcg_at_k(r, K, user_pos_test))
         hit_ratio.append(metrics.hit_at_k(r, K))
 
     return {'recall': np.array(recall), 'precision': np.array(precision),
@@ -152,7 +152,6 @@ def test(sess, model, users_to_test, drop_flag=False, batch_test_flag=False):
     pool = multiprocessing.Pool(cores)
 
     if args.model_type in ['ripple']:
-
         u_batch_size = BATCH_SIZE
         i_batch_size = BATCH_SIZE // 20
     elif args.model_type in ['fm', 'nfm']:
