@@ -82,7 +82,7 @@ def get_performance(user_pos_test, r, auc, Ks):
     for K in Ks:
         precision.append(metrics.precision_at_k(r, K))
         recall.append(metrics.recall_at_k(r, K, len(user_pos_test)))
-        ndcg.append(metrics.ndcg_at_k(r, K))
+        ndcg.append(metrics.ndcg_at_k(r, K, user_pos_test))
         hit_ratio.append(metrics.hit_at_k(r, K))
 
     return {'recall': np.array(recall), 'precision': np.array(precision),
