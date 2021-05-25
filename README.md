@@ -6,7 +6,7 @@ Revisiting, benchmarking, and refining Heterogeneous Graph Neural Networks.
 
 ## Roadmap
 
-We organize our repo by task. Each folder contains a task and the structure is similar, i.e. reproducing experiments for each method in each sub-folder and benchmark experiments in benchmark sub-folder. Currently, we have four tasks, i.e. node classification (NC), link prediction (LP), knowledge-aware recommendation (Recom) and text classification (TC).
+We organize our repo by task. Each folder contains a task and the structure is similar, i.e., reproducing experiments for each method in each sub-folder and benchmark experiments in benchmark sub-folder. Currently, we have four tasks, i.e., node classification (NC), link prediction (LP), knowledge-aware recommendation (Recom) and text classification (TC).
 
 ```bash
 task/
@@ -28,6 +28,6 @@ task/
 
 **Title:** Are we really making much progress? Revisiting, benchmarking and refining the Heterogeneous Graph Neural Networks.
 
-**Authors:** Qingsong Lv\*, Ming Ding\*, Qiang Liu, Yuxiang Chen, Wenzheng Feng, Siming He, Chang Zhou, Jian-guo Jiang, Yuxiao Dong, Jie Tang.
+**Authors:** Qingsong Lv\*, Ming Ding\*, Qiang Liu, Yuxiang Chen, Wenzheng Feng, Siming He, Chang Zhou, Jianguo Jiang, Yuxiao Dong, Jie Tang.
 
 **In preceedings:** KDD 2021.
