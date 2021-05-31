@@ -138,6 +138,7 @@ def run_model_DBLP(args):
             test_logits = logits[test_idx]
             pred = test_logits.cpu().numpy().argmax(axis=1)
             onehot = np.eye(num_classes, dtype=np.int32)
+            dl.gen_file_for_evaluate(test_idx=test_idx,label=pred)
             pred = onehot[pred]
             print(dl.evaluate(pred))
 

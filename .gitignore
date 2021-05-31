@@ -158,6 +158,8 @@ LP/MAGNN/data
 *.dat
 *.zip
 Recom/benchmark/datasets/*
+Recom/KGAT/data
+Recom/KGAT/Model/pretrain
 
 #model
 *.pth
