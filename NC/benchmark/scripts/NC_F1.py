@@ -1,9 +1,11 @@
 from collections import Counter
 from sklearn.metrics import f1_score
 import numpy as np
+from sklearn.preprocessing import MultiLabelBinarizer
 
 class F1:
-    def __init__(self, true_file, pred_files):
+    def __init__(self, true_file, pred_files, label_classes):
+        self.label_classes = label_classes
         self.ture_label = self.load_labels(true_file)
         self.F1_list={'macro':[], 'micro':[]}
         for pred_file in pred_files:
@@ -11,8 +13,8 @@ class F1:
             ans = self.evaluate_F1(pred_label)
             self.F1_list['macro'].append(ans['macro'])
             self.F1_list['micro'].append(ans['micro'])
-        self.F1_mean = {'macro':np.mean(self.F1_list['macro']), 'micro':np.mean(self.F1_list['micro'])}
-        self.F1_std = {'macro': np.std(self.F1_list['macro']), 'micro': np.std(self.F1_list['micro'])}
+        self.F1_mean = {'macro_mean':np.mean(self.F1_list['macro']), 'micro_mean':np.mean(self.F1_list['micro'])}
+        self.F1_std = {'macro_std': np.std(self.F1_list['macro']), 'micro_std': np.std(self.F1_list['micro'])}
 
     def load_labels(self, name):
         """
@@ -27,7 +29,11 @@ class F1:
         with open(name, 'r', encoding='utf-8') as f:
             for line in f:
                 th = line.split('\t')
-                node_id, node_name, node_type, node_label = int(th[0]), th[1], int(th[2]), list(map(float, th[3].rstrip().split(',')))
+                node_id, node_name, node_type, node_label = int(th[0]), th[1], int(th[2]), th[3]
+                if node_label.strip()=="":
+                    node_label = []
+                else:
+                    node_label = list(map(float, node_label.rstrip().split(',')))
 
                 for i in range(len(node_label)):
                     node_label[i]=int(node_label[i])
@@ -47,6 +53,10 @@ class F1:
             if k not in pred_label['data']:
                 return ans
             y_pred.append(pred_label['data'][k])
+        if self.label_classes>2:
+            mlp = MultiLabelBinarizer([i for i in range(self.label_classes)])
+            y_pred = mlp.fit_transform(y_pred)
+            y_true = mlp.fit_transform(y_true)
         ans['macro'] = f1_score(y_true, y_pred, average='macro')
         ans['micro'] = f1_score(y_true, y_pred, average='micro')
         return ans
@@ -59,13 +69,15 @@ def parse_args():
                         help='true label file.')
     parser.add_argument('--pred', nargs='+',
                         help='prediction files.')
+    parser.add_argument('--label_classes', default=2, type=int,
+                        help='label class count')
     return parser.parse_args()
 
 if __name__ == '__main__':
     # get argument settings.
     args = parse_args()
 
-    com = F1(args.true, args.pred)
+    com = F1(args.true, args.pred, args.label_classes)
     print(com.F1_list)
     print(com.F1_mean)
     print(com.F1_std)
