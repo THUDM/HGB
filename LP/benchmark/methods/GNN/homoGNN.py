@@ -79,11 +79,14 @@ def train_gnn(edge_list, feat_list, train_data, args, model, dl, eval_type):
         r_list = [0] * len(test_label)
         out_feat = model.decode(r_list, hid_feat[test_list[0]], hid_feat[test_list[1]])
         out_feat = th.sigmoid(out_feat)
+        confidence = out_feat.flatten().detach().cpu().numpy()
+        dl.gen_file_for_evaluate(test_list, confidence, eval_type, file_path="./preds/amazon_pred_0")
         test_score = dl.evaluate(
             edge_list=test_list,
-            confidence=out_feat.flatten().detach().cpu().numpy(),
+            confidence=confidence,
             labels=target.flatten().detach().cpu().numpy())
 
+    # full random test
     with th.no_grad():
         test_list, test_label = dl.get_test_neigh_full_random()
         test_list, test_label = test_list[eval_type], test_label[eval_type]
