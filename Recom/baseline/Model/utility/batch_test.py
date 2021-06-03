@@ -124,9 +124,7 @@ def test_one_user(x):
     return get_performance(user_pos_test, r, auc, Ks)
 
 
-def test(g, e_feat, model, users_to_test, drop_flag=False, batch_test_flag=False):
-    #new_g = g.to('cuda')
-    #new_e_feat = e_feat.cuda()
+def test(g, e_feat, model, users_to_test):
     model.eval()
     result = {'precision': np.zeros(len(Ks)), 'recall': np.zeros(len(Ks)), 'ndcg': np.zeros(len(Ks)),
               'hit_ratio': np.zeros(len(Ks)), 'auc': 0.}
@@ -156,43 +154,12 @@ def test(g, e_feat, model, users_to_test, drop_flag=False, batch_test_flag=False
 
         user_batch = test_users[start: end]
 
-        if batch_test_flag:
-
-            n_item_batchs = ITEM_NUM // i_batch_size + 1
-            rate_batch = np.zeros(shape=(len(user_batch), ITEM_NUM))
-
-            i_count = 0
-            for i_batch_id in range(n_item_batchs):
-                i_start = i_batch_id * i_batch_size
-                i_end = min((i_batch_id + 1) * i_batch_size, ITEM_NUM)
-
-                item_batch = range(i_start, i_end)
-
-                feed_dict = data_generator.generate_test_feed_dict(model=model,
-                                                                   user_batch=user_batch,
-                                                                   item_batch=item_batch,
-                                                                   drop_flag=drop_flag)
-                i_rate_batch = model.eval(sess, feed_dict=feed_dict)
-                i_rate_batch = i_rate_batch.reshape((-1, len(item_batch)))
-
-                rate_batch[:, i_start: i_end] = i_rate_batch
-                i_count += i_rate_batch.shape[1]
-
-            assert i_count == ITEM_NUM
-
-        else:
-            item_batch = range(ITEM_NUM)
-            with torch.no_grad():
-                embedding = model(g, e_feat)
-                user = embedding[user_batch]
-                item = embedding[item_batch+data_generator.n_users]
-                rate_batch = torch.mm(user, torch.transpose(item, 0, 1)).cpu().numpy()
-                """feed_dict = data_generator.generate_test_feed_dict(model=model,
-                                                               user_batch=user_batch,
-                                                               item_batch=item_batch,
-                                                               drop_flag=drop_flag)
-            rate_batch = model.eval(sess, feed_dict=feed_dict)
-            rate_batch = rate_batch.reshape((-1, len(item_batch)))"""
+        item_batch = range(ITEM_NUM)
+        with torch.no_grad():
+            embedding = model(g, e_feat)
+            user = embedding[user_batch]
+            item = embedding[item_batch+data_generator.n_users]
+            rate_batch = torch.mm(user, torch.transpose(item, 0, 1)).cpu().numpy()
 
         user_batch_rating_uid = zip(rate_batch, user_batch)
         batch_result = pool.map(test_one_user, user_batch_rating_uid)
@@ -211,10 +178,47 @@ def test(g, e_feat, model, users_to_test, drop_flag=False, batch_test_flag=False
     return result
 
 
-def test_pretrain(model, pretrain_data, users_to_test, drop_flag=False, batch_test_flag=False):
-    #new_g = g.to('cuda')
-    #new_e_feat = e_feat.cuda()
+def save_file(g, e_feat, model, users_to_test):
     model.eval()
+
+    if args.model_type in ['ripple']:
+
+        u_batch_size = BATCH_SIZE
+        i_batch_size = BATCH_SIZE // 20
+    elif args.model_type in ['fm', 'nfm']:
+        u_batch_size = BATCH_SIZE
+        i_batch_size = BATCH_SIZE
+    else:
+        u_batch_size = BATCH_SIZE * 2
+        i_batch_size = BATCH_SIZE
+
+    test_users = users_to_test
+    n_test_users = len(test_users)
+    n_user_batchs = n_test_users // u_batch_size + 1
+
+    res = []
+
+    for u_batch_id in range(n_user_batchs):
+        start = u_batch_id * u_batch_size
+        end = (u_batch_id + 1) * u_batch_size
+
+        user_batch = test_users[start: end]
+
+        item_batch = range(ITEM_NUM)
+        with torch.no_grad():
+            embedding = model(g, e_feat)
+            user = embedding[user_batch]
+            item = embedding[item_batch+data_generator.n_users]
+            rate_batch = torch.mm(user, torch.transpose(item, 0, 1)).cpu().numpy()
+            res.append(rate_batch)
+
+    res = np.concatenate(res, axis=0)
+    np.savetxt('{}_test_rate.txt'.format(args.dataset), res, fmt="%.06f")
+
+
+
+def test_saved_file(users_to_test):
+    res = np.loadtxt('{}_test_rate.txt'.format(args.dataset))
     result = {'precision': np.zeros(len(Ks)), 'recall': np.zeros(len(Ks)), 'ndcg': np.zeros(len(Ks)),
               'hit_ratio': np.zeros(len(Ks)), 'auc': 0.}
 
@@ -243,43 +247,8 @@ def test_pretrain(model, pretrain_data, users_to_test, drop_flag=False, batch_te
 
         user_batch = test_users[start: end]
 
-        if batch_test_flag:
-
-            n_item_batchs = ITEM_NUM // i_batch_size + 1
-            rate_batch = np.zeros(shape=(len(user_batch), ITEM_NUM))
-
-            i_count = 0
-            for i_batch_id in range(n_item_batchs):
-                i_start = i_batch_id * i_batch_size
-                i_end = min((i_batch_id + 1) * i_batch_size, ITEM_NUM)
-
-                item_batch = range(i_start, i_end)
-
-                feed_dict = data_generator.generate_test_feed_dict(model=model,
-                                                                   user_batch=user_batch,
-                                                                   item_batch=item_batch,
-                                                                   drop_flag=drop_flag)
-                i_rate_batch = model.eval(sess, feed_dict=feed_dict)
-                i_rate_batch = i_rate_batch.reshape((-1, len(item_batch)))
-
-                rate_batch[:, i_start: i_end] = i_rate_batch
-                i_count += i_rate_batch.shape[1]
-
-            assert i_count == ITEM_NUM
-
-        else:
-            item_batch = range(ITEM_NUM)
-            with torch.no_grad():
-                embedding = np.concatenate([pretrain_data['user_embed'], pretrain_data['item_embed']], axis=0) #model.embed
-                user = embedding[user_batch]
-                item = embedding[item_batch+data_generator.n_users]
-                rate_batch = user.dot(item.T)#torch.mm(user, torch.transpose(item, 0, 1)).cpu().numpy()
-                """feed_dict = data_generator.generate_test_feed_dict(model=model,
-                                                               user_batch=user_batch,
-                                                               item_batch=item_batch,
-                                                               drop_flag=drop_flag)
-            rate_batch = model.eval(sess, feed_dict=feed_dict)
-            rate_batch = rate_batch.reshape((-1, len(item_batch)))"""
+        item_batch = range(ITEM_NUM)
+        rate_batch = res[start:end]
 
         user_batch_rating_uid = zip(rate_batch, user_batch)
         batch_result = pool.map(test_one_user, user_batch_rating_uid)
@@ -296,3 +265,4 @@ def test_pretrain(model, pretrain_data, users_to_test, drop_flag=False, batch_te
     assert count == n_test_users
     pool.close()
     return result
+

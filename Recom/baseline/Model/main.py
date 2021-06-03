@@ -179,7 +179,7 @@ if __name__ == '__main__':
         t2 = time()
         users_to_test = list(data_generator.test_user_dict.keys())
 
-        ret = test(g, e_feat, model, users_to_test, drop_flag=False, batch_test_flag=batch_test_flag)
+        ret = test(g, e_feat, model, users_to_test)
 
         """
         *********************************************************
@@ -215,6 +215,10 @@ if __name__ == '__main__':
             # save_saver.save(sess, weights_save_path + '/weights', global_step=epoch)
             torch.save(model, weights_save_path)
             print('save the weights in path: ', weights_save_path)
+            print('saving prediction')
+            save_file(g, e_feat, model, users_to_test)
+            print('saved')
+            # print(test_saved_file(users_to_test))
 
     recs = np.array(rec_loger)
     pres = np.array(pre_loger)
