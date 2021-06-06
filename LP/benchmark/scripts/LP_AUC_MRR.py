@@ -3,9 +3,13 @@ from sklearn.metrics import f1_score,roc_auc_score
 import numpy as np
 import os
 from collections import defaultdict
+import sys
 
 class AUC_MRR:
-    def __init__(self, true_file, pred_files):
+    def __init__(self, data_name, pred_files):
+        if len(pred_files)==0:
+            return
+        true_file = os.path.join('../data', data_name, 'link.dat.test')
         self.links_true = self.load_links(true_file)
 
         self.AUC_list=[]
@@ -94,18 +98,37 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate AUC and MRR for LP result.")
-    parser.add_argument('--true', type=str,
-                        help='true link file.')
-    parser.add_argument('--pred', nargs='+',
-                        help='prediction files.')
-
+    parser.add_argument('--pred_zip', type=str, default="lp.zip",
+                        help='Compressed pred files.')
     return parser.parse_args()
+
+import zipfile
+
+def extract_zip(zip_path, extract_path):
+    zip = zipfile.ZipFile(zip_path, 'r')
+    zip.extractall(extract_path)
 
 if __name__ == '__main__':
     # get argument settings.
     args = parse_args()
 
-    res = AUC_MRR(args.true, args.pred)
-    print(f'AUC list: {res.AUC_list}, MRR list: {res.MRR_list}')
-    print(f'AUC mean: {res.AUC_mean}, MRR mean: {res.MRR_mean}')
-    print(f'AUC std: {res.AUC_std}, MRR std: {res.MRR_std}')
+    zip_path = args.pred_zip
+    if not os.path.exists(zip_path):
+        sys.exit('ERROR: No such zip file!')
+    extract_path='lp'
+    extract_zip(zip_path, extract_path)
+    data_list = ['amazon', 'LastFM', 'PubMed']
+    res={}
+
+    for data_name in data_list:
+        pred_files = []
+        for i in range(1, 6):
+            file_name = os.path.join(extract_path, f'{data_name}_{i}')
+            if not os.path.exists(file_name):
+                continue
+            pred_files.append(file_name)
+        if len(pred_files)<5:
+            continue
+        res[data_name] = AUC_MRR(data_name, pred_files)
+    print(res)
+
