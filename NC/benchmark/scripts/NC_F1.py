@@ -2,10 +2,14 @@ from collections import Counter
 from sklearn.metrics import f1_score
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
-
+import os
+import sys
 class F1:
-    def __init__(self, true_file, pred_files, label_classes):
+    def __init__(self, data_name, pred_files, label_classes):
+        if len(pred_files)==0:
+            return
         self.label_classes = label_classes
+        true_file = os.path.join('../data', data_name, 'label.dat.test')
         self.ture_label = self.load_labels(true_file)
         self.F1_list={'macro':[], 'micro':[]}
         for pred_file in pred_files:
@@ -65,19 +69,38 @@ import argparse
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate F1 for NC result.")
-    parser.add_argument('--true', type=str,
-                        help='true label file.')
-    parser.add_argument('--pred', nargs='+',
-                        help='prediction files.')
-    parser.add_argument('--label_classes', default=2, type=int,
-                        help='label class count')
+    parser.add_argument('--pred_zip', type=str, default="nc.zip",
+                        help='Compressed pred files.')
     return parser.parse_args()
+
+import zipfile
+
+def extract_zip(zip_path, extract_path):
+    zip = zipfile.ZipFile(zip_path, 'r')
+    zip.extractall(extract_path)
+
 
 if __name__ == '__main__':
     # get argument settings.
     args = parse_args()
+    zip_path = args.pred_zip
+    if not os.path.exists(zip_path):
+        sys.exit('ERROR: No such zip file!')
+    extract_path = 'nc'
+    extract_zip(zip_path, extract_path)
+    # zip_handle = my_zip(zip_path=zip_path)
+    data_list = ['DBLP', 'IMDB','ACM','Freebase']
+    class_count = {'DBLP':2, 'IMDB':5,'ACM':2,'Freebase':2}
 
-    com = F1(args.true, args.pred, args.label_classes)
-    print(com.F1_list)
-    print(com.F1_mean)
-    print(com.F1_std)
+    res={}
+    for data_name in data_list:
+        pred_files = []
+        for i in range(1,6):
+            file_name = os.path.join(extract_path,f'{data_name}_{i}')
+            if not os.path.exists(file_name):
+                continue
+            pred_files.append(file_name)
+        res[data_name] = F1(data_name,pred_files,class_count[data_name])
+
+
+    print(res)
