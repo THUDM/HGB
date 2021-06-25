@@ -20,11 +20,11 @@ This part refers to Section 3 and Table 1 in our paper.
 
 This part refers to Section 4,5,6 in our paper.
 
-* [Node classification](./NC/benchmark)
-* [Link prediction](./LP/benchmark)
-* [Knowledge-aware recommendation](./Recom/baseline)
+* [Node classification benchmark](./NC/benchmark), [NC-baseline](./NC/benchmark/methods/baseline)
+* [Link prediction benchmark](./LP/benchmark), [LP-baseline](./LP/benchmark/methods/baseline)
+* [Knowledge-aware recommendation benchmark](./Recom), [Recom-baseline](./Recom/baseline)
 
-**You should notice that the test data labels are randomly replaced to prevent data leakage issues.** If you want to obtain test scores, you need to submit your prediction to our [website](https://www.biendata.xyz/hgb/).
+**You should notice that the test data labels are randomly replaced to prevent data leakage issues.** If you want to obtain test scores, you need to submit your prediction to our [website](https://www.biendata.xyz/hgb/). ***(We are struggling to make our website compatible with biendata accounts. Online submission and leaderboard will be available soon!)***
 
 ### More
 
