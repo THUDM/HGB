@@ -5,20 +5,23 @@ from sklearn.preprocessing import MultiLabelBinarizer
 import os
 import sys
 class F1:
-    def __init__(self, data_name, pred_files, label_classes):
-        if len(pred_files)==0:
-            return
+    def __init__(self, data_name, pred_files, label_classes, args):
         self.label_classes = label_classes
-        true_file = os.path.join('../data', data_name, 'label.dat.test')
-        self.ture_label = self.load_labels(true_file)
-        self.F1_list={'macro':[], 'micro':[]}
-        for pred_file in pred_files:
-            pred_label = self.load_labels(pred_file)
-            ans = self.evaluate_F1(pred_label)
-            self.F1_list['macro'].append(ans['macro'])
-            self.F1_list['micro'].append(ans['micro'])
-        self.F1_mean = {'macro_mean':np.mean(self.F1_list['macro']), 'micro_mean':np.mean(self.F1_list['micro'])}
-        self.F1_std = {'macro_std': np.std(self.F1_list['macro']), 'micro_std': np.std(self.F1_list['micro'])}
+        self.F1_list = {'macro': [], 'micro': []}
+        if len(pred_files)==0:
+            self.F1_mean = {'macro_mean': 0, 'micro_mean': 0}
+            self.F1_std = {'macro_std': 0, 'micro_std': 0}
+        else:
+            true_file = os.path.join(args.ground_dir, data_name, 'label.dat.test')
+            self.ture_label = self.load_labels(true_file)
+
+            for pred_file in pred_files:
+                pred_label = self.load_labels(pred_file)
+                ans = self.evaluate_F1(pred_label)
+                self.F1_list['macro'].append(ans['macro'])
+                self.F1_list['micro'].append(ans['micro'])
+            self.F1_mean = {'macro_mean':np.mean(self.F1_list['macro']), 'micro_mean':np.mean(self.F1_list['micro'])}
+            self.F1_std = {'macro_std': np.std(self.F1_list['macro']), 'micro_std': np.std(self.F1_list['micro'])}
 
     def load_labels(self, name):
         """
@@ -71,6 +74,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate F1 for NC result.")
     parser.add_argument('--pred_zip', type=str, default="nc.zip",
                         help='Compressed pred files.')
+    parser.add_argument('--ground_dir', type=str, default="../data",
+                        help='Dir of ground files.')
+    parser.add_argument('--log', type=str, default="nc.log",
+                        help='output file')
     return parser.parse_args()
 
 import zipfile
@@ -79,28 +86,51 @@ def extract_zip(zip_path, extract_path):
     zip = zipfile.ZipFile(zip_path, 'r')
     zip.extractall(extract_path)
 
+def write_log(log_file, log_msg):
+    with open(log_file, 'w') as log_handle:
+        log_handle.write(log_msg)
 
 if __name__ == '__main__':
     # get argument settings.
     args = parse_args()
     zip_path = args.pred_zip
+    log_msg = ''
     if not os.path.exists(zip_path):
-        sys.exit('ERROR: No such zip file!')
+        log_msg = 'ERROR: No such zip file!'
+        write_log(args.log, log_msg)
+        sys.exit()
     extract_path = 'nc'
     extract_zip(zip_path, extract_path)
     # zip_handle = my_zip(zip_path=zip_path)
-    data_list = ['DBLP', 'IMDB','ACM','Freebase']
+    data_list = ['DBLP', 'IMDB', 'ACM', 'Freebase']
     class_count = {'DBLP':2, 'IMDB':5,'ACM':2,'Freebase':2}
 
     res={}
     for data_name in data_list:
         pred_files = []
         for i in range(1,6):
-            file_name = os.path.join(extract_path,f'{data_name}_{i}')
+            file_name = os.path.join(extract_path, f'{data_name}_{i}.txt')
             if not os.path.exists(file_name):
                 continue
             pred_files.append(file_name)
-        res[data_name] = F1(data_name,pred_files,class_count[data_name])
+        if len(pred_files)>0 and len(pred_files)!=5:
+            log_msg = f'ERROR: Please check the size of {data_name} dataset!'
+            write_log(args.log, log_msg)
+            sys.exit()
+        res[data_name] = F1(data_name,pred_files,class_count[data_name],args)
+
+    hgb_score_list = []
+    for data_name in data_list:
+        hgb_score_list.append(res[data_name].F1_mean['macro_mean'])
+        hgb_score_list.append(res[data_name].F1_mean['micro_mean'])
+    hgb_score = np.mean(hgb_score_list)
+
+    log_msg = f'{hgb_score}###{{'
+    for data_name in data_list:
+        log_msg += f'{data_name}:{{F1 mean: {res[data_name].F1_mean},F1 std:{res[data_name].F1_std}}},'
+    log_msg += '}'
+    write_log(args.log, log_msg)
+    sys.exit()
 
 
-    print(res)
+

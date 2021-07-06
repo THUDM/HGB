@@ -7,22 +7,25 @@ import sys
 
 class AUC_MRR:
     def __init__(self, data_name, pred_files):
+        self.AUC_list = []
+        self.MRR_list = []
         if len(pred_files)==0:
-            return
-        true_file = os.path.join('../data', data_name, 'link.dat.test')
-        self.links_true = self.load_links(true_file)
-
-        self.AUC_list=[]
-        self.MRR_list=[]
-        for pred_file in pred_files:
-            self.links_test = self.load_links(pred_file)
-            ans = self.evaluate_AUC_MRR()
-            self.AUC_list.append(ans['AUC'])
-            self.MRR_list.append(ans['MRR'])
-        self.AUC_mean = np.mean(self.AUC_list)
-        self.MRR_mean = np.mean(self.MRR_list)
-        self.AUC_std = np.std(self.AUC_list)
-        self.MRR_std = np.std(self.MRR_list)
+            self.AUC_mean = np.mean(0)
+            self.MRR_mean = np.mean(0)
+            self.AUC_std = np.std(0)
+            self.MRR_std = np.std(0)
+        else:
+            true_file = os.path.join('../data', data_name, 'link.dat.test')
+            self.links_true = self.load_links(true_file)
+            for pred_file in pred_files:
+                self.links_test = self.load_links(pred_file)
+                ans = self.evaluate_AUC_MRR()
+                self.AUC_list.append(ans['AUC'])
+                self.MRR_list.append(ans['MRR'])
+            self.AUC_mean = np.mean(self.AUC_list)
+            self.MRR_mean = np.mean(self.MRR_list)
+            self.AUC_std = np.std(self.AUC_list)
+            self.MRR_std = np.std(self.MRR_list)
 
     def load_links(self, file_name):
         """
@@ -100,6 +103,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Evaluate AUC and MRR for LP result.")
     parser.add_argument('--pred_zip', type=str, default="lp.zip",
                         help='Compressed pred files.')
+    parser.add_argument('--ground_dir', type=str, default="../data",
+                        help='Dir of ground files.')
+    parser.add_argument('--log', type=str, default="lp.log",
+                        help='output file')
     return parser.parse_args()
 
 import zipfile
@@ -108,13 +115,19 @@ def extract_zip(zip_path, extract_path):
     zip = zipfile.ZipFile(zip_path, 'r')
     zip.extractall(extract_path)
 
+def write_log(log_file, log_msg):
+    with open(log_file, 'w') as log_handle:
+        log_handle.write(log_msg)
+
 if __name__ == '__main__':
     # get argument settings.
     args = parse_args()
 
     zip_path = args.pred_zip
     if not os.path.exists(zip_path):
-        sys.exit('ERROR: No such zip file!')
+        log_msg = 'ERROR: No such zip file!'
+        write_log(args.log, log_msg)
+        sys.exit()
     extract_path='lp'
     extract_zip(zip_path, extract_path)
     data_list = ['amazon', 'LastFM', 'PubMed']
@@ -127,8 +140,23 @@ if __name__ == '__main__':
             if not os.path.exists(file_name):
                 continue
             pred_files.append(file_name)
-        if len(pred_files)<5:
-            continue
+        if len(pred_files) > 0 and len(pred_files) != 5:
+            log_msg = f'ERROR: Please check the size of {data_name} dataset!'
+            write_log(args.log, log_msg)
+            sys.exit()
         res[data_name] = AUC_MRR(data_name, pred_files)
-    print(res)
+
+    hgb_score_list = []
+    for data_name in data_list:
+        hgb_score_list.append(res[data_name].AUC_mean)
+        hgb_score_list.append(res[data_name].MRR_mean)
+    hgb_score = np.mean(hgb_score_list)
+
+    log_msg = f'{hgb_score}###{{'
+    for data_name in data_list:
+        log_msg += f'{data_name}:{{AUC:{{mean: {res[data_name].AUC_mean},std:{res[data_name].AUC_std}}},'
+        log_msg += f'{data_name}:MRR:{{mean: {res[data_name].MRR_mean},std:{res[data_name].MRR_std}}} }},'
+    log_msg += '}'
+    write_log(args.log, log_msg)
+    sys.exit()
 
