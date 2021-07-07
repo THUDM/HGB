@@ -152,7 +152,7 @@ def run_model_DBLP(args):
             test_logits = logits[test_idx]
             pred = test_logits.cpu().numpy().argmax(axis=1)
             onehot = np.eye(num_classes, dtype=np.int32)
-            dl.gen_file_for_evaluate(test_idx=test_idx, label=pred, file_name=f"{args.dataset}_1.txt")
+            dl.gen_file_for_evaluate(test_idx=test_idx, label=pred, file_name=f"{args.dataset}_{args.run}.txt")
             pred = onehot[pred]
             print(dl.evaluate(pred))
 
@@ -178,6 +178,7 @@ if __name__ == '__main__':
     ap.add_argument('--slope', type=float, default=0.05)
     ap.add_argument('--dataset', type=str)
     ap.add_argument('--edge-feats', type=int, default=64)
+    ap.add_argument('--run', type=int, default=1)
 
     args = ap.parse_args()
     run_model_DBLP(args)

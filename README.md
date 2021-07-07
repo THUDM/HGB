@@ -37,4 +37,4 @@ Moreover, we also have an implementation of Simple-HGN in [cogdl](https://github
 
 * **Title:** Are we really making much progress? Revisiting, benchmarking and refining the Heterogeneous Graph Neural Networks.
 * **Authors:** Qingsong Lv\*, Ming Ding\*, Qiang Liu, Yuxiang Chen, Wenzheng Feng, Siming He, Chang Zhou, Jianguo Jiang, Yuxiao Dong, Jie Tang.
-* **In preceedings:** KDD 2021.
+* **In proceedings:** KDD 2021.
