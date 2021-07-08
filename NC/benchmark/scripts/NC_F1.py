@@ -127,7 +127,9 @@ if __name__ == '__main__':
 
     log_msg = f'{hgb_score}###{{'
     for data_name in data_list:
-        log_msg += f'{data_name}:{{F1 mean: {res[data_name].F1_mean},F1 std:{res[data_name].F1_std}}},'
+        log_msg += f'"{data_name}":{{"F1 mean": {res[data_name].F1_mean},"F1 std":{res[data_name].F1_std}}},'
+    if log_msg[-1] == ',':
+        log_msg = log_msg[:-1]
     log_msg += '}'
     write_log(args.log, log_msg)
     sys.exit()
