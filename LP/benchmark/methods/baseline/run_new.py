@@ -188,7 +188,7 @@ def run_model_DBLP(args):
             pred = F.sigmoid(logits).cpu().numpy()
             edge_list = np.concatenate([left.reshape((1,-1)), right.reshape((1,-1))], axis=0)
             labels = labels.cpu().numpy()
-            dl.gen_file_for_evaluate(test_neigh, pred, test_edge_type, file_path=f"{args.dataset}_1.txt")
+            dl.gen_file_for_evaluate(test_neigh, pred, test_edge_type, file_path=f"{args.dataset}_{args.run}.txt")
             res = dl.evaluate(edge_list, pred, labels)
             print(res)
             for k in res:
@@ -241,6 +241,8 @@ if __name__ == '__main__':
     ap.add_argument('--decoder', type=str, default='dot')
     ap.add_argument('--residual-att', type=float, default=0.)
     ap.add_argument('--residual', type=bool, default=False)
+    ap.add_argument('--run', type=int, default=1)
+
 
     args = ap.parse_args()
     run_model_DBLP(args)
