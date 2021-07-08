@@ -209,6 +209,7 @@ class data_loader:
         :param edge_list: shape(2, edge_num)
         :param confidence: shape(edge_num,)
         :param edge_type: shape(1)
+        :param file_path: string
         """
         dirs, file_name = os.path.split(file_path)
         if not os.path.exists(dirs):

@@ -136,7 +136,7 @@ if __name__ == '__main__':
     for data_name in data_list:
         pred_files = []
         for i in range(1, 6):
-            file_name = os.path.join(extract_path, f'{data_name}_{i}')
+            file_name = os.path.join(extract_path, f'{data_name}_{i}.txt')
             if not os.path.exists(file_name):
                 continue
             pred_files.append(file_name)
