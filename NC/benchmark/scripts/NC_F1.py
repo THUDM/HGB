@@ -1,9 +1,12 @@
+import json
 from collections import Counter
 from sklearn.metrics import f1_score
 import numpy as np
 from sklearn.preprocessing import MultiLabelBinarizer
 import os
 import sys
+import shutil
+
 class F1:
     def __init__(self, data_name, pred_files, label_classes, args):
         self.label_classes = label_classes
@@ -116,8 +119,10 @@ if __name__ == '__main__':
         if len(pred_files)>0 and len(pred_files)!=5:
             log_msg = f'ERROR: Please check the size of {data_name} dataset!'
             write_log(args.log, log_msg)
+            shutil.rmtree(extract_path)
             sys.exit()
         res[data_name] = F1(data_name,pred_files,class_count[data_name],args)
+    shutil.rmtree(extract_path)  # delete the extract_dir
 
     hgb_score_list = []
     for data_name in data_list:
@@ -125,12 +130,13 @@ if __name__ == '__main__':
         hgb_score_list.append(res[data_name].F1_mean['micro_mean'])
     hgb_score = np.mean(hgb_score_list)
 
-    log_msg = f'{hgb_score}###{{'
+    detail_json = {}
+    log_msg = f'{hgb_score}###'
     for data_name in data_list:
-        log_msg += f'"{data_name}":{{"F1 mean": {res[data_name].F1_mean},"F1 std":{res[data_name].F1_std}}},'
-    if log_msg[-1] == ',':
-        log_msg = log_msg[:-1]
-    log_msg += '}'
+        detail_json[data_name] = {}
+        detail_json[data_name]["F1 mean"] = res[data_name].F1_mean
+        detail_json[data_name]["F1 std"] = res[data_name].F1_std
+    log_msg += json.dumps(detail_json)
     write_log(args.log, log_msg)
     sys.exit()
 

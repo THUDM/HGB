@@ -4,6 +4,8 @@ import numpy as np
 import os
 from collections import defaultdict
 import sys
+import json
+import shutil
 
 class AUC_MRR:
     def __init__(self, data_name, pred_files):
@@ -143,8 +145,10 @@ if __name__ == '__main__':
         if len(pred_files) > 0 and len(pred_files) != 5:
             log_msg = f'ERROR: Please check the size of {data_name} dataset!'
             write_log(args.log, log_msg)
+            shutil.rmtree(extract_path)
             sys.exit()
         res[data_name] = AUC_MRR(data_name, pred_files)
+    shutil.rmtree(extract_path)  # delete the extract_dir
 
     hgb_score_list = []
     for data_name in data_list:
@@ -152,11 +156,15 @@ if __name__ == '__main__':
         hgb_score_list.append(res[data_name].MRR_mean)
     hgb_score = np.mean(hgb_score_list)
 
-    log_msg = f'{hgb_score}###{{'
+    detail_json = {}
+    log_msg = f'{hgb_score}###'
     for data_name in data_list:
-        log_msg += f'{data_name}:{{AUC:{{mean: {res[data_name].AUC_mean},std:{res[data_name].AUC_std}}},'
-        log_msg += f'{data_name}:MRR:{{mean: {res[data_name].MRR_mean},std:{res[data_name].MRR_std}}} }},'
-    log_msg += '}'
+        detail_json[data_name] = {}
+        detail_json[data_name]['AUC_mean'] = res[data_name].AUC_mean
+        detail_json[data_name]['AUC_std'] = res[data_name].AUC_std
+        detail_json[data_name]['MRR_mean'] = res[data_name].MRR_mean
+        detail_json[data_name]['MRR_std'] = res[data_name].MRR_std
+    log_msg += json.dumps(detail_json)
     write_log(args.log, log_msg)
     sys.exit()
 
