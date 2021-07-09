@@ -5,7 +5,6 @@ import os
 from collections import defaultdict
 import sys
 import json
-import shutil
 
 class AUC_MRR:
     def __init__(self, data_name, pred_files):
@@ -116,10 +115,16 @@ import zipfile
 def extract_zip(zip_path, extract_path):
     zip = zipfile.ZipFile(zip_path, 'r')
     zip.extractall(extract_path)
+    return zip.namelist()
 
 def write_log(log_file, log_msg):
     with open(log_file, 'w') as log_handle:
         log_handle.write(log_msg)
+
+def delete_files(files_):
+    for f in files_:
+        if os.path.exists(f):
+            os.remove(f)
 
 if __name__ == '__main__':
     # get argument settings.
@@ -131,10 +136,13 @@ if __name__ == '__main__':
         write_log(args.log, log_msg)
         sys.exit()
     extract_path='lp'
-    extract_zip(zip_path, extract_path)
-    data_list = ['amazon', 'LastFM', 'PubMed']
-    res={}
+    extract_file_list = extract_zip(zip_path, extract_path)
+    extract_file_list = [os.path.join(extract_path,f_) for f_ in extract_file_list]
 
+    data_list = ['amazon', 'LastFM', 'PubMed']
+
+    res={}
+    detect_data_files = []
     for data_name in data_list:
         pred_files = []
         for i in range(1, 6):
@@ -142,13 +150,19 @@ if __name__ == '__main__':
             if not os.path.exists(file_name):
                 continue
             pred_files.append(file_name)
+            detect_data_files.append(file_name)
         if len(pred_files) > 0 and len(pred_files) != 5:
             log_msg = f'ERROR: Please check the size of {data_name} dataset!'
             write_log(args.log, log_msg)
-            shutil.rmtree(extract_path)
+            delete_files(extract_file_list)
             sys.exit()
         res[data_name] = AUC_MRR(data_name, pred_files)
-    shutil.rmtree(extract_path)  # delete the extract_dir
+    if len(detect_data_files) == 0:
+        log_msg = f'ERROR: No file detected, please confirm that ' \
+                  f'the data file is in the top directory of the compressed package!'
+        write_log(args.log, log_msg)
+        sys.exit()
+    delete_files(extract_file_list)
 
     hgb_score_list = []
     for data_name in data_list:
