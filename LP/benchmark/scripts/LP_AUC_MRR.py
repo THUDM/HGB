@@ -16,7 +16,7 @@ class AUC_MRR:
             self.AUC_std = np.std(0)
             self.MRR_std = np.std(0)
         else:
-            true_file = os.path.join('../data', data_name, 'link.dat.test')
+            true_file = os.path.join(args.ground_dir, data_name, 'link.dat.test')
             self.links_true = self.load_links(true_file)
             for pred_file in pred_files:
                 self.links_test = self.load_links(pred_file)
