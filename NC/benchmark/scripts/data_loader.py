@@ -154,11 +154,7 @@ class data_loader:
             label = np.array(label)
         else:
             return
-        dirs, file_name = os.path.split(file_path)
-        if not os.path.exists(dirs):
-            os.makedirs(dirs)
-
-        with open(os.path.join(file_path), "w") as f:
+        with open(file_path, "w") as f:
             for nid, l in zip(test_idx, label):
                 f.write(f"{nid}\t\t{self.get_node_type(nid)}\t{l}\n")
 
