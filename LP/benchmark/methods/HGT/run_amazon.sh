@@ -1,0 +1,1 @@
+CUDA_VISIBLE_DEVICES=0 python link_predict.py --device 0 --use_norm True --dataset amazon
