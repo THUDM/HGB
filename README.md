@@ -53,7 +53,7 @@ To prevent data leakage issues, we randomly replace the test set labels. Therefo
 
 4. **What is the format of training data and submission files?**
 
-You can read the instructions in biendata competitions in "Data" and "Evaluation" panel. What should be noticed is that, your prediction file should be on the top level of the zipped file when using right click.
+You can read the instructions in biendata competitions in "Data" and "Evaluation" panel. What should be noticed is that, your prediction files should be on the top level of the zipped file.
 
 For example, you should submit a zip like this:
 
@@ -74,7 +74,7 @@ submit.zip
     |--...
 ```
 
-It is recommended that zip a file using ```zip``` command rather than right click. Because subfolder may be automatically built for some operating systems.
+It is recommended that zip a file using ```zip``` command rather than right click. Because subfolder may be automatically built for some operating systems when using right click.
 
 ### More
 
