@@ -28,7 +28,53 @@ This part refers to Section 4,5,6 in our paper.
 
 For node classification and link prediction tasks, you can submit online. But for recommendation task, since the prediction files are too large to submit, you have to test offline by yourself.
 
-If you want to show your method on our official leaderboard on HGB website, you should submit your code or paper to us. Once your code or paper is verified, your method will be displayed on the official leaderboard. (**The request form is under development and will be available soon!**)
+If you want to show your method on our official leaderboard on HGB website, you should submit your code or paper to us. Once your code or paper is verified, your method will be displayed on the official leaderboard.
+
+### FAQ
+
+1. Where is the code for all HGNNs in paper for HGB?
+
+Follow this roadmap in this repo:
+
+```
+NC or LP
+|--benchmark
+    |--methods
+        |--HGNNs
+```
+
+1. How to take part in HGB?
+
+See [Get Started](https://www.biendata.xyz/hgb/#/about).
+
+2. Why can't I obtain test score locally?
+
+To prevent data leakage issues, we randomly replace the test set labels. Therefore, you can only get test scores after you submit your prediction to biendata competitions.
+
+3. What is the format of training data and submission files?
+
+You can read the instructions in biendata competitions in "Data" and "Evaluation" panel. What should be noticed is that, your prediction file should be on the top level of the zipped file when using right click.
+
+For example, you should submit a zip like this:
+
+```
+submit.zip
+|--ACM_1.txt
+|--ACM_2.txt
+|--...
+```
+
+Instead of
+
+```
+submit.zip
+|--submit/
+    |--ACM_1.txt
+    |--ACM_2.txt
+    |--...
+```
+
+It is recommended that zip a file using ```zip``` command rather than right click. Because subfolder may be automatically built for some operating systems.
 
 ### More
 
