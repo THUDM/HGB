@@ -32,7 +32,7 @@ If you want to show your method on our official leaderboard on HGB website, you 
 
 ### FAQ
 
-1. Where is the code for all HGNNs in paper for HGB?
+1. **Where is the code for all HGNNs in paper for HGB?**
 
 Follow this roadmap in this repo:
 
@@ -43,15 +43,15 @@ NC or LP
         |--HGNNs
 ```
 
-1. How to take part in HGB?
+2. **How to take part in HGB?**
 
 See [Get Started](https://www.biendata.xyz/hgb/#/about).
 
-2. Why can't I obtain test score locally?
+3. **Why can't I obtain test score locally?**
 
 To prevent data leakage issues, we randomly replace the test set labels. Therefore, you can only get test scores after you submit your prediction to biendata competitions.
 
-3. What is the format of training data and submission files?
+4. **What is the format of training data and submission files?**
 
 You can read the instructions in biendata competitions in "Data" and "Evaluation" panel. What should be noticed is that, your prediction file should be on the top level of the zipped file when using right click.
 
