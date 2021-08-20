@@ -7,6 +7,18 @@ import random
 import copy
 
 
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
 class data_loader:
     def __init__(self, path, edge_types=[]):
         self.path = path
@@ -224,6 +236,7 @@ class data_loader:
         :param labels: shape(edge_num,)
         :return: dict with all scores we need
         """
+        print(f"{bcolors.WARNING}Warning: If you want to obtain test score, please submit online on biendata.{bcolors.ENDC}")
         confidence = np.array(confidence)
         labels = np.array(labels)
         roc_auc = roc_auc_score(labels, confidence)
