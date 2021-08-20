@@ -4,6 +4,20 @@ import scipy.sparse as sp
 from collections import Counter, defaultdict
 from sklearn.metrics import f1_score
 import time
+
+
+class bcolors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
+
 class data_loader:
     def __init__(self, path):
         self.path = path
@@ -159,6 +173,7 @@ class data_loader:
                 f.write(f"{nid}\t\t{self.get_node_type(nid)}\t{l}\n")
 
     def evaluate(self, pred):
+        print(f"{bcolors.WARNING}Warning: If you want to obtain test score, please submit online on biendata.{bcolors.ENDC}")
         y_true = self.labels_test['data'][self.labels_test['mask']]
         micro = f1_score(y_true, pred, average='micro')
         macro = f1_score(y_true, pred, average='macro')
