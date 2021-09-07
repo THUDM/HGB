@@ -1,11 +1,24 @@
-# Heterogeneous Graph Transformer (HGT)
+# HGT code
 
-[Alternative PyTorch-Geometric implementation](https://github.com/acbull/pyHGT)
+Adapted from [HGT-DGL](https://github.com/acbull/HGT-DGL).
 
-Heterogeneous Graph Transformer is a graph neural network architecture that can deal with large-scale heterogeneous and dynamic graphs.
+## running environment
 
-You can see our WWW 2020 paper [“**Heterogeneous Graph Transformer**”](https://arxiv.org/abs/2003.01332)  for more details.
+* Python 3.7
+* torch 1.7.0
+* dgl 0.5.2
 
-This implementation of HGT is based on [Deep Graph Library (DGL)](https://github.com/dmlc/dgl) API, following their [tutorial](https://docs.dgl.ai/en/0.4.x/tutorials/hetero/1_basics.html)
+## running procedure
 
-TODO: Current DGL example use random input node feature. We'll later add other benchmark using meaningful input node features.
+* download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/8b9644cfa8344f26878c/)
+* cd to HGT/
+* unzip all zip files
+* run scripts
+* mkdir checkpoint
+
+```scripts
+sh run_acm.sh
+sh run_dblp.sh
+sh run_imdb.sh
+sh run_freebase.sh
+```
