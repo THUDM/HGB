@@ -216,14 +216,15 @@ class data_loader:
                         meta_dict[i].append(beg + end[1:])
         return meta_dict
 
-    def gen_file_for_evaluate(self, edge_list, confidence, edge_type, file_path):
+    def gen_file_for_evaluate(self, edge_list, confidence, edge_type, file_path, flag):
         """
         :param edge_list: shape(2, edge_num)
         :param confidence: shape(edge_num,)
         :param edge_type: shape(1)
         :param file_path: string
         """
-        with open(file_path, "a") as f:
+        op = "w" if flag else "a"
+        with open(file_path, op) as f:
             for l,r,c in zip(edge_list[0], edge_list[1], confidence):
                 f.write(f"{l}\t{r}\t{edge_type}\t{c}\n")
 

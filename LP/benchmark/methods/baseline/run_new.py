@@ -13,6 +13,7 @@ from utils.pytorchtools import EarlyStopping
 from utils.data import load_data
 from GNN import myGAT
 import dgl
+import os
 
 def sp_to_spt(mat):
     coo = mat.tocoo()
@@ -93,6 +94,7 @@ def run_model_DBLP(args):
     res_random = defaultdict(float)
     total = len(list(dl.links_test['data'].keys()))
 
+    first_flag = True
     for test_edge_type in dl.links_test['data'].keys():
         train_pos, valid_pos = dl.get_train_valid_pos()#edge_types=[test_edge_type])
         train_pos = train_pos[test_edge_type]
@@ -180,15 +182,24 @@ def run_model_DBLP(args):
             test_neigh, test_label = dl.get_test_neigh()
             test_neigh = test_neigh[test_edge_type]
             test_label = test_label[test_edge_type]
+            # save = np.array([test_neigh[0], test_neigh[1], test_label])
+            # print(save)
+            # np.savetxt(f"{args.dataset}_{test_edge_type}_label.txt", save, fmt="%i")
+            save = np.loadtxt(os.path.join(dl.path, f"{args.dataset}_ini_{test_edge_type}_label.txt"), dtype=int)
+            test_neigh = [save[0], save[1]]
+            test_label = np.random.randint(2, size=save[0].shape[0])
+            # test_label = save[2]
             left = np.array(test_neigh[0])
             right = np.array(test_neigh[1])
             mid = np.zeros(left.shape[0], dtype=np.int32)
+            mid[:] = test_edge_type
             labels = torch.FloatTensor(test_label).to(device)
             logits = net(features_list, e_feat, left, right, mid)
             pred = F.sigmoid(logits).cpu().numpy()
             edge_list = np.concatenate([left.reshape((1,-1)), right.reshape((1,-1))], axis=0)
             labels = labels.cpu().numpy()
-            dl.gen_file_for_evaluate(test_neigh, pred, test_edge_type, file_path=f"{args.dataset}_{args.run}.txt")
+            dl.gen_file_for_evaluate(test_neigh, pred, test_edge_type, file_path=f"{args.dataset}_{args.run}.txt", flag=first_flag)
+            first_flag = False
             res = dl.evaluate(edge_list, pred, labels)
             print(res)
             for k in res:
@@ -200,6 +211,7 @@ def run_model_DBLP(args):
             left = np.array(test_neigh[0])
             right = np.array(test_neigh[1])
             mid = np.zeros(left.shape[0], dtype=np.int32)
+            mid[:] = test_edge_type
             labels = torch.FloatTensor(test_label).to(device)
             logits = net(features_list, e_feat, left, right, mid)
             pred = F.sigmoid(logits).cpu().numpy()
