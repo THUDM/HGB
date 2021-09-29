@@ -3,20 +3,6 @@ import numpy as np
 import scipy.sparse as sp
 from collections import Counter, defaultdict
 from sklearn.metrics import f1_score
-import time
-
-
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
 
 class data_loader:
     def __init__(self, path):
@@ -100,19 +86,19 @@ class data_loader:
         ini = sp.eye(self.nodes['total'])
         meta = [self.get_edge_type(x) for x in meta]
         for x in meta:
-            ini = ini.dot(self.links['data'][x]) if x >= 0 else ini.dot(self.links['data'][-x - 1].T)
+            ini = ini.dot(self.links['data'][x])
         return ini
 
     def dfs(self, now, meta, meta_dict):
         if len(meta) == 0:
             meta_dict[now[0]].append(now)
             return
-        th_mat = self.links['data'][meta[0]] if meta[0] >= 0 else self.links['data'][-meta[0] - 1].T
+        th_mat = self.links['data'][meta[0]]
         th_node = now[-1]
         for col in th_mat[th_node].nonzero()[1]:
             self.dfs(now+[col], meta[1:], meta_dict)
 
-    def get_full_meta_path(self, meta=[], symmetric=False):
+    def get_full_meta_path(self, meta=[]):
         """
         Get full meta path for each node
             meta is a list of edge types (also can be denoted by a pair of node types)
@@ -121,8 +107,7 @@ class data_loader:
         meta = [self.get_edge_type(x) for x in meta]
         if len(meta) == 1:
             meta_dict = {}
-            start_node_type = self.links['meta'][meta[0]][0] if meta[0]>=0 else self.links['meta'][-meta[0]-1][1]
-            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
+            for i in range(self.nodes['total']):
                 meta_dict[i] = []
                 self.dfs([i], meta, meta_dict)
         else:
@@ -131,50 +116,24 @@ class data_loader:
             mid = len(meta) // 2
             meta1 = meta[:mid]
             meta2 = meta[mid:]
-            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0]>=0 else self.links['meta'][-meta1[0]-1][1]
-            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
+            for i in range(self.nodes['total']):
                 meta_dict1[i] = []
                 self.dfs([i], meta1, meta_dict1)
-            start_node_type = self.links['meta'][meta2[0]][0] if meta2[0]>=0 else self.links['meta'][-meta2[0]-1][1]
-            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
+            for i in range(self.nodes['total']):
                 meta_dict2[i] = []
-            if symmetric:
-                for k in meta_dict1:
-                    paths = meta_dict1[k]
-                    for x in paths:
-                        meta_dict2[x[-1]].append(list(reversed(x)))
-            else:
-                for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
-                    self.dfs([i], meta2, meta_dict2)
+                self.dfs([i], meta2, meta_dict2)
             meta_dict = {}
-            start_node_type = self.links['meta'][meta1[0]][0] if meta1[0]>=0 else self.links['meta'][-meta1[0]-1][1]
-            for i in range(self.nodes['shift'][start_node_type], self.nodes['shift'][start_node_type]+self.nodes['count'][start_node_type]):
+            for i in range(self.nodes['total']):
                 meta_dict[i] = []
                 for beg in meta_dict1[i]:
                     for end in meta_dict2[beg[-1]]:
-                        meta_dict[i].append(beg + end[1:])
+                        meta_dict[i].append(beg+end[1:])
         return meta_dict
 
-    def gen_file_for_evaluate(self, test_idx, label, file_path, mode='bi'):
-        if test_idx.shape[0] != label.shape[0]:
-            return
-        if mode == 'multi':
-            multi_label=[]
-            for i in range(label.shape[0]):
-                label_list = [str(j) for j in range(label[i].shape[0]) if label[i][j]==1]
-                multi_label.append(','.join(label_list))
-            label=multi_label
-        elif mode=='bi':
-            label = np.array(label)
-        else:
-            return
-        with open(file_path, "w") as f:
-            for nid, l in zip(test_idx, label):
-                f.write(f"{nid}\t\t{self.get_node_type(nid)}\t{l}\n")
-
     def evaluate(self, pred):
-        print(f"{bcolors.WARNING}Warning: If you want to obtain test score, please submit online on biendata.{bcolors.ENDC}")
         y_true = self.labels_test['data'][self.labels_test['mask']]
+        print('eval', y_true, pred)
+        # print('y_sum', y_true.sum(0))
         micro = f1_score(y_true, pred, average='micro')
         macro = f1_score(y_true, pred, average='macro')
         result = {
@@ -227,10 +186,6 @@ class data_loader:
         for i in range(len(self.links['meta'])):
             if self.links['meta'][i] == info:
                 return i
-        info = (info[1], info[0])
-        for i in range(len(self.links['meta'])):
-            if self.links['meta'][i] == info:
-                return -i - 1
         raise Exception('No available edge type')
 
     def get_edge_info(self, edge_id):
@@ -313,4 +268,3 @@ class data_loader:
             shift += nodes['count'][i]
         nodes['attr'] = attr
         return nodes
-

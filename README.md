@@ -2,32 +2,89 @@
 
 Revisiting, benchmarking, and refining Heterogeneous Graph Neural Networks.
 
-**This repo is actively under-development.** Therefore, there are some extra experiments in this repo beyond our paper, such as graph-based text classification. Moreover, we are adapting HGB with [cogdl](https://github.com/THUDM/cogdl). For more information, see our website (under construction).
-
 ## Roadmap
 
-We organize our repo by task. Each folder contains a task and the structure is similar, i.e., reproducing experiments for each method in each sub-folder and benchmark experiments in benchmark sub-folder. Currently, we have four tasks, i.e., node classification (NC), link prediction (LP), knowledge-aware recommendation (Recom) and text classification (TC).
+We organize our repo by task, and one sub-folder per task. Currently, we have four tasks, i.e., node classification (NC), link prediction (LP), knowledge-aware recommendation (Recom) and text classification (TC).
 
-```bash
-task/
-    method1/ (experiments in the original paper)
-    method2/
-    ...
-    method_n/
-    benchmark/ (experiments for benchmark)
-        scripts/
-            data_loader.py
-        methods/
-            method1/
-            method2/
-            ...
-            method_n/
+### Revisiting
+
+This part refers to Section 3 and Table 1 in our paper.
+
+* [HAN](./NC/HAN)
+* [GTN](./NC/GTN)
+* [RSHN](./NC/RSHN)
+* [HetGNN](./NC/HetGNN)
+* [MAGNN-nc](./NC/MAGNN) and [MAGNN-lp](./LP/benchmark/methods/MAGNN_ini)
+
+### Benchmarking and Refining
+
+This part refers to Section 4,5,6 in our paper.
+
+* [Node classification benchmark](./NC/benchmark), [NC-baseline](./NC/benchmark/methods/baseline)
+* [Link prediction benchmark](./LP/benchmark), [LP-baseline](./LP/benchmark/methods/baseline)
+* [Knowledge-aware recommendation benchmark](./Recom), [Recom-baseline](./Recom/baseline)
+
+**You should notice that the test data labels are randomly replaced to prevent data leakage issues.** If you want to obtain test scores, you need to submit your prediction to our [website](https://www.biendata.xyz/hgb/).
+
+For node classification and link prediction tasks, you can submit online. But for recommendation task, since the prediction files are too large to submit, you have to test offline by yourself.
+
+If you want to show your method on our official leaderboard on HGB website, you should submit your code or paper to us. Once your code or paper is verified, your method will be displayed on the official leaderboard.
+
+### FAQ
+
+1. **Where is the code for all HGNNs in paper for HGB?**
+
+Follow this roadmap in this repo:
+
 ```
+NC or LP
+|--benchmark
+    |--methods
+        |--HGNNs
+```
+
+2. **How to take part in HGB?**
+
+See [Get Started](https://www.biendata.xyz/hgb/#/about).
+
+3. **Why can't I obtain test score locally?**
+
+To prevent data leakage issues, we randomly replace the test set labels. Therefore, you can only get test scores after you submit your prediction to biendata competitions.
+
+4. **What is the format of training data and submission files?**
+
+You can read the instructions in biendata competitions in "Data" and "Evaluation" panel. What should be noticed is that, your prediction files should be on the top level of the zipped file.
+
+For example, you should submit a zip like this:
+
+```
+submit.zip
+|--ACM_1.txt
+|--ACM_2.txt
+|--...
+```
+
+Instead of
+
+```
+submit.zip
+|--submit/
+    |--ACM_1.txt
+    |--ACM_2.txt
+    |--...
+```
+
+It is recommended that zip a file using ```zip``` command rather than right click. Because subfolder may be automatically built for some operating systems when using right click.
+
+### More
+
+**This repo is actively under development.** Therefore, there are some extra experiments in this repo beyond our paper, such as graph-based text classification. For more information, see our [website](https://www.biendata.xyz/hgb/). Welcome contribute new tasks, datasets, methods to HGB!
+
+Moreover, we also have an implementation of Simple-HGN in [cogdl](https://github.com/THUDM/cogdl/tree/master/examples/simple_hgn).
+
 
 ## Citation
 
-**Title:** Are we really making much progress? Revisiting, benchmarking and refining the Heterogeneous Graph Neural Networks.
-
-**Authors:** Qingsong Lv\*, Ming Ding\*, Qiang Liu, Yuxiang Chen, Wenzheng Feng, Siming He, Chang Zhou, Jianguo Jiang, Yuxiao Dong, Jie Tang.
-
-**In preceedings:** KDD 2021.
+* **Title:** Are we really making much progress? Revisiting, benchmarking and refining the Heterogeneous Graph Neural Networks.
+* **Authors:** Qingsong Lv\*, Ming Ding\*, Qiang Liu, Yuxiang Chen, Wenzheng Feng, Siming He, Chang Zhou, Jianguo Jiang, Yuxiao Dong, Jie Tang.
+* **In proceedings:** KDD 2021.

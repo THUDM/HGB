@@ -7,18 +7,6 @@ import random
 import copy
 
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
-
 class data_loader:
     def __init__(self, path, edge_types=[]):
         self.path = path
@@ -216,19 +204,6 @@ class data_loader:
                         meta_dict[i].append(beg + end[1:])
         return meta_dict
 
-    def gen_file_for_evaluate(self, edge_list, confidence, edge_type, file_path, flag):
-        """
-        :param edge_list: shape(2, edge_num)
-        :param confidence: shape(edge_num,)
-        :param edge_type: shape(1)
-        :param file_path: string
-        """
-        op = "w" if flag else "a"
-        with open(file_path, op) as f:
-            for l,r,c in zip(edge_list[0], edge_list[1], confidence):
-                f.write(f"{l}\t{r}\t{edge_type}\t{c}\n")
-
-
     @staticmethod
     def evaluate(edge_list, confidence, labels):
         """
@@ -237,7 +212,6 @@ class data_loader:
         :param labels: shape(edge_num,)
         :return: dict with all scores we need
         """
-        print(f"{bcolors.WARNING}Warning: If you want to obtain test score, please submit online on biendata.{bcolors.ENDC}")
         confidence = np.array(confidence)
         labels = np.array(labels)
         roc_auc = roc_auc_score(labels, confidence)
@@ -315,7 +289,7 @@ class data_loader:
             train_neg[r_id] = [[], []]
             for h_id in self.train_pos[r_id][0]:
                 train_neg[r_id][0].append(h_id)
-                neg_t = random.randrange(t_range[0], t_range[1])
+                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 train_neg[r_id][1].append(neg_t)
         return train_neg
 
@@ -329,7 +303,7 @@ class data_loader:
             valid_neg[r_id] = [[], []]
             for h_id in self.valid_pos[r_id][0]:
                 valid_neg[r_id][0].append(h_id)
-                neg_t = random.randrange(t_range[0], t_range[1])
+                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 valid_neg[r_id][1].append(neg_t)
         return valid_neg
 
@@ -436,9 +410,9 @@ class data_loader:
             (row, col), data = self.links_test['data'][r_id].nonzero(), self.links_test['data'][r_id].data
             for h_id, t_id in zip(row, col):
                 pos_neigh[r_id][h_id].append(t_id)
-                neg_t = random.randrange(t_range[0], t_range[1])
+                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 while neg_t in all_had_neigh[h_id]:
-                    neg_t = random.randrange(t_range[0], t_range[1])
+                    neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 neg_neigh[r_id][h_id].append(neg_t)
             '''get the test_neigh'''
             test_neigh[r_id] = [[], []]
@@ -490,15 +464,14 @@ class data_loader:
                 test_neigh[r_id][0].append(h_id)
                 test_neigh[r_id][1].append(t_id)
                 test_label[r_id].append(1)
-                neg_h = random.randrange(h_range[0], h_range[1])
-                neg_t = random.randrange(t_range[0], t_range[1])
+                neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
+                neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 while neg_t in all_had_neigh[neg_h]:
-                    neg_h = random.randrange(h_range[0], h_range[1])
-                    neg_t = random.randrange(t_range[0], t_range[1])
+                    neg_h = int(random.random() * (h_range[1] - h_range[0])) + h_range[0]
+                    neg_t = int(random.random() * (t_range[1] - t_range[0])) + t_range[0]
                 test_neigh[r_id][0].append(neg_h)
                 test_neigh[r_id][1].append(neg_t)
                 test_label[r_id].append(0)
-
         return test_neigh, test_label
 
     def gen_transpose_links(self):

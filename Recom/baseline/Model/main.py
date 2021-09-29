@@ -215,9 +215,9 @@ if __name__ == '__main__':
             # save_saver.save(sess, weights_save_path + '/weights', global_step=epoch)
             torch.save(model, weights_save_path)
             print('save the weights in path: ', weights_save_path)
-            print('saving prediction')
-            save_file(g, e_feat, model, users_to_test)
-            print('saved')
+            # print('saving prediction')
+            # save_file(g, e_feat, model, users_to_test)
+            # print('saved')
             # print(test_saved_file(users_to_test))
 
     recs = np.array(rec_loger)

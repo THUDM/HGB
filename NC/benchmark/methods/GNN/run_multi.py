@@ -139,7 +139,6 @@ def run_model_DBLP(args):
             logits = net(features_list)
             test_logits = logits[test_idx]
             pred = (test_logits.cpu().numpy()>0).astype(int)
-            dl.gen_file_for_evaluate(test_idx, pred, mode='multi')
             print(dl.evaluate(pred))
 
 

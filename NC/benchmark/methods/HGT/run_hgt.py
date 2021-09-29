@@ -100,7 +100,7 @@ def run_model_DBLP(args):
     for _ in range(args.repeat):
         num_classes = dl.labels_train['num_classes']
         heads = [args.num_heads] * args.num_layers + [1]
-        net = myGAT(g, args.edge_feats, len(dl.links['count'])*2+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, True, 0.05)
+        net = myGAT(g, args.edge_feats, len(dl.links['count'])*2+1, in_dims, args.hidden_dim, num_classes, args.num_layers, heads, F.elu, args.dropout, args.dropout, args.slope, True)
         net.to(device)
         optimizer = torch.optim.Adam(net.parameters(), lr=args.lr, weight_decay=args.weight_decay)
 
@@ -152,9 +152,9 @@ def run_model_DBLP(args):
             test_logits = logits[test_idx]
             pred = test_logits.cpu().numpy().argmax(axis=1)
             onehot = np.eye(num_classes, dtype=np.int32)
-            dl.gen_file_for_evaluate(test_idx=test_idx, label=pred, file_name=f"{args.dataset}_{args.run}.txt")
             pred = onehot[pred]
             print(dl.evaluate(pred))
+
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser(description='MRGNN testing for the DBLP dataset')
@@ -178,7 +178,6 @@ if __name__ == '__main__':
     ap.add_argument('--slope', type=float, default=0.05)
     ap.add_argument('--dataset', type=str)
     ap.add_argument('--edge-feats', type=int, default=64)
-    ap.add_argument('--run', type=int, default=1)
 
     args = ap.parse_args()
     run_model_DBLP(args)
