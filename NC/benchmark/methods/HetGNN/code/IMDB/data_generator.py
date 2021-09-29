@@ -11,7 +11,7 @@ import os
 import json
 from collections import defaultdict
 import torch as th
-
+from tqdm import tqdm
 
 class input_data(object):
     def __init__(self, args, dl):
@@ -71,8 +71,11 @@ class input_data(object):
             neigh_list_train[node_type] = [[] for k in range(node_n[node_type])]
 
         # generate neighbor set via random walk with restart
+
+        print("node_types: ",node_types,'\n')
         for node_type in node_types:
-            for n_id in range(node_n[node_type]):
+            print("node type: ",node_type,'\n')
+            for n_id in tqdm(range(node_n[node_type])):
                 neigh_temp = self.neigh_list[node_type][n_id]
                 neigh_train = neigh_list_train[node_type][n_id]
                 curNode = self.node_type2name[node_type] + str(n_id)
@@ -86,7 +89,7 @@ class input_data(object):
                         if while_count > 10000:
                             for n_type in node_types:
                                 if node_L[n_type]<2:
-                                    curNode = random.randrange(0,len(self.neigh_list[n_type]))
+                                    curNode = self.node_type2name[n_type]+ str(random.randrange(0,len(self.neigh_list[n_type])))
                                     neigh_train.append(curNode)
                                     neigh_train.append(curNode)
                                     neigh_L += 2
@@ -118,8 +121,9 @@ class input_data(object):
                 if len(neigh_train):
                     neigh_f.write(curNode + ":")
                     for k in range(len(neigh_train) - 1):
-                        neigh_f.write(neigh_train[k] + ",")
-                    neigh_f.write(neigh_train[-1] + "\n")
+                        neigh_f.write(str(neigh_train[k]))
+                        neigh_f.write(",")
+                    neigh_f.write(str(neigh_train[-1]) + "\n")
         neigh_f.close()
         print(f'Info: generate {file_} done.')
 
@@ -198,7 +202,7 @@ class input_data(object):
             node_type = self.node_name2type[node_id[0]]
             neigh_list = re.split(',', neigh)
             for neigh in neigh_list:
-                if len(node_id) > 1:
+                if len(neigh) > 1:
                     neigh_type = self.node_name2type[neigh[0]]
                     neigh_list_train[node_type][neigh_type][int(node_id[1:])].append(int(neigh[1:]))
         het_neigh_train_f.close()
