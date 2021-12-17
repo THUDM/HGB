@@ -155,7 +155,7 @@ class data_loader:
                         meta_dict[i].append(beg + end[1:])
         return meta_dict
 
-    def gen_file_for_evaluate(self, test_idx, label, file_path, mode='bi'):
+    def gen_file_for_evaluate(self, test_idx, label, file_name, mode='bi'):
         if test_idx.shape[0] != label.shape[0]:
             return
         if mode == 'multi':
@@ -168,7 +168,7 @@ class data_loader:
             label = np.array(label)
         else:
             return
-        with open(file_path, "w") as f:
+        with open(file_name, "w") as f:
             for nid, l in zip(test_idx, label):
                 f.write(f"{nid}\t\t{self.get_node_type(nid)}\t{l}\n")
 
