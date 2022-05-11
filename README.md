@@ -24,11 +24,11 @@ This part refers to Section 4,5,6 in our paper.
 * [Link prediction benchmark](./LP/benchmark), [LP-baseline](./LP/benchmark/methods/baseline)
 * [Knowledge-aware recommendation benchmark](./Recom), [Recom-baseline](./Recom/baseline)
 
-**You should notice that the test data labels are randomly replaced to prevent data leakage issues.** If you want to obtain test scores, you need to submit your prediction to our [website](https://www.biendata.xyz/hgb/).
+**We only make half of test labels public to prevent data leakage issues.** The public half data is to help you debug locally. If you want to obtain test scores, you need to **rename all the xxx_full to xxx in data folder** and submit your prediction to our [website](https://www.biendata.xyz/hgb/).
 
 For node classification and link prediction tasks, you can submit online. But for recommendation task, since the prediction files are too large to submit, you have to test offline by yourself.
 
-If you want to show your method on our official leaderboard on HGB website, you should submit your code or paper to us. Once your code or paper is verified, your method will be displayed on the official leaderboard.
+**If you want to show your method on our official leaderboard on HGB website, you can make an issue on this repo. Once your code or paper is verified, your method will be displayed on the official leaderboard.**
 
 ### FAQ
 

@@ -201,8 +201,10 @@ def run_model_DBLP(args):
             # np.savetxt(f"{args.dataset}_{test_edge_type}_label.txt", save, fmt="%i")
             save = np.loadtxt(os.path.join(dl.path, f"{args.dataset}_ini_{test_edge_type}_label.txt"), dtype=int)
             test_neigh = [save[0], save[1]]
-            test_label = np.random.randint(2, size=save[0].shape[0])
-            # test_label = save[2]
+            if save.shape[0] == 2:
+                test_label = np.random.randint(2, size=save[0].shape[0])
+            else:
+                test_label = save[2]
             left = np.array(test_neigh[0])
             right = np.array(test_neigh[1])
             mid = np.zeros(left.shape[0], dtype=np.int32)
