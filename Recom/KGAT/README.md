@@ -11,8 +11,8 @@ Adapted from [xiangwang1223/knowledge_graph_attention_network](https://github.co
 
 ## running procedure
 
-* Download Data folder from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/2bafd2674d5d43299dfa/) and unzip to current folder
-* Download pretrain folder from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/2bafd2674d5d43299dfa/) and unzip to Model folder
+* Download Data folder from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/2bafd2674d5d43299dfa/) or [google-drive](https://drive.google.com/drive/folders/19unGR1awscvbcGy4VT7pLqCdHHegkSx7?usp=sharing) and unzip to current folder
+* Download pretrain folder from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/2bafd2674d5d43299dfa/) or [google-drive](https://drive.google.com/drive/folders/19unGR1awscvbcGy4VT7pLqCdHHegkSx7?usp=sharing) and unzip to Model folder
 * cd to Model folder and run
 
 ### To run KGAT

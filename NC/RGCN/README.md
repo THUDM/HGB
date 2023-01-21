@@ -12,7 +12,7 @@ We replace the GNN module in paper by GCN for comparison.
 * dgl 0.5.2
 
 * Dataset will be downloaded automatically at ~/.dgl/.
-* or you can download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/8b9644cfa8344f26878c/)
+* or you can download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/8b9644cfa8344f26878c/) or [google-drive](https://drive.google.com/drive/folders/13o5dYuvpZWzgeUPVTLLtpYHAGss2sk_x?usp=sharing)
 * unzip all zip files
 * move them to ~/.dgl/
 * cd to RGCN/

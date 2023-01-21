@@ -11,7 +11,7 @@ We replace the GNN module in paper by GCN and GAT for comparison.
 
 ## running procedure
 
-* Download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/eee49039f99e4984a30a/)
+* Download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/eee49039f99e4984a30a/) or [google-drive](https://drive.google.com/file/d/1fDIJfrTfRdeMFhNxKKthrXGSI6yRmQ41/view?usp=sharing)
 * unzip and move data folder to KGCN/
 * cd to src/
 * run main.py
