@@ -2,6 +2,13 @@
 
 Revisiting, benchmarking, and refining Heterogeneous Graph Neural Networks.
 
+**2023.3.2 update**: We have make benchmark data including test set pulic, you can download data as follows:
+
+* Node Classification: https://cloud.tsinghua.edu.cn/d/a2728e52cd4943efa389/
+* Link Prediction: https://cloud.tsinghua.edu.cn/d/10974f42a5ab46b99b88/
+
+Therefore, you can get your metric scores locally. Anyway, try not to overfit.
+
 ## Roadmap
 
 We organize our repo by task, and one sub-folder per task. Currently, we have four tasks, i.e., node classification (NC), link prediction (LP), knowledge-aware recommendation (Recom) and text classification (TC).
