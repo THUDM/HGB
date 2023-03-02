@@ -2,7 +2,7 @@
 
 Revisiting, benchmarking, and refining Heterogeneous Graph Neural Networks.
 
-**2023.3.2 update**: We make benchmark data including test set pulic, you can download data as follows:
+**2023.3.2 update**: We make benchmark data including test set pulic. You can download data as follows:
 
 * Node Classification: https://cloud.tsinghua.edu.cn/d/a2728e52cd4943efa389/
 * Link Prediction: https://cloud.tsinghua.edu.cn/d/10974f42a5ab46b99b88/
