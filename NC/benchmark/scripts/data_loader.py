@@ -22,7 +22,9 @@ def download_and_extract(path):
 class data_loader:
     def __init__(self, path):
         self.path = path
-        if os.path.exists(path+'.zip'):
+        if os.path.exists(path):
+            pass
+        elif os.path.exists(path+'.zip'):
             os.system("unzip {} -d {}".format(path+'.zip', os.path.join(*path.split('/')[:-1])))
         elif not os.path.exists(path):
             download_and_extract(path)
