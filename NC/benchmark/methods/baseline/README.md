@@ -1,4 +1,4 @@
-# new baseline for benchmark
+# Simple-HGN for HGB
 
 For message passing with relation attention version:
 

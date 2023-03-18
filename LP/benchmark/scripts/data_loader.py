@@ -6,22 +6,28 @@ from sklearn.metrics import f1_score, auc, roc_auc_score, precision_recall_curve
 import random
 import copy
 
+data_url = {
+    'amazon': 'https://cloud.tsinghua.edu.cn/d/10974f42a5ab46b99b88/files/?p=%2Famazon_ini.zip&dl=1',
+    'LastFM': 'https://cloud.tsinghua.edu.cn/d/10974f42a5ab46b99b88/files/?p=%2FLastFM_ini.zip&dl=1',
+    'PubMed': 'https://cloud.tsinghua.edu.cn/d/10974f42a5ab46b99b88/files/?p=%2FPubMed_ini.zip&dl=1'
+}
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
+def download_and_extract(path):
+    dataset = path.split('/')[-1]
+    prefix = os.path.join(*path.split('/')[:-1])
+    os.makedirs(prefix, exist_ok=True)
+    os.system("wget \"{}\" -O {}".format(data_url[dataset], path+'.zip'))
+    os.system("unzip {} -d {}".format(path+'.zip', prefix))
 
 class data_loader:
     def __init__(self, path, edge_types=[]):
         self.path = path
+        if os.path.exists(path+'.zip'):
+            os.system("unzip {} -d {}".format(path+'.zip', os.path.join(*path.split('/')[:-1])))
+            os.system("mv {} {}".format(path+'_ini', path))
+        elif not os.path.exists(path):
+            download_and_extract(path)
+            os.system("mv {} {}".format(path+'_ini', path))
         self.splited = False
         self.nodes = self.load_nodes()
         self.links = self.load_links('link.dat')
@@ -237,7 +243,6 @@ class data_loader:
         :param labels: shape(edge_num,)
         :return: dict with all scores we need
         """
-        print(f"{bcolors.WARNING}Warning: If you want to obtain test score, please submit online on biendata.{bcolors.ENDC}")
         confidence = np.array(confidence)
         labels = np.array(labels)
         roc_auc = roc_auc_score(labels, confidence)

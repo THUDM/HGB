@@ -7,7 +7,9 @@ Revisiting, benchmarking, and refining Heterogeneous Graph Neural Networks.
 * Node Classification: https://cloud.tsinghua.edu.cn/d/a2728e52cd4943efa389/
 * Link Prediction: https://cloud.tsinghua.edu.cn/d/10974f42a5ab46b99b88/
 
-Therefore, you can get your metric scores locally. Anyway, try not to overfit.
+Therefore, you can get your metric scores locally. Actually, when you run Simple-HGN in [NC-benchmark](NC/benchmark/methods/baseline/) and [LP-benchmark](LP/benchmark/methods/baseline/), data will be downloaded automatically.
+
+***Warning***: As we have opened test data, you should try not to overfit or leak data during training. For example, the order of test data is not random permuted. If you use BatchNorm, you will get a biased norm value.
 
 ## Roadmap
 

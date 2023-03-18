@@ -5,22 +5,27 @@ from collections import Counter, defaultdict
 from sklearn.metrics import f1_score
 import time
 
+data_url = {
+    'ACM': 'https://cloud.tsinghua.edu.cn/d/a2728e52cd4943efa389/files/?p=%2FACM.zip&dl=1',
+    'DBLP': 'https://cloud.tsinghua.edu.cn/d/a2728e52cd4943efa389/files/?p=%2FDBLP.zip&dl=1',
+    'Freebase': 'https://cloud.tsinghua.edu.cn/d/a2728e52cd4943efa389/files/?p=%2FFreebase.zip&dl=1',
+    'IMDB': 'https://cloud.tsinghua.edu.cn/d/a2728e52cd4943efa389/files/?p=%2FIMDB.zip&dl=1'
+}
 
-class bcolors:
-    HEADER = '\033[95m'
-    OKBLUE = '\033[94m'
-    OKCYAN = '\033[96m'
-    OKGREEN = '\033[92m'
-    WARNING = '\033[93m'
-    FAIL = '\033[91m'
-    ENDC = '\033[0m'
-    BOLD = '\033[1m'
-    UNDERLINE = '\033[4m'
-
+def download_and_extract(path):
+    dataset = path.split('/')[-1]
+    prefix = os.path.join(*path.split('/')[:-1])
+    os.makedirs(prefix, exist_ok=True)
+    os.system("wget \"{}\" -O {}".format(data_url[dataset], path+'.zip'))
+    os.system("unzip {} -d {}".format(path+'.zip', prefix))
 
 class data_loader:
     def __init__(self, path):
         self.path = path
+        if os.path.exists(path+'.zip'):
+            os.system("unzip {} -d {}".format(path+'.zip', os.path.join(*path.split('/')[:-1])))
+        elif not os.path.exists(path):
+            download_and_extract(path)
         self.nodes = self.load_nodes()
         self.links = self.load_links()
         self.labels_train = self.load_labels('label.dat')
@@ -173,7 +178,6 @@ class data_loader:
                 f.write(f"{nid}\t\t{self.get_node_type(nid)}\t{l}\n")
 
     def evaluate(self, pred):
-        print(f"{bcolors.WARNING}Warning: If you want to obtain test score, please submit online on biendata.{bcolors.ENDC}")
         y_true = self.labels_test['data'][self.labels_test['mask']]
         micro = f1_score(y_true, pred, average='micro')
         macro = f1_score(y_true, pred, average='macro')

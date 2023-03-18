@@ -1,9 +1,8 @@
-# new baseline for benchmark
+# Simple-HGN for HGB
 
 
 ```
 python run_new.py --dataset LastFM
-python run_new.py --dataset LastFM_magnn
 python run_dist.py --dataset amazon
 python run_dist.py --dataset PubMed --batch-size 8192
 ```

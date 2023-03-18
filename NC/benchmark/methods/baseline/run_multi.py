@@ -2,7 +2,7 @@ import sys
 sys.path.append('../../')
 import time
 import argparse
-
+import os
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -177,4 +177,5 @@ if __name__ == '__main__':
     ap.add_argument('--run', type=int, default=1)
 
     args = ap.parse_args()
+    os.makedirs('checkpoint', exist_ok=True)
     run_model_DBLP(args)
