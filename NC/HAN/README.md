@@ -12,7 +12,7 @@ We add GCN and GAT comparison under --hetero setting.
 
 ## running procedure
 
-* Download ACM.mat from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/0e784c52a6084b59bdee/files/?p=%2FDGL%E4%BB%A3%E7%A0%81%E7%89%88%E6%9C%AC%2FACM.mat)
+* Download ACM.mat from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/0e784c52a6084b59bdee/files/?p=%2FDGL%E4%BB%A3%E7%A0%81%E7%89%88%E6%9C%AC%2FACM.mat) or [google-drive](https://drive.google.com/file/d/1NVT_IHhPDS8dwMmsrnTRHj90F7OZu0WY/view?usp=sharing)
 * Move ACM.dat to the current directory
 * run main.py
 

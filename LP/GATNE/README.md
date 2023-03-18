@@ -13,7 +13,7 @@ We add GCN and GAT comparison.
 
 ## running procedure
 
-* Download data.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/9d5d74a6d1884919a0be/)
+* Download data.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/9d5d74a6d1884919a0be/) or [google-drive](https://drive.google.com/file/d/1mTrcqSIa8OJm6SWEnIQKr1TXn-nyXVz7/view?usp=sharing)
 * mkdir data
 * Unzip data.zip to the data/
 * cd src

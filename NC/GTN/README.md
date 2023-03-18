@@ -14,7 +14,7 @@ We add GCN and GAT comparison and tried to reproduce the result in the GTN paper
 
 ## running procedure
 
-* Download data.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/c105c8b92c5549fa95cc/files/?p=%2Fdata.zip)
+* Download data.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/c105c8b92c5549fa95cc/files/?p=%2Fdata.zip) or [google-drive](https://drive.google.com/file/d/1ZPNzIpPIfBmHxnBkoASin7Fbff7w09l9/view?usp=sharing)
 * mkdir data
 * Move data.zip to data folder and unzip it
 * run main_gnn.py

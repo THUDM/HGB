@@ -14,7 +14,7 @@ We add GCN and GAT comparison.
 
 ## running procedure
 
-* Download LastFM_processed.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/9870e66d3c4f40c7b31a/files/?p=%2Fpreprocessed%2FLastFM_processed.zip)
+* Download LastFM_processed.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/9870e66d3c4f40c7b31a/files/?p=%2Fpreprocessed%2FLastFM_processed.zip) or [google-drive](https://drive.google.com/file/d/16_AvIXGo2M6kSpBGy--SISEyK2-1_uo-/view?usp=sharing)
 * mkdir checkpoint
 * mkdir data
 * mkdir data/preprocessed

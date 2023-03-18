@@ -13,7 +13,7 @@ We replace the Benchmark.
 ## running procedure
 
 * Dataset will be downloaded automatically at ~/.dgl/.
-* or you can download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/8b9644cfa8344f26878c/)
+* or you can download data from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/8b9644cfa8344f26878c/) or [google-drive](https://drive.google.com/drive/folders/13o5dYuvpZWzgeUPVTLLtpYHAGss2sk_x?usp=sharing)
 * unzip all zip files
 * move them to ./data/
 * cd to RGCN/

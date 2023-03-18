@@ -13,7 +13,7 @@ We add GCN and GAT comparison and tried to reproduce the result in the RSHN pape
 
 ## running procedure
 
-* Download data.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/68cde69f3bdd401ebaa9/files/?p=%2Fdata.zip)
+* Download data.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/68cde69f3bdd401ebaa9/files/?p=%2Fdata.zip) or [google-drive](https://drive.google.com/file/d/183T8gOlBJDCxRH3vSKOoTd9tWuP9g9Ae/view?usp=sharing)
 * unzip data.zip to the current directory
 * cd model
 * run RSHN_gnn.py

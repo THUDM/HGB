@@ -14,7 +14,7 @@ We add GCN and GAt comparison under DBLP dataset for now. Ohter experiments to b
 
 ## running procedure
 
-* Download DBLP_processed.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/9870e66d3c4f40c7b31a/files/?p=%2Fpreprocessed%2FDBLP_processed.zip)
+* Download DBLP_processed.zip from [tsinghua-cloud](https://cloud.tsinghua.edu.cn/d/9870e66d3c4f40c7b31a/files/?p=%2Fpreprocessed%2FDBLP_processed.zip) or [google-drive](https://drive.google.com/file/d/1SI8RKhc9llueRxIZS3Ng3r1MB5a3gpFM/view?usp=sharing)
 * mkdir checkpoint
 * mkdir data
 * mkdir data/preprocessed
